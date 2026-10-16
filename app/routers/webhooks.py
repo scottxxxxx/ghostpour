@@ -2389,6 +2389,7 @@ async def get_tiers(
             tier_feature_block as _tier_feature_block,
         )
         from app.services.recall_window import recall_max_age_days as _recall_window
+        from app.services.recall_window import project_chat_window_days as _pc_window
         from app.services.meeting_shares import tier_share_caps as _share_caps
         tiers[name] = {
             "display_name": tier.display_name,
@@ -2417,6 +2418,9 @@ async def get_tiers(
             # Plus recall window (2026-08-21): days of Memory a tier's chat
             # recalls; None = unlimited. Served copy is templated from it.
             "recall_max_age_days": _recall_window(remote_configs, name),
+            # Project Chat meeting window (split from the memory window
+            # 2026-10-15); None = unlimited. Served copy is templated from it.
+            "project_chat_window_days": _pc_window(remote_configs, name),
             # Meeting share dials (2026-08-22): archive size cap in MB, None =
             # no cap (Scott's default); creations per day.
             "share_max_archive_mb": _share_caps(remote_configs, name)["max_archive_bytes"] and round(_share_caps(remote_configs, name)["max_archive_bytes"] / 1048576, 2),
@@ -3770,7 +3774,9 @@ async def telemetry_summary(
     ]
 
     # Rolling 7-day active users (Scott, 2026-08-03). Distinct signed-in
-    # users seen in the trailing 7 days ending on each day.
+    # users seen in the trailing 7 days ending on each day. Accounts flagged
+    # exclude_from_stats are left out of this and regular_users_7d (Scott,
+    # 2026-10-15), like every other user count on the dashboard.
     #
     # This has to be computed here rather than summed from the daily
     # series on the client, because the daily rollup stores COUNTS, not
@@ -3787,12 +3793,39 @@ async def telemetry_summary(
                   (SELECT COUNT(DISTINCT e.user_id) FROM telemetry_events e
                     WHERE e.user_id IS NOT NULL
                       AND date(e.received_at) <= d.day
-                      AND date(e.received_at) > date(d.day, '-7 days')
+                      AND date(e.received_at) > date(d.day, '-7 days')"""
+        + _not_excluded("e.user_id") + """
                   ) AS c
            FROM days d ORDER BY d.day ASC""",
         (f"-{days} days",),
     )
     series["active_users_7d"] = [
+        {"day": r["day"], "value": r["c"]} for r in await cursor.fetchall()
+    ]
+
+    # Regular users (Scott, 2026-10-15): the active_users_7d people who had
+    # already used the app before that window, so a burst of new sign-ups
+    # cannot pass for retention. "Used before" is the account existing on or
+    # before the window's opening day. users.created_at is durable, where a
+    # prior telemetry event would vanish with the 30-day purge, and every
+    # telemetry user_id on prod joins to users.id (75 of 75, read 10-15).
+    cursor = await db.execute(
+        """WITH days(day) AS (
+               SELECT DISTINCT date(received_at) FROM telemetry_events
+               WHERE date(received_at) >= date('now', ?)
+           )
+           SELECT d.day AS day,
+                  (SELECT COUNT(DISTINCT e.user_id) FROM telemetry_events e
+                     JOIN users u ON u.id = e.user_id
+                    WHERE date(e.received_at) <= d.day
+                      AND date(e.received_at) > date(d.day, '-7 days')
+                      AND date(u.created_at) <= date(d.day, '-7 days')"""
+        + _not_excluded("e.user_id") + """
+                  ) AS c
+           FROM days d ORDER BY d.day ASC""",
+        (f"-{days} days",),
+    )
+    series["regular_users_7d"] = [
         {"day": r["day"], "value": r["c"]} for r in await cursor.fetchall()
     ]
 

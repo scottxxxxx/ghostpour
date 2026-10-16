@@ -65,6 +65,9 @@ def test_memory_capability_line_when_flag_absent(client, pro_user, mock_provider
     sent = mock_provider.await_args_list[-1].args[0]
     assert "MEMORY CAPABILITY" in sent.system_prompt
     assert "NOT included in this conversation" in sent.system_prompt
+    # It names the chip she can actually switch on (2026-10-15).
+    assert "conversation with Context Quilt included" in sent.system_prompt
+    assert "Meeting Memory" not in sent.system_prompt
 
 
 def test_no_memory_line_when_recall_ran(client, pro_user, mock_provider, mock_cq):

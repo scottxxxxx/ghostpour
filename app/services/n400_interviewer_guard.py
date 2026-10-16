@@ -194,7 +194,31 @@ def drop_stale_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
 # own question and points asking at it. Safe with streaming: the last
 # sentence is always HELD (n400_sentence_stream rule 4), so the settled
 # question is never spoken first.
-_TRAILING_QUESTION = re.compile(r"(?s)^(?P<head>.*?[.!…]\s+|)(?P<q>[^.!?…]*\?[\"'”’)»]*)\s*$")
+_SENTENCE_END = re.compile(r"[.!?…][\"'”’)»]*\s+")
+# A period after these is not the end of a sentence. "U.S." is the one that
+# cut her question in half: t_004 (Scott's run f0a763cc, 2026-10-14) spoke
+# "was either of your parents a U.S." and then the swapped-in question.
+_ABBREVIATIONS = {"u.s", "u.s.a", "ee", "mr", "mrs", "ms", "dr", "sr", "sra", "srta", "st", "jr"}
+
+
+def _split_trailing_question(spoken: str) -> tuple[str, str] | None:
+    """(everything before the last sentence, the last sentence) when the reply
+    ends on a question, else None. A boundary is end punctuation, whitespace,
+    and then a letter that is not lowercase, after a word that is not a
+    known abbreviation."""
+    s = spoken.rstrip()
+    if not s.rstrip("\"'”’)»").endswith("?"):
+        return None
+    start = 0
+    for m in _SENTENCE_END.finditer(s):
+        if m.end() >= len(s) or s[m.end()].islower():
+            continue
+        word = re.search(r"(\S+)$", s[:m.start()])
+        if word and word.group(1).lower().lstrip("¿¡(\"'“") in _ABBREVIATIONS:
+            continue
+        start = m.end()
+    q = s[start:]
+    return (s[:start], q) if q.strip() else None
 
 
 def _agenda_lines(agenda: str | None) -> list[tuple[str, set[str], str]]:
@@ -226,18 +250,22 @@ def replace_settled_question(text: str, agenda: str | None, locale: str | None) 
     # again: t_017, case bf7aed58 (2026-10-14), current address filed but for
     # in_care_of, and she heard "what is your street address and city?" right
     # after the read-back ("I already gave you both addresses").
+    # Nor a node this response made moot: a "no" gate's follow-up (t_004,
+    # Scott's run f0a763cc, she heard the account NUMBER asked after saying
+    # she had no account).
+    moot = moot_nodes_in_this_response(turn, agenda)
     nxt = next(((n, ids, q) for n, ids, q in _agenda_lines(agenda)
-                if n != info.get("node_id") and not ids & filled and q), None)
+                if n != info.get("node_id") and not ids & filled and n not in moot and q), None)
     if nxt is None:
         return text, None
     reply = turn.get("reply")
     key = locale if isinstance(reply, dict) and locale in reply else (
         next(iter(reply), None) if isinstance(reply, dict) and len(reply) == 1 else None)
     spoken = reply.get(key) if isinstance(reply, dict) and key else (reply if isinstance(reply, str) else None)
-    m = _TRAILING_QUESTION.match(spoken or "")
-    if not m or not m.group("q").strip():
+    split = _split_trailing_question(spoken or "")
+    if split is None:
         return text, None
-    new = (m.group("head") + nxt[2]).strip()
+    new = (split[0] + nxt[2]).strip()
     if isinstance(reply, dict):
         reply[key] = new
     else:
@@ -1071,6 +1099,13 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             logger.warning(
                 "n400_date_day_unspoken turn_id=%s field_id=%s claimed=%s deferred_as=%s",
                 turn_id, d["field_id"], d["value"], d["partial_value"])
+        # After the day guard, which has already deferred a date whose day
+        # she never said; this one checks the month and year it was filed with.
+        new_text, off = defer_dates_off_their_known_partial(new_text, known_facts, user_content)
+        for d in off:
+            logger.warning(
+                "n400_date_off_known_partial turn_id=%s field_id=%s claimed=%s partial=%s",
+                turn_id, d["field_id"], d["value"], d["partial_value"])
     # Before the battery marker, which reads reply.values().
     new_text, reply_shape = normalize_reply_shape(new_text)
     if reply_shape is not None:
@@ -1261,6 +1296,75 @@ def _spoken_partial(year: str, month: int, said: str, known_line: str) -> str | 
     if named or f"{year}-{month:02d}" in known_line:
         return f"{year}-{month:02d}"
     return year
+
+
+# --- a date filed off its own known partial (2026-10-15) --------------------
+#
+# Build 182's narrowed revisit: she gave "November 2021" earlier, taps Answer
+# by voice, hears "What day in November?" and says "The 15th." The day guard
+# checks only that the DAY is hers, so a 2021-12-15 or 2020-11-15 assembled
+# from that same "The 15th." was kept: the month and year she gave lived only
+# in the interviewer's line, which the floor never trusts. Agreed with the
+# auditor: the client keeps the field's partial in KNOWN FACTS until the day is
+# filed, and a full date (or a month) minted for that field must start with it.
+# A year or month she says in THIS line is a correction and is hers ("actually
+# it was March 2019" over a partial of 2018). Inert without a partial.
+OFF_PARTIAL_REASON = "the month or year differs from the partial on file and is not in what she just said"
+def _known_partial(known_facts: str | None, field_id) -> str | None:
+    """The partial date KNOWN FACTS holds for a field, or None.
+
+    Three shapes: the deferral line ("deferred, to verify from a document,
+    partial 2020-06"), and build 182's two revisit lines, sent only while a
+    revisit is open ("2021-11, day missing", "2017, month and day missing")."""
+    line = _known_line(known_facts, field_id)
+    if not line:
+        return None
+    rest = line.split(":", 1)[1] if ":" in line else ""
+    m = re.search(r"\bpartial\s+(\d{4}(?:-\d{2})?)\b", rest)
+    if m:
+        return m.group(1)
+    # Build 182's revisit lines, exactly (client 4442012): a month partial
+    # says "day missing", a year partial "month and day missing", nothing else.
+    m = re.fullmatch(r"\s*(\d{4}-\d{2}), day missing\s*", rest) \
+        or re.fullmatch(r"\s*(\d{4}), month and day missing\s*", rest)
+    return m.group(1) if m else None
+
+
+def defer_dates_off_their_known_partial(text: str, known_facts: str | None,
+                                        user_content: str | None) -> tuple[str, list[dict]]:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list) or not known_facts:
+        return text, []
+    said = _fold(user_content or "")
+    already = {d.get("field_id") for d in (turn.get("deferred") or []) if isinstance(d, dict)}
+    kept, moved = [], []
+    for f in turn["facts"]:
+        fid = f.get("field_id") if isinstance(f, dict) else None
+        value = str(f.get("value") or "") if isinstance(f, dict) else ""
+        partial = _known_partial(known_facts, fid) if re.fullmatch(r"\d{4}-\d{2}(?:-\d{2})?", value) else None
+        if not partial or value.startswith(partial):
+            kept.append(f)
+            continue
+        year, month = value[:4], int(value[5:7])
+        year_ok = year == partial[:4] or _year_said(year, said)
+        month_ok = len(partial) == 4 or value[5:7] == partial[5:7] or any(
+            re.search(rf"\b{n}\b", said) for n in _MONTHS.get(month, ()))
+        if year_ok and month_ok:
+            kept.append(f)
+            continue
+        moved.append({"field_id": fid, "value": value, "partial_value": partial,
+                      "reason": OFF_PARTIAL_REASON})
+        if fid not in already:
+            turn.setdefault("deferred", []).append(
+                {"field_id": fid, "partial_value": partial, "reason": OFF_PARTIAL_REASON})
+    if not moved:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + moved
+    return json.dumps(turn, ensure_ascii=False), moved
 
 
 # A year said in words ("dos mil veintidós", "twenty twenty-two", "nineteen
@@ -1792,6 +1896,56 @@ def _ids_settled_in_this_response(turn: dict) -> set[str]:
     return out
 
 
+_GATE_FACT = re.compile(r"^(p\d+)\.has_(\w+)$")
+_COUNT_FACT = re.compile(r"^(p\d+)\.total_\w+$")
+_ROW_ID = re.compile(r"^(p\d+)\.[a-z_]+?(\d+)\.")
+_GATE_CLOSED = {"no", "false", "none", "0"}
+
+
+def moot_nodes_in_this_response(turn: dict, agenda: str | None) -> set[str]:
+    """Agenda nodes this response made unaskable, not answered.
+
+    The agenda is one turn stale, so a gate answered "no" in this response
+    still has its follow-up on the line below it, and a child count of 0
+    still has its child rows. The client prunes them next turn; until then
+    they read as open. Scott's run f0a763cc (2026-10-14): t_011 filed
+    p6.total_children = 0, said "That's Part 6: no children", and the
+    checkpoint was refused on q_p6_child2..4, retried (~3 s), refused again
+    and dropped. t_004 filed p2.has_uscis_account = no and the settled-question
+    swap spoke q_p2_uscis_account's "What is your USCIS online account
+    number?" to her.
+
+    Two shapes only, both read off field ids, never off words:
+      pN.has_X = no    every field of the node starts with pN.X
+      pN.total_Y = K   every field of the node is a pN row numbered above K
+    """
+    gates: list[str] = []
+    counts: dict[str, int] = {}
+    for f in turn.get("facts") or []:
+        if not isinstance(f, dict):
+            continue
+        fid, value = str(f.get("field_id") or ""), str(f.get("value") or "").strip().lower()
+        g = _GATE_FACT.match(fid)
+        if g and value in _GATE_CLOSED:
+            gates.append(f"{g.group(1)}.{g.group(2)}")
+        c = _COUNT_FACT.match(fid)
+        if c and value.isdigit():
+            counts[c.group(1)] = int(value)
+    if not gates and not counts:
+        return set()
+    out: set[str] = set()
+    for node, ids in agenda_field_ids(agenda).items():
+        if not ids:
+            continue
+        if any(all(i.startswith(prefix) for i in ids) for prefix in gates):
+            out.add(node)
+            continue
+        rows = [_ROW_ID.match(i) for i in ids]
+        if all(rows) and all(r.group(1) in counts and int(r.group(2)) > counts[r.group(1)] for r in rows):
+            out.add(node)
+    return out
+
+
 def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
     """Info when the response claims a part still open AFTER this response.
 
@@ -1831,9 +1985,10 @@ def checkpoint_contradicts_agenda(text: str, agenda: str | None) -> dict | None:
         return None
     settled = _ids_settled_in_this_response(turn)
     by_node = agenda_field_ids(agenda)
+    moot = moot_nodes_in_this_response(turn, agenda)
     open_nodes = sorted(
         node for node, node_part in agenda_parts(agenda).items()
-        if node_part == part and (by_node.get(node, set()) - settled)
+        if node_part == part and (by_node.get(node, set()) - settled) and node not in moot
     )
     if not open_nodes:
         return None

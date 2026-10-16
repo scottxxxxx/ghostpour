@@ -863,7 +863,7 @@
     <div class="cards" id="tel-kpis"></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));grid-auto-flow:dense;gap:12px;margin-top:12px">
       <div class="card" style="padding:12px 14px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">Daily active <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— devices that pinged that day; line = signed-in users. From daily rollups (kept forever), so the trend outlives the 30-day raw purge. Not affected by the filters above</span></h4>
+        <h4 style="margin:0 0 8px">Daily active <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">(bars: devices that pinged that day; purple line: signed-in users; green dashed: users active in the 7 days ending that day; orange dashed: regular users, the green ones whose account existed before those 7 days.) From daily rollups (kept forever), so the trend outlives the 30-day raw purge. Not affected by the filters above</span></h4>
         <div id="tel-chart-active"></div>
       </div>
       <div class="card" style="padding:12px 14px;grid-column:span 2">
@@ -1676,16 +1676,20 @@ function _renderActivity(d) {
     const byDay = Object.fromEntries((c || []).map(p => [p.day, p.value]));
     return m.days.map(x => byDay[x] ?? null);
   };
-  const mixedOpts = (m, barName, lineName, extra) => ({
+  // `extra` is one rolling line or a list of them; each is dashed and reads
+  // as "in the 7 days ending here" in the tooltip.
+  const mixedOpts = (m, barName, lineName, extra) => {
+   const extras = extra ? [].concat(extra) : [];
+   return {
     series: [
       {name: barName, type: 'column', data: m.a},
       {name: lineName, type: 'line', data: m.b},
-      ...(extra ? [{name: extra.name, type: 'line', data: extra.data}] : []),
+      ...extras.map(x => ({name: x.name, type: 'line', data: x.data})),
     ],
     chart: {type: 'line', height: 240},
-    stroke: {width: extra ? [0, 3, 3] : [0, 3],
+    stroke: {width: [0, 3, ...extras.map(() => 3)],
              curve: 'smooth',
-             dashArray: extra ? [0, 0, 4] : [0, 0]},
+             dashArray: [0, 0, ...extras.map(() => 4)]},
     plotOptions: {bar: {columnWidth: '60%', borderRadius: 2}},
     dataLabels: {enabled: false},
     xaxis: {categories: m.days.map(x => x.slice(5))},
@@ -1693,16 +1697,21 @@ function _renderActivity(d) {
     // Green is the rolling-window line: a point is everyone seen in the
     // SEVEN DAYS ENDING that day, not that day's total, so it sits above
     // the daily line by design rather than by error.
-    colors: ['#6c8cff', '#b48cff', '#3fb950'],
+    // Orange is regular users: the green line's people who had an account
+    // before that 7-day window opened, so it always sits at or under green.
+    colors: ['#6c8cff', '#b48cff', '#3fb950', '#f0883e'],
     legend: {position: 'top'},
     tooltip: {y: {formatter: (v, o) => v == null ? 'no data'
-      : (o && o.seriesIndex === 2 ? `${Math.round(v)} in the 7 days ending here`
-                                  : Math.round(v))}},
-  });
+      : (o && o.seriesIndex >= 2 ? `${Math.round(v)} in the 7 days ending here`
+                                 : Math.round(v))}},
+   };
+  };
   _renderChart('tel-chart-active', mixedOpts(
     merge(s.distinct_devices, s.distinct_users), 'Devices', 'Signed-in users',
-    {name: 'Active users (7d)',
-     data: third(merge(s.distinct_devices, s.distinct_users), s.active_users_7d)}));
+    [{name: 'Active users (7d)',
+      data: third(merge(s.distinct_devices, s.distinct_users), s.active_users_7d)},
+     {name: 'Regular users (7d)',
+      data: third(merge(s.distinct_devices, s.distinct_users), s.regular_users_7d)}]));
   _renderChart('tel-chart-new', mixedOpts(
     merge(s.new_devices, s.new_accounts), 'New devices', 'New accounts'));
 }
@@ -4145,7 +4154,20 @@ function renderTiers(tiers) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveRecallWindow('${name}')">Save</button>
         </div>
-        <div id="recall-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Independent of the memory mode cell (Entitlements matrix). Sent to CQ as metadata.max_age_days on every recall and applied to project chat meeting content; fills {recall_window_days} in this tier's own strings (shared strings read the upgrade target's). Nudges read these dials, not tier names. Mirror to the repo after saving.</div>
+        <div id="recall-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Independent of the memory mode cell (Entitlements matrix). Sent to CQ as metadata.max_age_days on every recall. Memory only since 2026-10-15: project chat has its own window below. Nudges read these dials, not tier names. Mirror to the repo after saving.</div>
+      </div>
+      <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
+        <div class="lbl" style="margin-bottom:6px">Project chat meeting window (days)</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text-dim);width:60px">Days</span>
+          <input type="number" id="pc-window-${name}" value="${t.project_chat_window_days != null ? t.project_chat_window_days : ''}"
+                 placeholder="unlimited"
+                 style="flex:1;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 8px;font-size:12px;font-family:monospace"
+                 min="1" step="1">
+          <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
+                  onclick="saveProjectChatWindow('${name}')">Save</button>
+        </div>
+        <div id="pc-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Drops project chat meeting blocks older than this; fills {recall_window_days} in this tier's own strings (shared strings read the upgrade target's). Mirror to the repo after saving.</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Meeting share: archive size cap (MB)</div>
@@ -4880,6 +4902,43 @@ async function saveRecallWindow(tierName) {
     const n = (data.files_updated || []).length;
     status.textContent = n > 0
       ? `Saved. Updated ${n} locale file(s); live on the next recall and the next /v1/tiers. Now mirror it to the repo.`
+      : 'No change (already at that value).';
+    status.style.color = 'var(--green)';
+  } else {
+    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
+    status.style.color = 'var(--red)';
+  }
+}
+
+// --- Project chat meeting window (split from the memory window 2026-10-15) ---
+// tiers.{tier}.feature_definitions.project_chat.meeting_window_days.
+async function saveProjectChatWindow(tierName) {
+  const input = document.getElementById(`pc-window-${tierName}`);
+  const status = document.getElementById('pc-window-status-' + tierName);
+  let value;
+  if (input.value === '' || input.value === null) {
+    value = null;   // unlimited
+  } else {
+    value = parseInt(input.value, 10);
+    if (isNaN(value) || value < 1) {
+      status.textContent = 'Must be a whole number of days, 1 or more (or empty for unlimited).';
+      status.style.color = 'var(--red)';
+      return;
+    }
+  }
+  status.textContent = 'Saving project chat window…';
+  status.style.color = 'var(--orange)';
+  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify({tier: tierName, feature: 'project_chat',
+                          field: 'meeting_window_days', value: value}),
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    const n = (data.files_updated || []).length;
+    status.textContent = n > 0
+      ? `Saved. Updated ${n} locale file(s); live on the next project chat and the next /v1/tiers. Now mirror it to the repo.`
       : 'No change (already at that value).';
     status.style.color = 'var(--green)';
   } else {

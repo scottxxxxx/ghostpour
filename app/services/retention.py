@@ -44,6 +44,22 @@ KEEP_RAW_REQUESTS_FOR: tuple[str, ...] = (
     "fa4d903c-24c0-45d5-9fdb-b5496e32501b",
 )
 
+# usage_log rows themselves, for the anonymous form apps only (Scott,
+# 2026-10-14, for the N-400 privacy copy: "add the 90 day expiry"). Each row
+# carries user_id, case_id and IP-derived city, so keeping them forever kept
+# one person's interview linkable forever. After this window the ROW is
+# deleted. Billing math survives it: the anonymous allowance sums usage_log
+# for its lifetime cap, so an anonymous account's expiring spend is first
+# added to anonymous_spend_carry, the same carry a "Delete all my data" uses,
+# and the cap cannot be reset by waiting. The per-application allowance
+# (case_id) has no carry, so an application older than the window starts
+# that one bucket again; the lifetime cap still holds. Monthly budgets only
+# read the current month. ShoulderSurf and Tech Rehearsal rows are not in
+# scope: their dashboards and per-user history are a separate call.
+USAGE_LOG_RETENTION_DAYS = 90
+USAGE_LOG_EXPIRING_APPS: tuple[str, ...] = ("n400", "i765")
+KEEP_USAGE_ROWS_FOR: tuple[str, ...] = KEEP_RAW_REQUESTS_FOR
+
 # How often the sweep runs once the app is up. These windows are days
 # long and do not need a tight loop; hourly matches the existing
 # generated_files sweep so there is one cadence to reason about, and it
@@ -131,6 +147,11 @@ async def purge_expired(db: aiosqlite.Connection) -> dict[str, int]:
     except Exception as e:  # noqa: BLE001, same rule as the sweeps above
         logger.warning("retention: raw_request strip failed: %s", e)
         deleted["usage_log.raw_request"] = 0
+    try:
+        deleted["usage_log"] = await expire_old_usage_rows(db)
+    except Exception as e:  # noqa: BLE001, same rule as the sweeps above
+        logger.warning("retention: usage_log expiry failed: %s", e)
+        deleted["usage_log"] = 0
     await db.commit()
     dropped = {t: n for t, n in deleted.items() if n}
     if dropped:
@@ -201,3 +222,60 @@ async def strip_old_raw_requests(
         await db.commit()
         total += cursor.rowcount or 0
         await asyncio.sleep(0)
+
+
+async def expire_old_usage_rows(
+    db: aiosqlite.Connection,
+    *,
+    retention_days: int = USAGE_LOG_RETENTION_DAYS,
+    apps: tuple[str, ...] = USAGE_LOG_EXPIRING_APPS,
+    keep_for: tuple[str, ...] = KEEP_USAGE_ROWS_FOR,
+    batch_size: int = 50,
+) -> int:
+    """Delete usage_log rows of `apps` older than the window, except for
+    `keep_for` accounts, carrying an anonymous account's expiring spend into
+    anonymous_spend_carry first. Returns rows deleted.
+
+    One (user, app) pair per transaction: the carry and the delete commit
+    together, so a crash between them can neither lose spend nor count it
+    twice. The cutoff is read once, so the rows summed are the rows deleted."""
+    from app.services.anonymous_budget import ANONYMOUS_SUB_PREFIX, CARRY_APPS
+
+    cutoff = (await (await db.execute(
+        "SELECT strftime('%Y-%m-%dT%H:%M:%S', 'now', ?)",
+        (f"-{int(retention_days)} days",))).fetchone())[0]
+    app_marks = ",".join("?" for _ in apps) or "''"
+    keep_marks = ",".join("?" for _ in keep_for) or "''"
+    total = 0
+    while True:
+        pairs = await (await db.execute(
+            f"""SELECT DISTINCT user_id, app_id FROM usage_log
+                 WHERE request_timestamp < ? AND app_id IN ({app_marks})
+                   AND user_id NOT IN ({keep_marks})
+                 LIMIT ?""",
+            (cutoff, *apps, *keep_for, batch_size))).fetchall()
+        if not pairs:
+            return total
+        for user_id, app_id in pairs:
+            spent = float((await (await db.execute(
+                "SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log"
+                " WHERE user_id = ? AND app_id = ? AND request_timestamp < ?",
+                (user_id, app_id, cutoff))).fetchone())[0] or 0.0)
+            sub = await (await db.execute(
+                "SELECT apple_sub FROM users WHERE id = ?", (user_id,))).fetchone()
+            if (spent > 0 and app_id in CARRY_APPS and sub and sub[0]
+                    and str(sub[0]).startswith(ANONYMOUS_SUB_PREFIX)):
+                await db.execute(
+                    """INSERT INTO anonymous_spend_carry
+                           (sub_hash, app_id, lifetime_usd, day, day_usd, updated_at)
+                       VALUES (?, ?, ?, NULL, 0, strftime('%Y-%m-%dT%H:%M:%S', 'now'))
+                       ON CONFLICT(sub_hash, app_id) DO UPDATE SET
+                           lifetime_usd = lifetime_usd + excluded.lifetime_usd,
+                           updated_at = excluded.updated_at""",
+                    (sub[0], app_id, spent))
+            cursor = await db.execute(
+                "DELETE FROM usage_log WHERE user_id = ? AND app_id = ? AND request_timestamp < ?",
+                (user_id, app_id, cutoff))
+            await db.commit()
+            total += cursor.rowcount or 0
+            await asyncio.sleep(0)

@@ -3,54 +3,34 @@
   "tiers": {
     "free": {
       "display_name": "Gratis",
-      "description": "Memoria de cada reunión, Personas, resúmenes en vivo e informes, con una asignación mensual de IA para probar el resto.",
+      "description": "Cada reunión capturada, resumida y convertida en un informe que puedes compartir.",
       "feature_bullets": [
-        "IA en la nube para unas cinco horas de reuniones al mes",
-        "Memoria creada a partir de cada reunión que grabas",
-        "Personas: a quién ves y qué te deben",
-        "Resúmenes en vivo y un informe completo tras cada reunión",
-        "Chat de proyecto: vista previa",
-        "Chat de reunión con una asignación mensual",
-        "Búsqueda web: 5 al mes",
-        "Generar archivos desde el chat: 5 al mes",
-        "1 imagen por mensaje"
+        "Transcripción y resumen en vivo, con quién dijo qué",
+        "Un informe completo después de cada reunión, que puedes compartir como enlace web. Elige un idioma al compartir, y quien lo lea puede cambiar entre el original y la traducción.",
+        "Personas: con quién te reuniste y qué prometieron",
+        "Tus reuniones sincronizadas y respaldadas en tu propio iCloud",
+        "Unas cinco horas de IA en la nube al mes para probar el resto"
       ],
       "feature_items": [
         {
-          "label": "IA en la nube para unas cinco horas de reuniones al mes",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Memoria creada a partir de cada reunión que grabas",
-          "icon": "brain"
-        },
-        {
-          "label": "Personas: a quién ves y qué te deben",
-          "icon": "checkmark"
-        },
-        {
-          "label": "Resúmenes en vivo y un informe completo tras cada reunión",
+          "label": "Transcripción y resumen en vivo, con quién dijo qué",
           "icon": "doc"
         },
         {
-          "label": "Chat de proyecto: vista previa",
-          "icon": "chat"
+          "label": "Un informe completo después de cada reunión, que puedes compartir como enlace web. Elige un idioma al compartir, y quien lo lea puede cambiar entre el original y la traducción.",
+          "icon": "share"
         },
         {
-          "label": "Chat de reunión con una asignación mensual",
-          "icon": "chat"
+          "label": "Personas: con quién te reuniste y qué prometieron",
+          "icon": "checkmark"
         },
         {
-          "label": "Búsqueda web: 5 al mes",
-          "icon": "search"
+          "label": "Tus reuniones sincronizadas y respaldadas en tu propio iCloud",
+          "icon": "icloud"
         },
         {
-          "label": "Generar archivos desde el chat: 5 al mes",
-          "icon": "filegen"
-        },
-        {
-          "label": "1 imagen por mensaje",
-          "icon": "photo"
+          "label": "Unas cinco horas de IA en la nube al mes para probar el resto",
+          "icon": "checkmark"
         }
       ],
       "status_items": [
@@ -65,7 +45,7 @@
           "icon": "doc"
         },
         {
-          "label": "Memoria de Reuniones",
+          "label": "Context Quilt",
           "value": "vista previa",
           "icon": "brain",
           "state": "teaser"
@@ -75,6 +55,16 @@
           "value": "vista previa",
           "icon": "chat",
           "state": "teaser"
+        },
+        {
+          "label": "Informes",
+          "value": "compartibles, en cualquier idioma",
+          "icon": "share"
+        },
+        {
+          "label": "Sincronización y copia en iCloud",
+          "value": "activada",
+          "icon": "icloud"
         },
         {
           "label": "Búsqueda web",
@@ -94,7 +84,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 50000
+          "max_input_tokens": 50000,
+          "meeting_window_days": 10
         },
         "budget": {
           "cta_exhausted": {
@@ -166,43 +157,43 @@
     },
     "plus": {
       "display_name": "Plus",
-      "description": "Tus últimos {recall_window_days} días de reuniones en cada conversación. Documentos, búsqueda web, generación de archivos, uso ilimitado.",
+      "description": "Respuestas que recuerdan lo que tú olvidarías.",
       "feature_bullets": [
-        "Tus últimos {recall_window_days} días de reuniones, en cada conversación",
-        "Chat de reunión y de proyecto ilimitados",
-        "Adjunta documentos y la respuesta los lee completos",
-        "Búsqueda web: 75 al mes",
-        "Genera archivos reales desde el chat: Excel, Word, PowerPoint, PDF",
-        "El triple de contexto por mensaje",
-        "3 imágenes por mensaje"
+        "Context Quilt, tu memoria a largo plazo. Registra en silencio compromisos, preferencias y bloqueos de tus reuniones, y los trae a cada respuesta: en vivo, después de la reunión y en el chat de proyecto. Incluye cosas que nadie dijo hoy y que nunca pensarías en añadir.",
+        "Chat de proyecto: después de la reunión, pregunta sobre todas las reuniones de los últimos {recall_window_days} días",
+        "Preguntas ilimitadas, durante la reunión y después",
+        "Adjunta documentos, y la respuesta lee cada página",
+        "75 búsquedas web al mes para datos actualizados",
+        "Convierte cualquier chat en un archivo real de Excel, Word, PowerPoint o PDF",
+        "3 imágenes por pregunta"
       ],
       "feature_items": [
         {
-          "label": "Tus últimos {recall_window_days} días de reuniones, en cada conversación",
+          "label": "Context Quilt, tu memoria a largo plazo. Registra en silencio compromisos, preferencias y bloqueos de tus reuniones, y los trae a cada respuesta: en vivo, después de la reunión y en el chat de proyecto. Incluye cosas que nadie dijo hoy y que nunca pensarías en añadir.",
           "icon": "brain"
         },
         {
-          "label": "Chat de reunión y de proyecto ilimitados",
+          "label": "Chat de proyecto: después de la reunión, pregunta sobre todas las reuniones de los últimos {recall_window_days} días",
           "icon": "chat"
         },
         {
-          "label": "Adjunta documentos y la respuesta los lee completos",
+          "label": "Preguntas ilimitadas, durante la reunión y después",
+          "icon": "chat"
+        },
+        {
+          "label": "Adjunta documentos, y la respuesta lee cada página",
           "icon": "paperclip"
         },
         {
-          "label": "Búsqueda web: 75 al mes",
+          "label": "75 búsquedas web al mes para datos actualizados",
           "icon": "search"
         },
         {
-          "label": "Genera archivos reales desde el chat: Excel, Word, PowerPoint, PDF",
+          "label": "Convierte cualquier chat en un archivo real de Excel, Word, PowerPoint o PDF",
           "icon": "filegen"
         },
         {
-          "label": "El triple de contexto por mensaje",
-          "icon": "cpu"
-        },
-        {
-          "label": "3 imágenes por mensaje",
+          "label": "3 imágenes por pregunta",
           "icon": "photo"
         }
       ],
@@ -223,16 +214,26 @@
           "icon": "cpu"
         },
         {
-          "label": "Memoria de Reuniones",
-          "value": "últimos {recall_window_days} días",
+          "label": "Context Quilt",
+          "value": "activado",
           "icon": "brain",
           "state": "enabled"
         },
         {
           "label": "Chat de proyecto",
-          "value": "sí",
+          "value": "reuniones de los últimos {recall_window_days} días",
           "icon": "chat",
           "state": "enabled"
+        },
+        {
+          "label": "Informes",
+          "value": "compartibles, en cualquier idioma",
+          "icon": "share"
+        },
+        {
+          "label": "Sincronización y copia en iCloud",
+          "value": "activada",
+          "icon": "icloud"
         },
         {
           "label": "Búsqueda web",
@@ -257,7 +258,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 150000
+          "max_input_tokens": 150000,
+          "meeting_window_days": 30
         },
         "search": {
           "searches_per_month": 75,
@@ -300,7 +302,7 @@
           }
         },
         "context_quilt": {
-          "recall_max_age_days": 30
+          "recall_max_age_days": null
         },
         "generation": {
           "generations_per_month": 50
@@ -309,43 +311,43 @@
     },
     "pro": {
       "display_name": "Pro",
-      "description": "Todo lo que hayas grabado, en cada conversación, con el modelo más potente en análisis e informes.",
+      "description": "Cada reunión que has tenido, recordada, con la IA más potente en las que importan.",
       "feature_bullets": [
-        "Todas las reuniones que hayas grabado, en cada conversación",
-        "El modelo más potente en análisis e informes posteriores a la reunión",
-        "El mayor contexto por mensaje",
-        "Búsqueda web: 120 al mes",
-        "Genera archivos reales desde el chat: Excel, Word, PowerPoint, PDF",
-        "Adjunta documentos y la respuesta los lee completos",
-        "5 imágenes por mensaje"
+        "Context Quilt, tu memoria a largo plazo. Registra en silencio compromisos, preferencias y bloqueos de tus reuniones, y los trae a cada respuesta: en vivo, después de la reunión y en el chat de proyecto. Incluye cosas que nadie dijo hoy y que nunca pensarías en añadir.",
+        "Chat de proyecto sobre todas las reuniones que has grabado",
+        "El modelo más potente escribe tus informes y el análisis posterior a la reunión",
+        "Espacio para reuniones largas y documentos grandes en una sola pregunta",
+        "120 búsquedas web al mes",
+        "Archivos reales de Excel, Word, PowerPoint y PDF desde el chat",
+        "5 imágenes por pregunta"
       ],
       "feature_items": [
         {
-          "label": "Todas las reuniones que hayas grabado, en cada conversación",
+          "label": "Context Quilt, tu memoria a largo plazo. Registra en silencio compromisos, preferencias y bloqueos de tus reuniones, y los trae a cada respuesta: en vivo, después de la reunión y en el chat de proyecto. Incluye cosas que nadie dijo hoy y que nunca pensarías en añadir.",
           "icon": "brain"
         },
         {
-          "label": "El modelo más potente en análisis e informes posteriores a la reunión",
+          "label": "Chat de proyecto sobre todas las reuniones que has grabado",
+          "icon": "chat"
+        },
+        {
+          "label": "El modelo más potente escribe tus informes y el análisis posterior a la reunión",
           "icon": "cpu"
         },
         {
-          "label": "El mayor contexto por mensaje",
+          "label": "Espacio para reuniones largas y documentos grandes en una sola pregunta",
           "icon": "cpu"
         },
         {
-          "label": "Búsqueda web: 120 al mes",
+          "label": "120 búsquedas web al mes",
           "icon": "search"
         },
         {
-          "label": "Genera archivos reales desde el chat: Excel, Word, PowerPoint, PDF",
+          "label": "Archivos reales de Excel, Word, PowerPoint y PDF desde el chat",
           "icon": "filegen"
         },
         {
-          "label": "Adjunta documentos y la respuesta los lee completos",
-          "icon": "paperclip"
-        },
-        {
-          "label": "5 imágenes por mensaje",
+          "label": "5 imágenes por pregunta",
           "icon": "photo"
         }
       ],
@@ -366,16 +368,26 @@
           "icon": "cpu"
         },
         {
-          "label": "Memoria de Reuniones",
-          "value": "todo, siempre",
+          "label": "Context Quilt",
+          "value": "activado",
           "icon": "brain",
           "state": "enabled"
         },
         {
           "label": "Chat de proyecto",
-          "value": "sí",
+          "value": "todas las reuniones",
           "icon": "chat",
           "state": "enabled"
+        },
+        {
+          "label": "Informes",
+          "value": "compartibles, en cualquier idioma",
+          "icon": "share"
+        },
+        {
+          "label": "Sincronización y copia en iCloud",
+          "value": "activada",
+          "icon": "icloud"
         },
         {
           "label": "Búsqueda web",
@@ -400,7 +412,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 360000
+          "max_input_tokens": 360000,
+          "meeting_window_days": null
         },
         "search": {
           "searches_per_month": 120,
@@ -537,7 +550,8 @@
       ],
       "feature_definitions": {
         "project_chat": {
-          "max_input_tokens": 360000
+          "max_input_tokens": 360000,
+          "meeting_window_days": null
         },
         "search": {
           "searches_per_month": 120,
@@ -591,14 +605,14 @@
   "feature_definitions": {
     "context_quilt": {
       "category": "intelligence",
-      "display_name": "Memoria de Reuniones",
+      "display_name": "Context Quilt",
       "description": "Tu IA recuerda reuniones pasadas y usa ese conocimiento automáticamente.",
       "teaser_description": "Tu IA encontró conexiones con tus reuniones pasadas",
-      "upgrade_cta": "Pasa a Plus para llevar tus últimos {recall_window_days} días de reuniones a cada respuesta",
+      "upgrade_cta": "Pasa a Plus para llevar Context Quilt, tu memoria a largo plazo, a cada respuesta",
       "cta_strings": {
-        "free_within_quota_footer": "✨ Esta fue tu Memoria gratuita de {total} este mes. Plus lleva tus últimos {recall_window_days} días de reuniones a cada respuesta.",
-        "free_no_quota_only": "✨ Has usado tu IA gratuita de este mes. Plus la hace ilimitada y lleva tus últimos {recall_window_days} días de reuniones a cada respuesta.",
-        "free_people_only": "✨ Tu IA está construyendo tu lista de Personas con esta reunión. Plus lleva tus últimos {recall_window_days} días de reuniones a cada respuesta."
+        "free_within_quota_footer": "✨ Esta fue tu Memoria gratuita de {total} este mes. Plus lleva Context Quilt, tu memoria a largo plazo, a cada respuesta.",
+        "free_no_quota_only": "✨ Has usado tu IA gratuita de este mes. Plus la hace ilimitada y lleva Context Quilt, tu memoria a largo plazo, a cada respuesta.",
+        "free_people_only": "✨ Tu IA está construyendo tu lista de Personas con esta reunión. Plus lleva Context Quilt, tu memoria a largo plazo, a cada respuesta."
       }
     },
     "meeting_reports": {
@@ -616,8 +630,8 @@
       "upgrade_cta": "Inicia sesión para crear tu lista de Personas",
       "signed_out": {
         "headline": "Descubre quién participa en tus reuniones",
-        "body": "Inicia sesión y Shoulder Surf creará una página para cada persona con la que te reúnas, con las reuniones a las que asistió, los compromisos que asumió y los proyectos en los que participa.",
-        "body_with_count": "Hasta ahora has coincidido con {count} personas. Inicia sesión y Shoulder Surf creará una página para cada una, con las reuniones a las que asistió, los compromisos que asumió y los proyectos en los que participa.",
+        "body": "Context Quilt es la memoria a largo plazo de Shoulder Surf AI. Inicia sesión y creará una página para cada persona con la que te reúnas, con las reuniones a las que asistió, los compromisos que asumió y los proyectos en los que participa.",
+        "body_with_count": "Hasta ahora has coincidido con {count} personas. Context Quilt es la memoria a largo plazo de Shoulder Surf AI. Inicia sesión y creará una página para cada una, con las reuniones a las que asistió, los compromisos que asumió y los proyectos en los que participa.",
         "cta_label": "Iniciar sesión",
         "cta_action": "sign_in"
       }
@@ -819,11 +833,12 @@
     {
       "id": "unlock_apple_cloud",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
-      "name": "Paquete Apple Cloud",
+      "name": "Funciones avanzadas para Apple Cloud",
       "icon": "cloud",
       "bullets": [
         "Chat de proyecto con Apple Cloud, sin necesidad de Shoulder Surf AI",
         "Hasta 5 fotos por pregunta en Apple Cloud",
+        "Envía archivos de texto, Markdown, PDF, Word y RTF en Apple Cloud",
         "Private Cloud Compute de Apple mantiene tus datos privados",
         "Compra única, es tuya para siempre"
       ]
@@ -831,7 +846,7 @@
     {
       "id": "unlock_byok",
       "product_id": "com.weirtech.shouldersurf.unlock.byok",
-      "name": "Paquete de clave propia",
+      "name": "Funciones avanzadas para tu propia clave",
       "icon": "key",
       "bullets": [
         "Chat de proyecto con tu propia clave de API",
@@ -842,7 +857,7 @@
     {
       "id": "bundle",
       "product_id": "com.weirtech.shouldersurf.unlock.bundle",
-      "name": "Ambos paquetes",
+      "name": "Funciones avanzadas para ambos",
       "icon": "square.stack",
       "bullets": [
         "Apple Cloud y tu propia clave, los dos desbloqueados",
@@ -856,8 +871,9 @@
       "name": "Añade Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "Añade el paquete Apple Cloud a tu paquete de clave propia",
+        "Añade las funciones avanzadas de Apple Cloud a las de clave propia que ya tienes",
         "Hasta 5 fotos por pregunta en Apple Cloud",
+        "Envía archivos de texto, Markdown, PDF, Word y RTF en Apple Cloud",
         "Compra única, es tuya para siempre"
       ]
     },
@@ -867,7 +883,7 @@
       "name": "Añade tu propia clave",
       "icon": "key",
       "bullets": [
-        "Añade el paquete de clave propia a tu paquete Apple Cloud",
+        "Añade las funciones avanzadas de clave propia a las de Apple Cloud que ya tienes",
         "Compra única, es tuya para siempre"
       ]
     }

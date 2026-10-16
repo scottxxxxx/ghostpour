@@ -92,6 +92,16 @@ def anthropic_uses_effort_path(model: str) -> bool:
     return False
 
 
+# Thinking-off on the 5.5 models, every row proved live 2026-10-14
+# (qa/thinking_off_5_5_probe.py): `disabled` is a 400 on Opus 5.5 and
+# Sonnet 5.5 at any effort. Sonnet 5.5 turns thinking off with
+# `between_tools` (effort high or below). Opus 5.5 cannot turn it off at
+# all, so a thinking-free lane omits the field and runs at effort low.
+_NO_DISABLED_THINKING = ("claude-opus-5-5", "claude-sonnet-5-5")
+_BETWEEN_TOOLS_IS_OFF = ("claude-sonnet-5-5",)
+_OFF_MEANS_LOW_EFFORT = ("claude-opus-5-5",)
+
+
 def anthropic_accepts_disabled_thinking(model: str) -> bool:
     """True only where OMITTING the thinking field would leave thinking ON.
 
@@ -106,6 +116,10 @@ def anthropic_accepts_disabled_thinking(model: str) -> bool:
     """
     m = model.lower()
     if "fable" in m or "mythos" in m:
+        return False
+    # The substrings below also match the 5.5 models, where `disabled` is a
+    # 400 at every effort (proved live 2026-10-14, qa/thinking_off_5_5_probe.py).
+    if any(p in m for p in _NO_DISABLED_THINKING):
         return False
     # Haiku 5.5 thinks by default too (Claude API reference, 2026-10-06
     # cache), so a short-output lane has to say disabled there as well.
@@ -160,6 +174,8 @@ def anthropic_thinking_block(
     declares itself thinking-free stays that way regardless of picker.
     """
     if disabled:
+        if model and any(p in model.lower() for p in _BETWEEN_TOOLS_IS_OFF):
+            return {"type": "between_tools"}
         if model and anthropic_accepts_disabled_thinking(model):
             return {"type": "disabled"}
         return None
@@ -177,7 +193,8 @@ def anthropic_thinking_block(
 # in config; the level comes from the picker), so the combination has to
 # be resolved on our side rather than discovered as a failed turn.
 # Haiku 5.5 has the same rule (disabled only at `high` or below).
-_DISABLED_THINKING_EFFORT_CAP = ("claude-opus-5", "claude-haiku-5")
+# Sonnet 5.5's off switch, `between_tools`, has the same cap.
+_DISABLED_THINKING_EFFORT_CAP = ("claude-opus-5", "claude-haiku-5", "claude-sonnet-5-5")
 _CAPPED_EFFORTS = ("xhigh", "max")
 
 
@@ -192,9 +209,11 @@ def anthropic_output_config(level: str | None, model: str, *,
     field, which would silently land on the same API default of `high`
     with no record that a level was ever picked.
     """
+    m = (model or "").lower()
+    if thinking_disabled and any(p in m for p in _OFF_MEANS_LOW_EFFORT):
+        return {"effort": "low"}
     if not level or level == "default" or not anthropic_uses_effort_path(model):
         return None
-    m = (model or "").lower()
     if (thinking_disabled and level in _CAPPED_EFFORTS
             and any(p in m for p in _DISABLED_THINKING_EFFORT_CAP)):
         return {"effort": "high"}

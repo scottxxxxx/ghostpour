@@ -2007,3 +2007,13 @@ PROMPT: after the "is that in Texas?" rule. TODAY resolves an exact relative dat
 GUARD: the day guard deferred a confirmed full date, because her yes holds no day. `_date_confirmed` keeps it only when her line is a bare yes, the interviewer's line right before read THAT date as one phrase and asked, and the day and month were hers in her last three lines, or the whole date is in KNOWN FACTS.
 
 Not tested against any model. The auditor runs free subagent probes first; any live check goes to Scott with an estimate.
+
+v62 additions, 2026-10-15 (auditor, from Scott's build 188 run: "I am a carpenter at Alamo Builders now" at the birth-country ask became a capture gap and Part 7 opened cold):
+
+VOLUNTEER FIELDS was described as "the current part and the next", stale since DECISIONS 2026-09-14; the client sends every open field before Part 9 (InterviewerEnvelope.volunteerFieldIDs, mirrored in the N-400 repo's qa/n400_qa.py:1314). The capture gap definition narrows to "no id in the agenda or VOLUNTEER FIELDS".
+
+A LATER PART'S VALUE SAID EARLY IS MINTED: Alamo is two facts, employer_name and occupation, citing her words. The client files them as mentions (InterviewEngine.swift ~6580: direct only on the standing node, a visited node, an open deferral, a correction, or tentative == false) and offers them back at Part 7.
+
+A CAPTURE GAP WITH HER WORDS IS OFFERED BACK, NEVER ASKED COLD, section openers included; on her yes each field is minted with her yes as the utterance. GP's evidence floor keeps that (the cited yes is in her line) and the Jev support check judges only choice fields; tests/test_n400_capture_gap_offer.py pins it.
+
+A GAP QUESTION THE APP WROTE IS ASKED AS WRITTEN (build 190): her answer is the row for that stretch, never a gate no. THE STRETCH IS AN ANCHOR OFFERED, NEVER FILED ON ITS OWN: the client does not fill the row's dates, and an accepted stretch takes the standing month and year path (ask the day, defer the month only if she does not know), because the prompt never mints a "2021-11" fact.
