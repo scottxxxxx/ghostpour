@@ -45,3 +45,32 @@ def test_the_prompt_offers_the_partial_back_at_a_section_boundary():
     rule = _PROMPT[i:i + 900]
     assert "SECTION BOUNDARY" in rule
     assert "with her yes as its provenance.utterance" in rule
+
+
+def test_volunteer_fields_is_described_as_the_window_the_client_sends():
+    """Since DECISIONS 2026-09-14 the client sends every open field before
+    Part 9 (InterviewerEnvelope.volunteerFieldIDs, mirrored by the N-400
+    repo's qa/n400_qa.py volunteer_fields_text). Describing it as "the
+    current part and the next" told the lane a Part 7 id was out of view in
+    Part 2, which is how Alamo Builders became a capture gap."""
+    assert "for the current part and the next." not in _PROMPT
+    assert ("every open field of every part before Part 9, and Part 9's own "
+            "only while you are standing in Part 9.") in _PROMPT
+
+
+def test_a_later_part_value_said_early_is_two_facts_not_one_capture_gap():
+    i = _PROMPT.index("A LATER PART'S VALUE SAID EARLY IS MINTED")
+    rule = _PROMPT[i:i + 600]
+    assert 'p7.employer1.employer_name "Alamo Builders"' in rule
+    assert 'p7.employer1.occupation "carpenter"' in rule
+    assert "never one capture gap holding both" in rule
+    # A capture gap is now only a value with no id on EITHER list.
+    assert ("because no field id for it is in the agenda or in VOLUNTEER FIELDS, "
+            "is a CAPTURE GAP") in _PROMPT
+
+
+def test_a_gap_question_answer_is_a_row_never_a_gate_no():
+    i = _PROMPT.index("A GAP QUESTION THE APP WROTE IS ASKED AS WRITTEN")
+    rule = _PROMPT[i:i + 700]
+    assert '"I was out of work then" is an unemployed row, never has_job no' in rule
+    assert '"I was staying with family" is an address row, never has_prior_address no' in rule

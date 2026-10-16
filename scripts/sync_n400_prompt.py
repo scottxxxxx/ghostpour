@@ -771,8 +771,15 @@ VERSIONS = {
             "Asking one as a yes or no question is not filling it (AN ANCHOR MAY BE OFFERED, NEVER FILED).",
             "AT THE TRIP QUESTION, A TRIP HOME GETS THE COUNTRY OFFERED IN THE SAME REPLY",
             "A CAPTURE GAP WITH HER WORDS IS OFFERED BACK, NEVER ASKED COLD",
+            "every open field of every part before Part 9, and Part 9's own only while you are standing in Part 9.",
+            "A LATER PART'S VALUE SAID EARLY IS MINTED, NEVER HELD AS A CAPTURE GAP",
+            "because no field id for it is in the agenda or in VOLUNTEER FIELDS, is a CAPTURE GAP",
+            "A GAP QUESTION THE APP WROTE IS ASKED AS WRITTEN",
         ],
-        "absent": [],
+        "absent": [
+            "for the current part and the next.",
+            "because no field id for it is in front of you, is a CAPTURE GAP",
+        ],
     },
 }
 
