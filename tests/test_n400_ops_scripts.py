@@ -189,6 +189,9 @@ V62_RETIRED = [
     "THE REVIEW IS HER OPTION AND YOUR OBLIGATION",
     "the reply that finds the agenda empty and the sweep done MAKES the offer",
     "your reply ENDS ON THAT OFFER",
+    "A part boundary NEVER asks whether the part is complete and correct",
+    "Carry `section_checkpoint` with `awaiting_confirmation` false",
+    '"awaiting_confirmation": boolean, FALSE at a part boundary',
 ]
 
 

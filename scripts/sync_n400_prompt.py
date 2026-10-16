@@ -790,6 +790,9 @@ VERSIONS = {
             "FINISH A PART BEFORE MOVING ON (Scott, 2026-10-16, a standing product rule)",
             "Never go back to a part you already summarized to ask something it owed",
             "A STATED NONE THAT ANSWERS A GATE IS THAT GATE'S \"no\", FILED THE MOMENT SHE SAYS IT",
+            "EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS (Scott, 2026-10-16, reversing his 2026-09-26 ruling of one review at the end)",
+            "the next part's question NEVER rides in the same reply",
+            "\"awaiting_confirmation\": boolean, TRUE on every read-back",
             "NEVER SAY BACK A VALUE, OR A NONE, THAT THIS RESPONSE'S facts OR KNOWN FACTS DO NOT CARRY.",
         ],
         "absent": [
@@ -804,6 +807,12 @@ VERSIONS = {
             "Would you like to go through your answers once more before you see your form, or go straight to it?",
             "or gives only part of one (a year, a season, a month without a day), do not mint a fact and do not re-ask",
             "and defer ONLY what she did not give, the exact dates;",
+            # Scott, 2026-10-16: every part is read back and confirmed before
+            # the next opens, reversing the 2026-09-26 one-review ruling.
+            "A part boundary NEVER asks whether the part is complete and correct",
+            "Carry `section_checkpoint` with `awaiting_confirmation` false",
+            "\"awaiting_confirmation\": boolean, FALSE at a part boundary",
+            "followed by Part 9's first question is exactly right",
             "You may ask any node on the agenda when the conversation makes that natural.",
             "no email, no second phone, no middle name, no other names, mint that field",
         ],

@@ -139,7 +139,7 @@ def test_asking_node_id_owns_its_fields_never_the_gate_just_answered():
 def test_the_close_says_the_form_is_complete_and_asks_nothing():
     i = _PROMPT.index("THE END OF THE INTERVIEW: THE SWEEP, THEN THE CLOSE.")
     rule = _PROMPT[i:i + 1600]
-    assert "say the form is complete, ask nothing, and set `interview_over` true" in rule
+    assert "says the form is complete, asks nothing, carries no checkpoint object, and sets `interview_over` true" in rule
     assert "NEVER ASK WHETHER SHE WANTS TO GO THROUGH HER ANSWERS OR GO STRAIGHT TO THE FORM" in rule
     assert "Would you like to go through your answers" not in _PROMPT
     # The sweep still comes before the close.
@@ -198,3 +198,25 @@ def test_a_volunteered_none_files_its_gate_no_in_the_same_response():
     # The empty-string rule no longer claims the gated nones.
     assert "no email, no second phone, no middle name, no other names, mint that field" not in _PROMPT
     assert "A STATED NONE on an OPTIONAL field with no gate is a fact" in _PROMPT
+
+
+def test_every_part_is_read_back_and_confirmed_before_the_next_opens():
+    """Scott, 2026-10-16, reversing the 2026-09-26 one-review ruling."""
+    i = _PROMPT.index("EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS")
+    rule = _PROMPT[i - 400:i + 1400]
+    assert "Then ask whether it is right, and STOP" in rule
+    assert "`awaiting_confirmation` true, `asking` is null" in rule
+    assert "the next part's question NEVER rides in the same reply" in rule
+    assert "that yes confirms the part and answers nothing else" in rule
+    assert "read the part back again and ask again" in rule
+    assert "A part boundary NEVER asks whether the part is complete" not in _PROMPT
+    assert "`awaiting_confirmation` false" not in _PROMPT
+    i = _PROMPT.index('"awaiting_confirmation": boolean')
+    assert _PROMPT[i:i + 60].startswith('"awaiting_confirmation": boolean, TRUE on every read-back')
+
+
+def test_the_close_follows_the_last_parts_yes():
+    i = _PROMPT.index("THE END OF THE INTERVIEW: THE SWEEP, THEN THE CLOSE.")
+    rule = _PROMPT[i:i + 1600]
+    assert "the reply after her yes to the last part's read-back asks the sweep question" in rule
+    assert "the last part is read back and confirmed like every other part" in rule
