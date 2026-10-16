@@ -777,8 +777,8 @@ VERSIONS = {
             "A GAP QUESTION THE APP WROTE IS ASKED AS WRITTEN",
             "THE STRETCH IN THE APP'S QUESTION IS AN ANCHOR OFFERED, NEVER FILED ON ITS OWN",
             "NEVER SAY OR IMPLY SHE IS CHECKING, LOOKING UP OR VERIFYING ANYTHING UNLESS HER OWN WORDS SAID SO",
-            'A KNOWN FACTS LINE READING "partial date, day not asked yet, ask for the exact day once" IS AN ASK YOU STILL OWE',
-            "re-sending is how the app learns the ask happened",
+            "A CAPTURE GAP ON A DATE WHOSE PARTIAL IS A YEAR OR A MONTH AND YEAR IS A DAY STILL OWED, NOT AN OFFER",
+            "which is how the app learns the day was asked and turns the line into an ordinary deferral.",
         ],
         "absent": [
             "for the current part and the next.",

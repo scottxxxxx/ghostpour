@@ -100,9 +100,15 @@ def test_the_reply_never_credits_her_with_checking_she_did_not_say():
     assert "which we'll come back to" in rule
 
 
-def test_a_day_not_asked_yet_line_is_asked_and_a_dont_know_re_sends_the_deferral():
-    i = _PROMPT.index('"partial date, day not asked yet, ask for the exact day once"')
-    rule = _PROMPT[i:i + 700]
-    assert "Ask for that day now, as the next question" in rule
+def test_a_date_capture_gap_with_a_partial_asks_the_day_and_never_offers_the_year():
+    """Build 191 widens the build 147 green card path: a same-turn YYYY or
+    YYYY-MM deferral on a p4/p7 date arrives as a capture gap. The offer-back
+    rule must not turn "partial 2017" into a yes and a minted "2017"."""
+    i = _PROMPT.index("A CAPTURE GAP ON A DATE WHOSE PARTIAL IS A YEAR OR A MONTH AND YEAR")
+    assert i > _PROMPT.index("A CAPTURE GAP WITH HER WORDS IS OFFERED BACK")
+    rule = _PROMPT[i:i + 800]
+    assert "never offer the partial back for a yes and never mint it as the date" in rule
+    assert "ask for the exact day next" in rule
     assert "both ends of one row in one question is fine" in rule
-    assert "re-send the deferral with the same field id and the same partial" in rule
+    assert 're-send the deferral with the same field id and the same partial, origin "applicant"' in rule
+    assert "day not asked yet" not in _PROMPT
