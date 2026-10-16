@@ -751,6 +751,72 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    62: {
+        # Scott's draft via the auditor (2026-10-14): build 180 sends
+        # metadata.today on every turn, so "May 1 last year" can be resolved,
+        # and the lane may OFFER a likely value as a yes or no question from
+        # six named anchors, minting it only on her yes. The template gains
+        # TODAY, which this script does not sync: /userPromptTemplate and
+        # /optionalVariables go by a scoped sync, read back by string.
+        "block_anchor": "THE RULE THAT OVERRIDES CHARITY",
+        "once": "AN ANCHOR MAY BE OFFERED, NEVER FILED: when TODAY, KNOWN FACTS or APPLICANT CONTEXT makes one value likely",
+        "phrases": [
+            "TODAY IS HER OWN CALENDAR DAY, from the TODAY line of the request.",
+            "is still a VAGUE DATE and gets that rule's one follow-up",
+            "When TODAY is empty, never resolve a relative year: ask which year.",
+            "you mint it only on her yes, with her yes as its provenance.utterance",
+            "the YEAR of her date of birth, never its month or day",
+            "Offer one value at a time, and never a day she did not say unless KNOWN FACTS holds it.",
+            "an offer she has not confirmed is not a fact",
+            "Asking one as a yes or no question is not filling it (AN ANCHOR MAY BE OFFERED, NEVER FILED).",
+            "AT THE TRIP QUESTION, A TRIP HOME GETS THE COUNTRY OFFERED IN THE SAME REPLY",
+            "A CAPTURE GAP WITH HER WORDS IS OFFERED BACK, NEVER ASKED COLD",
+            "every open field of every part before Part 9, and Part 9's own only while you are standing in Part 9.",
+            "A LATER PART'S VALUE SAID EARLY IS MINTED, NEVER HELD AS A CAPTURE GAP",
+            "because no field id for it is in the agenda or in VOLUNTEER FIELDS, is a CAPTURE GAP",
+            "A GAP QUESTION THE APP WROTE IS ASKED AS WRITTEN",
+            "THE STRETCH IN THE APP'S QUESTION IS AN ANCHOR OFFERED, NEVER FILED ON ITS OWN",
+            "NEVER SAY OR IMPLY SHE IS CHECKING, LOOKING UP OR VERIFYING ANYTHING UNLESS HER OWN WORDS SAID SO",
+            "A CAPTURE GAP ON A DATE WHOSE PARTIAL IS A YEAR OR A MONTH AND YEAR IS A DAY STILL OWED, NOT AN OFFER",
+            "which is how the app learns the day was asked and turns the line into an ordinary deferral.",
+            "`field_ids` LISTS ONLY THE FIELDS YOUR SPOKEN QUESTION ASKS, NEVER EVERY FIELD ON THE NODE",
+            "AND `node_id` IS THE NODE THAT OWNS THOSE FIELDS, never a gate she just answered",
+            "THE END OF THE INTERVIEW: THE SWEEP, THEN THE CLOSE.",
+            "NEVER ASK WHETHER SHE WANTS TO GO THROUGH HER ANSWERS OR GO STRAIGHT TO THE FORM",
+            "A REVIEW HAPPENS ONLY WHEN SHE ASKS FOR ONE",
+            "A FIELD IS DEFERRED ONLY ON HER OWN PUT-OFF",
+            "A DATE IS SAID BACK AS SHE GAVE IT, THE DAY INCLUDED",
+            "EVERY PART SUMMARY CARRIES ITS `section_checkpoint`, WRITTEN BEFORE `reply`",
+            "FINISH A PART BEFORE MOVING ON (Scott, 2026-10-16, a standing product rule)",
+            "Never go back to a part you already summarized to ask something it owed",
+            "A STATED NONE THAT ANSWERS A GATE IS THAT GATE'S \"no\", FILED THE MOMENT SHE SAYS IT",
+            "EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS (Scott, 2026-10-16, reversing his 2026-09-26 ruling of one review at the end)",
+            "the next part's question NEVER rides in the same reply",
+            "\"awaiting_confirmation\": boolean, TRUE on every read-back",
+            "NEVER SAY BACK A VALUE, OR A NONE, THAT THIS RESPONSE'S facts OR KNOWN FACTS DO NOT CARRY.",
+        ],
+        "absent": [
+            "for the current part and the next.",
+            "because no field id for it is in front of you, is a CAPTURE GAP",
+            "except the exact move-in date, which you are checking",
+            # Build 193 (case c2ba1f75): the app's end screen carries both
+            # doors, so the close asks nothing; the review offer retires.
+            "THE REVIEW IS HER OPTION AND YOUR OBLIGATION",
+            "the reply that finds the agenda empty and the sweep done MAKES the offer",
+            "your reply ENDS ON THAT OFFER",
+            "Would you like to go through your answers once more before you see your form, or go straight to it?",
+            "or gives only part of one (a year, a season, a month without a day), do not mint a fact and do not re-ask",
+            "and defer ONLY what she did not give, the exact dates;",
+            # Scott, 2026-10-16: every part is read back and confirmed before
+            # the next opens, reversing the 2026-09-26 one-review ruling.
+            "A part boundary NEVER asks whether the part is complete and correct",
+            "Carry `section_checkpoint` with `awaiting_confirmation` false",
+            "\"awaiting_confirmation\": boolean, FALSE at a part boundary",
+            "followed by Part 9's first question is exactly right",
+            "You may ask any node on the agenda when the conversation makes that natural.",
+            "no email, no second phone, no middle name, no other names, mint that field",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -829,6 +895,11 @@ VERSIONS[60]["phrases"] = VERSIONS[59]["phrases"] + [VERSIONS[59]["once"]] + VER
 VERSIONS[60]["absent"] = VERSIONS[59]["absent"] + VERSIONS[60]["absent"]
 VERSIONS[61]["phrases"] = VERSIONS[60]["phrases"] + [VERSIONS[60]["once"]] + VERSIONS[61]["phrases"]
 VERSIONS[61]["absent"] = VERSIONS[60]["absent"] + VERSIONS[61]["absent"]
+# v62 carries every v61 phrase except the review offer lines it retires
+# (they move to its absent list), and v61's once line as a phrase.
+VERSIONS[62]["phrases"] = [p for p in VERSIONS[61]["phrases"] if p not in VERSIONS[62]["absent"]] \
+    + [VERSIONS[61]["once"]] + VERSIONS[62]["phrases"]
+VERSIONS[62]["absent"] = VERSIONS[61]["absent"] + VERSIONS[62]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

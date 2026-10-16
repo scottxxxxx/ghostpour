@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 61
+served_version: 62
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-14 (v61)
+reconciled: 2026-10-14 (v62)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -1995,3 +1995,44 @@ PROMPT: directly after that sentence, A GATE OR COUNT THAT OPENS ROWS DOES NOT E
 
 Not tested against any model: no probes. The live test is Scott's next run on build 179. A GP backstop (refuse a checkpoint for part P when this response files pP.has_X = yes or pP.total_Y > 0 with none of its rows) is held unless a run shows the line does not hold.
 
+
+## v62: TODAY, and an anchor may be offered, never filed
+
+Scott's draft, relayed by the auditor (2026-10-14). Build 180 sends metadata.today (the phone's calendar day) on every turn, whatever the date-shift switch says, so "I moved in May 1 last year" can resolve. The date shift itself is shelved (Scott, 2026-10-14; the earlier v62 draft #1118 is on hold).
+
+TEMPLATE: a TODAY block before KNOWN FACTS; `today` is optional, so an older client assembles it empty, and the prompt then says never resolve a relative year.
+
+PROMPT: after the "is that in Texas?" rule. TODAY resolves an exact relative date, read back as a question in her words and then the date; a hedged one stays a VAGUE DATE (so "two years ago" from the draft's list is split: exact resolves, "like two years ago" keeps the vague rule). AN ANCHOR MAY BE OFFERED, NEVER FILED: six named sources (TODAY, the DOB year only, the date joining two rows, the APPLICANT CONTEXT state, the home city from p4.current_address.city, the country of birth for "going home"), one value at a time, minted only on her yes with the yes as provenance.utterance, and never a day she did not say unless KNOWN FACTS holds it. The plausible-value ban gains "asking one as a yes or no question is not filling it".
+
+GUARD: the day guard deferred a confirmed full date, because her yes holds no day. `_date_confirmed` keeps it only when her line is a bare yes, the interviewer's line right before read THAT date as one phrase and asked, and the day and month were hers in her last three lines, or the whole date is in KNOWN FACTS.
+
+Not tested against any model. The auditor runs free subagent probes first; any live check goes to Scott with an estimate.
+
+v62 additions, 2026-10-15 (auditor, from Scott's build 188 run: "I am a carpenter at Alamo Builders now" at the birth-country ask became a capture gap and Part 7 opened cold):
+
+VOLUNTEER FIELDS was described as "the current part and the next", stale since DECISIONS 2026-09-14; the client sends every open field before Part 9 (InterviewerEnvelope.volunteerFieldIDs, mirrored in the N-400 repo's qa/n400_qa.py:1314). The capture gap definition narrows to "no id in the agenda or VOLUNTEER FIELDS".
+
+A LATER PART'S VALUE SAID EARLY IS MINTED: Alamo is two facts, employer_name and occupation, citing her words. The client files them as mentions (InterviewEngine.swift ~6580: direct only on the standing node, a visited node, an open deferral, a correction, or tentative == false) and offers them back at Part 7.
+
+A CAPTURE GAP WITH HER WORDS IS OFFERED BACK, NEVER ASKED COLD, section openers included; on her yes each field is minted with her yes as the utterance. GP's evidence floor keeps that (the cited yes is in her line) and the Jev support check judges only choice fields; tests/test_n400_capture_gap_offer.py pins it.
+
+A GAP QUESTION THE APP WROTE IS ASKED AS WRITTEN (build 190): her answer is the row for that stretch, never a gate no. THE STRETCH IS AN ANCHOR OFFERED, NEVER FILED ON ITS OWN: the client does not fill the row's dates, and an accepted stretch takes the standing month and year path (ask the day, defer the month only if she does not know), because the prompt never mints a "2021-11" fact.
+
+v62 additions, 2026-10-15 later (auditor, from Scott's build 190 run, case 9e332c5d t_023/t_024): he said "framer at Lone Star homes in San Antonio, Texas, from 2017 to February 2022"; the lane deferred both ends with partials on that turn and asked the ZIP, and the next turn's summary said the dates were ones "you're checking". The day was never asked, and the checking was never said. Two lines:
+
+1. The checkpoint example no longer reads "which you are checking" (the prompt was teaching the defect). An open item is named with no reason, or with "which we'll come back to"; never checking, looking up or verifying unless her own words said so.
+2. Client build 191 (corrected by the auditor before it shipped) reuses the build 147 green card path, widened from p2.lpr_date to every p4.*.from/to and p7.employerN.from/to: a first applicant deferral of a YYYY or YYYY-MM partial, in a reply whose asking or clarification does not name that field, becomes a capture gap ("said earlier, not yet recorded, ask again, partial 2017"). The new line sits right after the offer-back rule as its exception for dates: the partial is never offered back for a yes or minted; the day is asked next (both ends of one row in one question is fine), and on a don't know the lane re-sends the deferral with the same partial, origin applicant, which the client now reads as the downgrade to an ordinary deferral once the day was asked. The auditor asked to name p2.lpr_date in the exception too (case 2cb53ac8: capture gap with partial 2015-06; the form needs the exact day the card prints).
+
+3. asking.field_ids lists only the fields the spoken question asks (auditor, 2026-10-16): build 191 counts a field as asked only when field_ids lists it, so a ZIP question listing the whole job row would read as the dates asked. The guard path in replace_settled_question keeps the whole agenda line, because it speaks that line's full question. Whether t_023 took the model path or the guard path is unread (the prod read awaits Scott).
+
+4. asking.node_id is the node that owns the listed fields (auditor, 2026-10-16). Prod read of t_023: two calls 11s apart. Call 1 asked the start month correctly but named q_p7_more_jobs1 (the has_job2 gate just filed) with p7.employer2.from; the client's A7 check read node_id alone, discarded the reply unspoken and re-requested; call 2 asked the ZIP. The client now lets the fields name the node; older builds need the prompt line.
+
+v62 additions, 2026-10-16 (auditor, from Scott's build 193 run, case c2ba1f75):
+
+1. The close replaces the review offer. The app's end screen carries both doors (Go to the form, Review your answers), so once the agenda is empty and the sweep is done the reply reads back the last part, says the form is complete, asks nothing, and sets interview_over true. In c2ba1f75 the offer was asked, his "go straight to it" was ignored, and the case closed only on relaunch. A review still runs one part per response, but only when she asks for one. Retired: "THE REVIEW IS HER OPTION AND YOUR OBLIGATION", "the reply that finds the agenda empty and the sweep done MAKES the offer", "your reply ENDS ON THAT OFFER" (older phrase lists are checked with them put back, as v58 did).
+2. A field is deferred only on her own put-off. The DEFERRALS section's opening sentence ("or gives only part of one ... do not mint a fact and do not re-ask ... put it in deferred") was itself the line teaching same-turn partial deferrals against the month and year rule; it now says a partial gets the missing piece asked once. The trips sentence ("defer ONLY what she did not give, the exact dates") now asks the dates row by row.
+3. A date is said back with the day she gave ("January 1st, 2017 to February 1st, 2022", never "January 2017 to February 2022").
+4. Every part summary carries its section_checkpoint, written before reply (Parts 1, 2 and 5 were words only in c2ba1f75). Prompt only; no guard added.
+5. FINISH A PART BEFORE MOVING ON (Scott, 2026-10-16, a standing product rule, via the auditor): every detail of a part (ZIPs, days, every agenda line) is asked before another part opens; she leaves a part with something open only on her explicit ask or "I'll come back to it"; stuck (two tries) allows ONE offer to come back later, moving only on her yes (deferred, origin applicant); never go back to a summarized part for something it owed. The agenda paragraph's "You may ask any node on the agenda when the conversation makes that natural" licensed exactly the jump and now reads "any node of the part you are in"; the old sentence is on v62's absent list. Her own correction of an earlier part is still taken.
+6. A volunteered none that answers a gate is that gate's "no", filed in the same response, even for a later part (auditor, from Scott's build 194 run, case 53328dc8 t_006: "Daniel Reyes, no middle name" said back, no p2.has_middle_name filed, the question asked again). The old STATED NONE rule listed "no middle name, no other names" under the empty-string mint, which pointed at the optional field rather than its gate; it now covers only nones with no gate (email, second phone), and the old list is on v62's absent list.
+7. Every part is read back and confirmed before the next opens (Scott, 2026-10-16, via the auditor, reversing his 2026-09-26 one-review ruling). The read-back ends on "is that right?" with section_checkpoint awaiting_confirmation true and asking null; on her yes (said or tapped) the next reply opens the next part; on a no, ask what to change, file it, read back again. End: the last part's confirmation, then the sweep if owed, then the close. Changed every line that carried the old shape: the turn-shape rule and its exceptions, the caps paragraph, MOVING THE INTERVIEW's allowed questions, the fee reduction exception (now confirmed like any part), the closing-language carve-out ("that's everything for Part 8" followed by Part 9's first question), the follow-up rule, the end flow and sweep, and the awaiting_confirmation schema. Retired v39 to v61 phrases: "A part boundary NEVER asks whether the part is complete and correct", "Carry `section_checkpoint` with `awaiting_confirmation` false", "\"awaiting_confirmation\": boolean, FALSE at a part boundary". GP's drop_checkpoint_when_asking_set exemption (a false card beside a named question) is left in place: the new shape carries asking null, so the floor never sees it.
