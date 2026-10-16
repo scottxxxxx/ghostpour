@@ -109,6 +109,7 @@ def test_a_date_capture_gap_with_a_partial_asks_the_day_and_never_offers_the_yea
     rule = _PROMPT[i:i + 800]
     assert "never offer the partial back for a yes and never mint it as the date" in rule
     assert "ask for the exact day next" in rule
+    assert "or the green card date p2.lpr_date" in rule
     assert "both ends of one row in one question is fine" in rule
     assert 're-send the deferral with the same field id and the same partial, origin "applicant"' in rule
     assert "day not asked yet" not in _PROMPT
