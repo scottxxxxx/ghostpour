@@ -183,8 +183,21 @@ V58_RETIRED = [
 ]
 
 
+# v62 (2026-10-16, build 193) retired the review offer: the app's end screen
+# carries both doors. Older lists are checked with those lines put back.
+V62_RETIRED = [
+    "THE REVIEW IS HER OPTION AND YOUR OBLIGATION",
+    "the reply that finds the agenda empty and the sweep done MAKES the offer",
+    "your reply ENDS ON THAT OFFER",
+]
+
+
+def _v62_with_retired() -> str:
+    return _bundle_prompt(62) + "\n" + "\n".join(V62_RETIRED)
+
+
 def _v58_with_retired() -> str:
-    return _bundle_prompt(62) + "\n" + "\n".join(V58_RETIRED)
+    return _v62_with_retired() + "\n" + "\n".join(V58_RETIRED)
 
 
 def test_the_v33_phrases_verify_and_each_is_load_bearing():
@@ -860,7 +873,7 @@ def test_the_retired_extractor_prompt_carries_the_same_fix():
 # --- v58: the app owns the window math (Scott's build 174 run, 2026-10-13) ------
 
 def test_the_v58_list_verifies_the_real_v58_bundle():
-    assert verify(_bundle_prompt(62), 58) is True
+    assert verify(_v62_with_retired(), 58) is True
 
 
 def test_each_v58_phrase_is_load_bearing_on_the_real_bundle():
@@ -897,7 +910,7 @@ def test_every_kept_v57_phrase_rides_into_v58():
 #     (the auditor's boundary-date runs on v58, 2026-10-14)
 
 def test_the_v59_list_verifies_the_real_v59_bundle():
-    assert verify(_bundle_prompt(62), 59) is True
+    assert verify(_v62_with_retired(), 59) is True
 
 
 def test_each_v59_phrase_is_load_bearing_on_the_real_bundle():
@@ -952,7 +965,7 @@ def test_v59_the_job_gate_names_the_employer():
 #     (case bf7aed58, t_017, 2026-10-14)
 
 def test_the_v60_list_verifies_the_real_v60_bundle():
-    assert verify(_bundle_prompt(62), 60) is True
+    assert verify(_v62_with_retired(), 60) is True
 
 
 def test_each_v60_phrase_is_load_bearing_on_the_real_bundle():
@@ -990,7 +1003,7 @@ def test_v60_widens_the_asking_rule_in_place():
 #     (app build 179, 2026-10-14: child rows withheld until the count is filed)
 
 def test_the_v61_list_verifies_the_real_v61_bundle():
-    assert verify(_bundle_prompt(62), 61) is True
+    assert verify(_v62_with_retired(), 61) is True
 
 
 def test_each_v61_phrase_is_load_bearing_on_the_real_bundle():
@@ -1028,11 +1041,6 @@ def test_each_v62_phrase_is_load_bearing_on_the_real_bundle():
         assert verify(sp.replace(phrase, ""), 62) is False, phrase
 
 
-def test_every_v61_phrase_and_its_once_line_ride_into_v62():
-    for phrase in VERSIONS[61]["phrases"] + [VERSIONS[61]["once"]]:
-        assert phrase in VERSIONS[62]["phrases"], phrase
-
-
 def test_v62_sits_on_the_texas_rule_it_generalizes():
     sp = _bundle_prompt(62)
     i = sp.index('ask "is that in Texas?" rather than write TX.')
@@ -1045,3 +1053,17 @@ def test_v62_keeps_the_bans_it_sits_beside():
     assert "A MISSING COMPONENT IS NEVER COMPLETED FROM CONTEXT" in sp
     assert "You may never fill a gap with a plausible value" in sp
     assert "never propose a surname she did not say" in sp
+
+
+@pytest.mark.parametrize("retired", V62_RETIRED + [
+    "Would you like to go through your answers once more before you see your form, or go straight to it?"])
+def test_v62_refuses_the_review_offer_coming_back(retired):
+    sp = _bundle_prompt(62)
+    assert retired not in sp
+    assert verify(sp + "\n" + retired, 62) is False
+
+
+def test_every_kept_v61_phrase_rides_into_v62():
+    for phrase in VERSIONS[61]["phrases"] + [VERSIONS[61]["once"]]:
+        if phrase not in V62_RETIRED:
+            assert phrase in VERSIONS[62]["phrases"], phrase

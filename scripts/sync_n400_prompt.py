@@ -781,11 +781,25 @@ VERSIONS = {
             "which is how the app learns the day was asked and turns the line into an ordinary deferral.",
             "`field_ids` LISTS ONLY THE FIELDS YOUR SPOKEN QUESTION ASKS, NEVER EVERY FIELD ON THE NODE",
             "AND `node_id` IS THE NODE THAT OWNS THOSE FIELDS, never a gate she just answered",
+            "THE END OF THE INTERVIEW: THE SWEEP, THEN THE CLOSE.",
+            "NEVER ASK WHETHER SHE WANTS TO GO THROUGH HER ANSWERS OR GO STRAIGHT TO THE FORM",
+            "A REVIEW HAPPENS ONLY WHEN SHE ASKS FOR ONE",
+            "A FIELD IS DEFERRED ONLY ON HER OWN PUT-OFF",
+            "A DATE IS SAID BACK AS SHE GAVE IT, THE DAY INCLUDED",
+            "EVERY PART SUMMARY CARRIES ITS `section_checkpoint`, WRITTEN BEFORE `reply`",
         ],
         "absent": [
             "for the current part and the next.",
             "because no field id for it is in front of you, is a CAPTURE GAP",
             "except the exact move-in date, which you are checking",
+            # Build 193 (case c2ba1f75): the app's end screen carries both
+            # doors, so the close asks nothing; the review offer retires.
+            "THE REVIEW IS HER OPTION AND YOUR OBLIGATION",
+            "the reply that finds the agenda empty and the sweep done MAKES the offer",
+            "your reply ENDS ON THAT OFFER",
+            "Would you like to go through your answers once more before you see your form, or go straight to it?",
+            "or gives only part of one (a year, a season, a month without a day), do not mint a fact and do not re-ask",
+            "and defer ONLY what she did not give, the exact dates;",
         ],
     },
 }
@@ -866,7 +880,10 @@ VERSIONS[60]["phrases"] = VERSIONS[59]["phrases"] + [VERSIONS[59]["once"]] + VER
 VERSIONS[60]["absent"] = VERSIONS[59]["absent"] + VERSIONS[60]["absent"]
 VERSIONS[61]["phrases"] = VERSIONS[60]["phrases"] + [VERSIONS[60]["once"]] + VERSIONS[61]["phrases"]
 VERSIONS[61]["absent"] = VERSIONS[60]["absent"] + VERSIONS[61]["absent"]
-VERSIONS[62]["phrases"] = VERSIONS[61]["phrases"] + [VERSIONS[61]["once"]] + VERSIONS[62]["phrases"]
+# v62 carries every v61 phrase except the review offer lines it retires
+# (they move to its absent list), and v61's once line as a phrase.
+VERSIONS[62]["phrases"] = [p for p in VERSIONS[61]["phrases"] if p not in VERSIONS[62]["absent"]] \
+    + [VERSIONS[61]["once"]] + VERSIONS[62]["phrases"]
 VERSIONS[62]["absent"] = VERSIONS[61]["absent"] + VERSIONS[62]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83

@@ -132,3 +132,39 @@ def test_asking_node_id_owns_its_fields_never_the_gate_just_answered():
     rule = _PROMPT[i:i + 500]
     assert '{"node_id": "q_p7_job2", "field_ids": ["p7.employer2.from"]}' in rule
     assert "never q_p7_more_jobs1" in rule
+
+
+# --- build 193 (case c2ba1f75): the close, put-offs, days, checkpoints -------
+
+def test_the_close_says_the_form_is_complete_and_asks_nothing():
+    i = _PROMPT.index("THE END OF THE INTERVIEW: THE SWEEP, THEN THE CLOSE.")
+    rule = _PROMPT[i:i + 1600]
+    assert "say the form is complete, ask nothing, and set `interview_over` true" in rule
+    assert "NEVER ASK WHETHER SHE WANTS TO GO THROUGH HER ANSWERS OR GO STRAIGHT TO THE FORM" in rule
+    assert "Would you like to go through your answers" not in _PROMPT
+    # The sweep still comes before the close.
+    assert "asks the sweep question below and NOT the close" in rule
+    i = _PROMPT.index('"interview_over": boolean')
+    assert "true on the close (the agenda empty and the sweep done or not needed)" in _PROMPT[i:i + 300]
+
+
+def test_a_field_is_deferred_only_on_her_own_put_off():
+    i = _PROMPT.index("A FIELD IS DEFERRED ONLY ON HER OWN PUT-OFF")
+    rule = _PROMPT[i:i + 900]
+    assert "is ASKED NEXT, never deferred and never \"left open\"" in rule
+    assert "I'll leave the ZIP open for now" in rule
+    assert "ask for the missing piece once" in rule
+    # The line that taught a same-turn partial deferral is gone.
+    assert "or gives only part of one (a year, a season, a month without a day), do not mint" not in _PROMPT
+    assert "the exact dates are asked next, one row at a time, and never deferred with the country" in _PROMPT
+
+
+def test_a_date_is_said_back_with_the_day_she_gave():
+    i = _PROMPT.index("A DATE IS SAID BACK AS SHE GAVE IT, THE DAY INCLUDED")
+    rule = _PROMPT[i:i + 400]
+    assert 'never "January 2017 to February 2022"' in rule
+
+
+def test_every_part_summary_carries_its_checkpoint():
+    i = _PROMPT.index("EVERY PART SUMMARY CARRIES ITS `section_checkpoint`")
+    assert "Parts 1, 2 and 5 were summed up in words only" in _PROMPT[i:i + 500]
