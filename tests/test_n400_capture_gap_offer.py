@@ -184,3 +184,16 @@ def test_a_part_is_finished_before_the_next_one_opens():
     # The agenda paragraph no longer licenses a jump to any node.
     assert "You may ask any node on the agenda when the conversation makes that natural." not in _PROMPT
     assert "You may ask any node of the part you are in" in _PROMPT
+
+
+def test_a_volunteered_none_files_its_gate_no_in_the_same_response():
+    """Case 53328dc8, build 194, t_006: "no middle name" was said back and
+    never filed, and the middle name question came back."""
+    i = _PROMPT.index('A STATED NONE THAT ANSWERS A GATE IS THAT GATE\'S "no"')
+    rule = _PROMPT[i:i + 1200]
+    assert 'p2.has_middle_name "no", p2.has_other_names "no"' in rule
+    assert "even when the gate belongs to a later part" in rule
+    assert "NEVER SAY BACK A VALUE, OR A NONE, THAT THIS RESPONSE'S facts OR KNOWN FACTS DO NOT CARRY." in rule
+    # The empty-string rule no longer claims the gated nones.
+    assert "no email, no second phone, no middle name, no other names, mint that field" not in _PROMPT
+    assert "A STATED NONE on an OPTIONAL field with no gate is a fact" in _PROMPT

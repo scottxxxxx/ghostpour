@@ -789,6 +789,8 @@ VERSIONS = {
             "EVERY PART SUMMARY CARRIES ITS `section_checkpoint`, WRITTEN BEFORE `reply`",
             "FINISH A PART BEFORE MOVING ON (Scott, 2026-10-16, a standing product rule)",
             "Never go back to a part you already summarized to ask something it owed",
+            "A STATED NONE THAT ANSWERS A GATE IS THAT GATE'S \"no\", FILED THE MOMENT SHE SAYS IT",
+            "NEVER SAY BACK A VALUE, OR A NONE, THAT THIS RESPONSE'S facts OR KNOWN FACTS DO NOT CARRY.",
         ],
         "absent": [
             "for the current part and the next.",
@@ -803,6 +805,7 @@ VERSIONS = {
             "or gives only part of one (a year, a season, a month without a day), do not mint a fact and do not re-ask",
             "and defer ONLY what she did not give, the exact dates;",
             "You may ask any node on the agenda when the conversation makes that natural.",
+            "no email, no second phone, no middle name, no other names, mint that field",
         ],
     },
 }
