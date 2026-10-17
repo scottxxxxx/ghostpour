@@ -360,6 +360,8 @@ def _applicant_said(conversation: str | None) -> list[str]:
 
 def drop_facts_without_current_evidence(
     text: str, user_content: str | None, conversation: str | None = None,
+    *, agenda: str | None = None, locale: str | None = None,
+    applicant_line_field_ids: str | None = None,
 ) -> tuple[str, list[dict]]:
     """Return (possibly rewritten text, list of dropped fact summaries).
 
@@ -411,7 +413,9 @@ def drop_facts_without_current_evidence(
         carried = bool(cited and value and cited_line is not None and (
             value in cited
             or _date_said(value, cited)
-            or _state_paired(f, value, cited, earlier + [said])))
+            or _state_paired(f, value, cited, earlier + [said])
+            or _free_text_carried(f, cited, said, earlier, agenda, locale,
+                                  applicant_line_field_ids)))
         if utt and (cited in said or carried or _name_words_said(f, cited_line, said)):
             kept.append(f)
             continue
@@ -436,6 +440,61 @@ def drop_facts_without_current_evidence(
     if pending:
         turn["facts_pending_support"] = pending
     return json.dumps(turn, ensure_ascii=False), dropped
+
+
+# v63 (2026-10-16, agreed with the auditor): a free-text answer is filed in
+# English whatever language she speaks, so a CARRIED one can never pass the
+# value-in-cited test above ("House cleaning" is not inside "limpio casas").
+# Accepted only for these fields, only off English, and only where her cited
+# line was the answer to THAT field: the app's applicant_line_field_ids
+# (build 203) says which fields each of her lines answered; without it, the
+# floor is her immediately previous answer and a field still on the agenda.
+# Choice, identifier, date, name and address fields keep the conf-v18 test.
+FREE_TEXT_SUFFIXES = (".occupation", ".employer_name", ".explain", ".offense",
+                      ".outcome", ".sentence", ".reason")
+FREE_TEXT_FIELDS = {"p1.eligibility_other"}
+
+
+def is_free_text_field(field_id) -> bool:
+    return isinstance(field_id, str) and (
+        field_id in FREE_TEXT_FIELDS or field_id.endswith(FREE_TEXT_SUFFIXES))
+
+
+def _line_field_ids(raw: str | None) -> list[set[str] | None]:
+    """One entry per non-empty APPLICANT line, in order; None is "unknown"."""
+    out = []
+    for line in (raw or "").splitlines():
+        if not line.strip():
+            continue
+        _, _, ids = line.partition(":")
+        ids = ids.strip()
+        out.append(None if not ids or ids == "unknown"
+                   else {i.strip() for i in ids.split(",") if i.strip()})
+    return out
+
+
+def _free_text_carried(f, cited: str, said: str, earlier: list[str], agenda,
+                       locale, applicant_line_field_ids) -> bool:
+    fid = f.get("field_id") if isinstance(f, dict) else None
+    if not is_free_text_field(fid) or not locale or locale.lower().startswith("en"):
+        return False
+    entries = _line_field_ids(applicant_line_field_ids)
+    hits = [i for i, line in enumerate(earlier) if cited in line]
+    if entries and len(entries) == len(earlier):
+        known = [entries[i] for i in hits if entries[i] is not None]
+        if any(fid in ids for ids in known):
+            return True
+        if known:
+            # Her line answered some other field: a translation may not
+            # drift onto this box.
+            return False
+    # The floor, when the app sent no key, a count that does not line up, or
+    # only "unknown" lines: her immediately previous answer, and a field the
+    # agenda still holds open.
+    prior = earlier[:-1] if earlier and earlier[-1] == said else earlier
+    if not prior or cited not in prior[-1]:
+        return False
+    return any(fid in ids for ids in agenda_field_ids(agenda).values())
 
 
 # A date filed normalized ("2025-05-09") from words that say it another way
@@ -1018,7 +1077,8 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
                         user_content: str | None = None,
                         conversation: str | None = None,
                         choice_fields=None, locale: str | None = None,
-                        known_facts: str | None = None) -> str:
+                        known_facts: str | None = None,
+                        applicant_line_field_ids: str | None = None) -> str:
     # FIRST, on the model's own facts: the stream corrected each released
     # sentence against these same facts, before any guard below drops one.
     text, readbacks = correct_identifier_readbacks(text)
@@ -1049,7 +1109,8 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
                        turn_id, closed["field_id"], closed["count"])
     if user_content is not None:
         new_text, dropped = drop_facts_without_current_evidence(
-            new_text, user_content, conversation)
+            new_text, user_content, conversation, agenda=agenda, locale=locale,
+            applicant_line_field_ids=applicant_line_field_ids)
         for d in dropped:
             logger.warning("n400_fact_dropped_no_evidence turn_id=%s field_id=%s", turn_id, d["field_id"])
     # After the evidence floor (which keeps "No": it IS in her line) and
