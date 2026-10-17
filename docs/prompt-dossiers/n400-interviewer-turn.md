@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 63
+served_version: 64
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-16 (v63)
+reconciled: 2026-10-17 (v64)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -2050,3 +2050,9 @@ Second v63 rule, the same day (the auditor, from Scott asking "if I answered in 
 Resolved the same day, agreed with the auditor: the floor accepts a CARRIED free-text fact (the auditor's suffixes plus p1.eligibility_other, locale not en) when her cited line answered that field. The app sends `applicant_line_field_ids` from build 203, one line per APPLICANT line in the window ("1: p7.employer1.occupation", "unknown" before 203). A line that answered other fields drops it. Without the key, with only unknown lines, or with a count that doesn't match the window, the floor is her immediately previous answer plus a field still on the agenda. Choice, identifier, date, name and address fields keep the conf-v18 test. Code: _free_text_carried in n400_interviewer_guard.py; chat.py passes the key. Sabotage: dropping the locale check, the router not passing the key, and letting a known-other line fall through each failed exactly the predicted tests (1, 1, 2).
 
 Also in v63, from the case 0e731ec1 read (t_009, 2026-10-16): GP's evidence floor dropped p2.other_name2_last_name "Evander" because she had SPELLED it ("E V A N D E R, but") the turn before, and _name_words_said needs the word itself. Agreed with the auditor: a maximal run of single letters (spaces, commas, periods or hyphens between) that joins to exactly the value's letters counts, on person-name fields only (_SPELLED_NAME_FIELD); a multi-word value passes only when each word does. Sabotage 3, 2, 1 as predicted. Prompt: "no middle name" on a row with no has-middle-name field files that row's middle name as "" (t_009 filed nothing). Also from that read: t_010 "Seymour, but." got "Got the first name" with no fact (a lane miss under v61; v62's never-say-back rule is the fix).
+
+## v64: the field asked decides which identifier the digits are
+
+From Scott's device run via the auditor (case 766ab91c, 2026-10-17 ~04:58 UTC, node q_p2_lpr_date). He said "My social security number is 555-444-7781", which is 10 digits. The egress masker typed it as a phone-shaped stand-in ("555-555-0189"). The lane read back "5 5 5 5 5 5 0 1 8 9" as "noted", and no p2.ssn reached the case. v63's wrong-count rule had fired on his A-Number earlier in the same case. ⚠ My first account of why, that v63's clause "ten digits in phone groups are a phone number" made the lane treat the SSN as a phone, was WRONG: the prod read (usage_log raw_response, three calls on t_016) shows the lane filed p2.ssn "555550189", nine digits, the stand-in with one 5 dropped, and GP passed it because nine is a valid SSN count. The client's build 198 floor refused it. v64 retires that clause and the old count list (on v64's absent list, V64_RETIRED in the tests). It names every identifier (SSN exactly 9, A-Number 7 to 9, USCIS online account 12, phone 10) and says the field asked decides the identifier whatever shape the digits arrive in, with the SSN example said back as "Social Security numbers have 9 digits, I heard 10". An identifier not filed is never read back. Not probed live.
+
+v64 code, the same day, agreed with the auditor after the read. drop_identifiers_not_as_said: an SSN, A-Number, spouse A-Number or USCIS account fact is kept only when its digits equal EXACTLY one digit run (7 or more digits) in the words it cites, or in Spanish the reading of her number words. No trim, pad or merge. It acts only when it can read digits there, and phones are left out. reask_dropped_identifier: after this drop or the count-guard drop, the reply becomes a re-ask of that one identifier in each locale on the reply ("Social Security numbers have 9 digits, I heard 10, could you say it again?", in es and pt too), asking points at its node, and the checkpoint is cleared. _split_date_said: a date from her current line plus her previous one, every piece of the citation inside one of them, every component said, and the field tagged on either line by applicant_line_field_ids (or on the agenda without the key). The auditor's spec said the previous line; I took either line because t_014's "January 1st" was volunteered at the nationality question, so with build 203's key only the current line carries p2.lpr_date. Sabotage 5, 4, 2, 1 as predicted.

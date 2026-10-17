@@ -416,7 +416,8 @@ def drop_facts_without_current_evidence(
             or _state_paired(f, value, cited, earlier + [said])
             or _free_text_carried(f, cited, said, earlier, agenda, locale,
                                   applicant_line_field_ids)))
-        if utt and (cited in said or carried or _name_words_said(f, cited_line, said)):
+        if utt and (cited in said or carried or _name_words_said(f, cited_line, said)
+                    or _split_date_said(f, utt, said, earlier, agenda, applicant_line_field_ids)):
             kept.append(f)
             continue
         entry = {"field_id": f.get("field_id") if isinstance(f, dict) else None,
@@ -495,6 +496,48 @@ def _free_text_carried(f, cited: str, said: str, earlier: list[str], agenda,
     if not prior or cited not in prior[-1]:
         return False
     return any(fid in ids for ids in agenda_field_ids(agenda).values())
+
+
+# v64 (case 766ab91c t_015, agreed with the auditor 2026-10-17): a date she
+# gives in two pieces across two answers. "I've been a permanent resident
+# since January 1st." then, asked the year, "2015." The lane filed 2015-01-01
+# citing both lines joined, which is not a span of either, so it was dropped.
+# Accepted only from her current line plus her immediately previous one, every
+# piece of the citation inside one of them, and every component (year, month,
+# day) said in one of them. The line must belong to this date: the app's
+# applicant_line_field_ids lists the field for the previous OR the current
+# line (she volunteered "January 1st" at the nationality question, so it is the
+# current line, asked for the year, that carries the date field), or, without
+# the key, the field is on the agenda. Nothing is inferred: no "this year", and
+# a missing day still fails here and becomes a partial the usual way.
+_CITE_PIECES = re.compile(r"[^.!?;]+")
+
+
+def _split_date_said(f, utt: str, said: str, earlier: list[str], agenda,
+                     applicant_line_field_ids) -> bool:
+    if not isinstance(f, dict):
+        return False
+    fid, value = f.get("field_id"), str(f.get("value") or "")
+    if not re.fullmatch(r"\d{4}-\d{2}(?:-\d{2})?", value):
+        return False
+    lines = earlier[:-1] if earlier and earlier[-1] == said else list(earlier)
+    if not lines:
+        return False
+    prev = lines[-1]
+    pieces = [_norm(x) for x in _CITE_PIECES.findall(utt or "") if _norm(x)]
+    if not pieces or not all(x in prev or x in said for x in pieces):
+        return False
+    entries = _line_field_ids(applicant_line_field_ids)
+    if entries and len(entries) == len(earlier) and earlier and earlier[-1] == said:
+        tagged = [e for e in (entries[-2], entries[-1]) if e is not None]
+        if tagged:
+            if not any(fid in e for e in tagged):
+                return False
+        elif not any(fid in ids for ids in agenda_field_ids(agenda).values()):
+            return False
+    elif not any(fid in ids for ids in agenda_field_ids(agenda).values()):
+        return False
+    return _date_said(value, prev + " " + said)
 
 
 # A date filed normalized ("2025-05-09") from words that say it another way
@@ -1020,6 +1063,119 @@ def drop_identifiers_with_wrong_digit_count(text: str) -> tuple[str, list[dict]]
     return json.dumps(turn, ensure_ascii=False), dropped
 
 
+# --- an identifier is filed with exactly the digits she said (v64) -----------
+#
+# Case 0e731ec1 (A-Number) and 766ab91c (SSN): she said 10 digits, the egress
+# masker typed them as a phone-shaped stand-in, and the lane filed NINE of
+# them. Nine is a valid count, so the count guard above passed it; the
+# client's floor refused it silently and the reply had already read a number
+# back. The prompt rule failed twice, so it is code (agreed with the auditor
+# 2026-10-17): the filed digits must equal one digit run in the words the fact
+# cites, exactly. No trim, no pad, no two runs merged. Acts only when the cited
+# words hold a run of identifier length (or, in Spanish, number words that
+# read as one), so a number it cannot read is never judged. Phones are out.
+NOT_AS_SAID_REASON = "identifier digits are not exactly the digits she said"
+_REASK = {
+    "en": {"p2.ssn": "Social Security numbers have 9 digits",
+           "p1.a_number": "A-Numbers have 7 to 9 digits",
+           "p5.spouse_a_number": "A-Numbers have 7 to 9 digits",
+           "p2.uscis_account_number": "USCIS online account numbers have 12 digits",
+           "_count": "{rule}, I heard {n}, could you say it again?",
+           "_same": "I want to be sure I have it exactly right. Could you say the {name} again?",
+           "p2.ssn_name": "Social Security number", "p1.a_number_name": "A-Number",
+           "p5.spouse_a_number_name": "A-Number", "p2.uscis_account_number_name": "USCIS online account number"},
+    "es": {"p2.ssn": "Los números de Seguro Social tienen 9 dígitos",
+           "p1.a_number": "Los números A tienen de 7 a 9 dígitos",
+           "p5.spouse_a_number": "Los números A tienen de 7 a 9 dígitos",
+           "p2.uscis_account_number": "Los números de cuenta en línea de USCIS tienen 12 dígitos",
+           "_count": "{rule} y escuché {n}, ¿me lo puede repetir?",
+           "_same": "Quiero estar seguro de tenerlo exacto. ¿Me puede repetir el {name}?",
+           "p2.ssn_name": "número de Seguro Social", "p1.a_number_name": "número A",
+           "p5.spouse_a_number_name": "número A", "p2.uscis_account_number_name": "número de cuenta en línea de USCIS"},
+    "pt": {"p2.ssn": "Os números do Seguro Social têm 9 dígitos",
+           "p1.a_number": "Os números A têm de 7 a 9 dígitos",
+           "p5.spouse_a_number": "Os números A têm de 7 a 9 dígitos",
+           "p2.uscis_account_number": "Os números de conta online do USCIS têm 12 dígitos",
+           "_count": "{rule} e eu ouvi {n}, pode repetir?",
+           "_same": "Quero ter certeza de que está exato. Pode repetir o {name}?",
+           "p2.ssn_name": "número do Seguro Social", "p1.a_number_name": "número A",
+           "p5.spouse_a_number_name": "número A", "p2.uscis_account_number_name": "número de conta online do USCIS"},
+}
+
+
+def _said_digit_runs(cited: str, locale: str | None) -> list[str]:
+    runs = [re.sub(r"\D", "", m.group(0)) for m in _DIGIT_RUN.finditer(cited or "")]
+    runs = [r for r in runs if len(r) >= _MIN_IDENTIFIER_DIGITS]
+    if not runs and (locale or "").lower().startswith("es"):
+        from app.services.spanish_numerals import read_groups
+        joined = "".join(d for _, d in read_groups(cited or ""))
+        if len(joined) >= _MIN_IDENTIFIER_DIGITS:
+            runs = [joined]
+    return runs
+
+
+def reask_text(field_id: str, heard: int | None, locale: str) -> str:
+    t = _REASK.get((locale or "en").split("-")[0].lower(), _REASK["en"])
+    want = IDENTIFIER_DIGIT_COUNTS.get(field_id, set())
+    if heard is not None and heard not in want:
+        return t["_count"].format(rule=t[field_id], n=heard)
+    return t["_same"].format(name=t[field_id + "_name"])
+
+
+def drop_identifiers_not_as_said(text: str, locale: str | None = None) -> tuple[str, list[dict]]:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, []
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, []
+    kept, dropped = [], []
+    for f in turn["facts"]:
+        fid = f.get("field_id") if isinstance(f, dict) else None
+        if fid in IDENTIFIER_DIGIT_COUNTS and f.get("value") != "":
+            cited = (f.get("provenance") or {}).get("utterance") or ""
+            runs = _said_digit_runs(cited, locale)
+            digits = re.sub(r"\D", "", str(f.get("value") or ""))
+            if runs and digits not in runs:
+                dropped.append({"field_id": fid, "digits": len(digits), "heard": len(runs[0]),
+                                "reason": NOT_AS_SAID_REASON})
+                continue
+        kept.append(f)
+    if not dropped:
+        return text, []
+    turn["facts"] = kept
+    turn["facts_dropped"] = (turn.get("facts_dropped") or []) + dropped
+    return json.dumps(turn, ensure_ascii=False), dropped
+
+
+def reask_dropped_identifier(text: str, dropped: list[dict], agenda: str | None) -> str:
+    """She must never hear a number back that was not filed: the reply becomes
+    a re-ask of that one identifier, with the count heard, in every locale."""
+    if not dropped:
+        return text
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text
+    if not isinstance(turn, dict):
+        return text
+    first = dropped[0]
+    fid, heard = first["field_id"], first.get("heard")
+    reply = turn.get("reply")
+    if isinstance(reply, dict):
+        turn["reply"] = {loc: reask_text(fid, heard, loc) for loc in reply} or {"en": reask_text(fid, heard, "en")}
+    else:
+        turn["reply"] = {"en": reask_text(fid, heard, "en")}
+    node = next((n for n, ids in agenda_field_ids(agenda).items() if fid in ids), None)
+    if node:
+        turn["asking"] = {"node_id": node, "field_ids": [fid]}
+    turn["section_checkpoint"] = None
+    turn["interview_over"] = False
+    turn["complete"] = False
+    turn["identifier_reask"] = {"field_id": fid, "heard": heard}
+    return json.dumps(turn, ensure_ascii=False)
+
+
 # --- a probation she never had is filed as not applicable (jorge-r6 t49) ------
 #
 # "Never had any of that, just the ticket." The reply said "no probation or
@@ -1135,6 +1291,13 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     for w in wrong_count:
         logger.warning("n400_identifier_wrong_digit_count turn_id=%s field_id=%s digits=%d expected=%s",
                        turn_id, w["field_id"], w["digits"], w["expected"])
+    new_text, not_as_said = drop_identifiers_not_as_said(new_text, locale)
+    for w in not_as_said:
+        logger.warning("n400_identifier_not_as_said turn_id=%s field_id=%s digits=%d heard=%d",
+                       turn_id, w["field_id"], w["digits"], w["heard"])
+    # Either drop: she must not hear back a number that was not filed.
+    _reask_from = not_as_said or [dict(w, heard=w["digits"]) for w in wrong_count]
+    new_text = reask_dropped_identifier(new_text, _reask_from, agenda)
     new_text, occupations = fix_occupations(new_text, known_facts)
     for c in occupations:
         logger.warning("n400_occupation_fixed turn_id=%s field_id=%s action=%s", turn_id, c["field_id"], c["action"])
