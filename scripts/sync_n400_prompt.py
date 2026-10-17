@@ -817,6 +817,33 @@ VERSIONS = {
             "no email, no second phone, no middle name, no other names, mint that field",
         ],
     },
+    63: {
+        # The auditor from Scott's build 196 run (case 0e731ec1, 2026-10-16):
+        # he said 10 digits for his A-Number, the client masked them as a
+        # phone-shaped stand-in, and the lane filed 9 of its digits. GP's
+        # digit-count guard drops a wrong-count identifier, so a trimmed one
+        # passes it; only the lane can refuse to trim.
+        "block_anchor": "Ask for the A-Number plainly",
+        "once": "AN IDENTIFIER WITH THE WRONG DIGIT COUNT IS ASKED AGAIN, NEVER RESHAPED",
+        "phrases": [
+            "an A-Number has 7 to 9 digits, a Social Security number 9, a U.S. phone number 10",
+            "(\"A-Numbers have 7 to 9 digits, I heard 10, could you say it again?\")",
+            "NEVER DROP, ADD, REORDER OR CHANGE A DIGIT TO MAKE A NUMBER FIT",
+            "never her A-Number cut to nine",
+            "The digits you file are exactly the digits she said, every one of them",
+            # The auditor (2026-10-16), from Scott asking whether a Spanish
+            # speaker is asked to supply English text: free text files in English.
+            "A FREE-TEXT ANSWER IS FILED IN ENGLISH, WHATEVER LANGUAGE SHE SPEAKS",
+            "(field ids ending .occupation, .employer_name, .explain, .offense, .outcome, .sentence or .reason, and p1.eligibility_other)",
+            "Add no fact she did not say and soften nothing: an arrest stays an arrest",
+            "NEVER TRANSLATE A NAME",
+            "`provenance.utterance` stays her exact words in her language",
+            # Case 0e731ec1 t_009: "There was no middle name" on another name filed nothing.
+            "ON A ROW WITH NO HAS-MIDDLE-NAME FIELD, HER \"NO MIDDLE NAME\" FILES THAT ROW'S MIDDLE NAME AS THE EMPTY STRING",
+            'file its *_middle_name field with value "" (never text) and her words as provenance',
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -900,6 +927,9 @@ VERSIONS[61]["absent"] = VERSIONS[60]["absent"] + VERSIONS[61]["absent"]
 VERSIONS[62]["phrases"] = [p for p in VERSIONS[61]["phrases"] if p not in VERSIONS[62]["absent"]] \
     + [VERSIONS[61]["once"]] + VERSIONS[62]["phrases"]
 VERSIONS[62]["absent"] = VERSIONS[61]["absent"] + VERSIONS[62]["absent"]
+# v63 carries every v62 phrase, and v62's once line as a phrase.
+VERSIONS[63]["phrases"] = VERSIONS[62]["phrases"] + [VERSIONS[62]["once"]] + VERSIONS[63]["phrases"]
+VERSIONS[63]["absent"] = VERSIONS[62]["absent"] + VERSIONS[63]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
