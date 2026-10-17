@@ -674,14 +674,54 @@ def _fold(s: str) -> str:
                    if not unicodedata.combining(c))
 
 
+# A name SPELLED in one turn and filed in the next (case 0e731ec1 t_009, agreed
+# with the auditor 2026-10-16): her line "E V A N D E R, but" holds the letters,
+# never the word, so the word test above dropped p2.other_name2_last_name
+# "Evander" and the lane asked for it three more times. A maximal run of single
+# letters (spaces, commas, periods or hyphens between them) that joins to
+# exactly the value's letters is the same evidence as the word. Person-name
+# fields only, never free text or a choice.
+_SPELLED_NAME_FIELD = re.compile(r"(?:first|middle|last|family|given)_name$|child_name$|"
+                                 r"head_of_household_name$")
+_SPELL_SEP = re.compile(r"[\s,.\-\u2011]+")
+
+
+def _spelled_runs(line: str) -> set[str]:
+    runs, cur = set(), []
+    for tok in _SPELL_SEP.split(_fold(line or "")):
+        if len(tok) == 1 and tok.isalpha():
+            cur.append(tok)
+            continue
+        if cur:
+            runs.add("".join(cur))
+        cur = []
+    if cur:
+        runs.add("".join(cur))
+    return runs
+
+
 def _name_words_said(f, cited_line: str | None, said: str) -> bool:
-    if not isinstance(f, dict) or not _PERSON_NAME_FIELD.search(str(f.get("field_id") or "")):
+    if not isinstance(f, dict):
         return False
-    words = re.findall(r"\w+", _fold(str(f.get("value") or "")))
+    fid = str(f.get("field_id") or "")
+    worded = bool(_PERSON_NAME_FIELD.search(fid))
+    spelled_ok = bool(_SPELLED_NAME_FIELD.search(fid))
+    if not (worded or spelled_ok):
+        return False
+    value = _fold(str(f.get("value") or ""))
+    words = re.findall(r"\w+", value)
     if not words:
         return False
-    source = set(re.findall(r"\w+", _fold((cited_line or "") + " " + (said or ""))))
-    return all(w in source for w in words)
+    line = (cited_line or "") + " " + (said or "")
+    source = set(re.findall(r"\w+", _fold(line)))
+    if not spelled_ok:
+        return all(w in source for w in words)
+    runs = _spelled_runs(cited_line or "") | _spelled_runs(said or "")
+    if re.sub(r"[\s\-'\u2019]", "", value) in runs:
+        return True
+    # A value split across a spelled run and spoken words: each word passes
+    # on its own.
+    return all((worded and w in source) or w in runs for w in words)
 
 
 # --- a deferral's origin decides which half of a pair is stale --------------

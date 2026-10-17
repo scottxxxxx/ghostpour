@@ -838,6 +838,9 @@ VERSIONS = {
             "Add no fact she did not say and soften nothing: an arrest stays an arrest",
             "NEVER TRANSLATE A NAME",
             "`provenance.utterance` stays her exact words in her language",
+            # Case 0e731ec1 t_009: "There was no middle name" on another name filed nothing.
+            "ON A ROW WITH NO HAS-MIDDLE-NAME FIELD, HER \"NO MIDDLE NAME\" FILES THAT ROW'S MIDDLE NAME AS THE EMPTY STRING",
+            'file its *_middle_name field with value "" (never text) and her words as provenance',
         ],
         "absent": [],
     },
