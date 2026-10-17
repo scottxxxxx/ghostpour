@@ -847,9 +847,9 @@ VERSIONS = {
     64: {
         # The auditor from Scott's device run (case 766ab91c, 2026-10-17): he
         # said 10 digits for his SSN, the masker typed them as a phone-shaped
-        # stand-in, and v63's "ten digits in phone groups are a phone number"
-        # told the lane it was not an SSN: nine digits read back, "noted",
-        # nothing filed. The field asked decides the identifier.
+        # stand-in, and the lane filed NINE of its digits (the prod read; my
+        # first guess, that v63's phone-shape clause hid the SSN, was wrong).
+        # The clause goes anyway, and GP's code floor now enforces the digits.
         "block_anchor": "Ask for the A-Number plainly",
         "once": "THE FIELD YOU ASKED DECIDES WHICH IDENTIFIER THE DIGITS ARE, WHATEVER SHAPE THEY ARRIVE IN",
         "phrases": [
