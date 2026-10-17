@@ -1075,7 +1075,7 @@ def test_every_kept_v61_phrase_rides_into_v62():
 def test_v63_verifies_on_the_real_bundle_and_each_phrase_is_load_bearing():
     sp = _bundle_prompt(63)
     assert verify(sp, 63) is True
-    for phrase in [VERSIONS[63]["once"]] + VERSIONS[63]["phrases"][-5:]:
+    for phrase in [VERSIONS[63]["once"]] + VERSIONS[63]["phrases"][-10:]:
         assert phrase in sp, phrase
         assert verify(sp.replace(phrase, ""), 63) is False, phrase
 
@@ -1101,3 +1101,13 @@ def test_v63_keeps_the_count_before_you_say_it_rule():
 def test_every_v62_phrase_rides_into_v63():
     for phrase in VERSIONS[62]["phrases"] + [VERSIONS[62]["once"]]:
         assert phrase in VERSIONS[63]["phrases"], phrase
+
+
+def test_v63_free_text_in_english_sits_on_the_verbatim_rule():
+    # Her words stay verbatim in provenance; only the VALUE is English. The
+    # rule sits right after the verbatim-span rule so the two read together.
+    sp = _bundle_prompt(63)
+    a = "never a paraphrase, never cleaned up, never re-punctuated."
+    i = sp.index(a) + len(a)
+    j = sp.index("A FREE-TEXT ANSWER IS FILED IN ENGLISH")
+    assert sp[i:j] == " "

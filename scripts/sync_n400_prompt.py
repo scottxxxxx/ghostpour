@@ -831,6 +831,13 @@ VERSIONS = {
             "NEVER DROP, ADD, REORDER OR CHANGE A DIGIT TO MAKE A NUMBER FIT",
             "never her A-Number cut to nine",
             "The digits you file are exactly the digits she said, every one of them",
+            # The auditor (2026-10-16), from Scott asking whether a Spanish
+            # speaker is asked to supply English text: free text files in English.
+            "A FREE-TEXT ANSWER IS FILED IN ENGLISH, WHATEVER LANGUAGE SHE SPEAKS",
+            "(field ids ending .occupation, .employer_name, .explain, .offense, .outcome, .sentence or .reason, and p1.eligibility_other)",
+            "Add no fact she did not say and soften nothing: an arrest stays an arrest",
+            "NEVER TRANSLATE A NAME",
+            "`provenance.utterance` stays her exact words in her language",
         ],
         "absent": [],
     },
