@@ -844,6 +844,26 @@ VERSIONS = {
         ],
         "absent": [],
     },
+    64: {
+        # The auditor from Scott's device run (case 766ab91c, 2026-10-17): he
+        # said 10 digits for his SSN, the masker typed them as a phone-shaped
+        # stand-in, and v63's "ten digits in phone groups are a phone number"
+        # told the lane it was not an SSN: nine digits read back, "noted",
+        # nothing filed. The field asked decides the identifier.
+        "block_anchor": "Ask for the A-Number plainly",
+        "once": "THE FIELD YOU ASKED DECIDES WHICH IDENTIFIER THE DIGITS ARE, WHATEVER SHAPE THEY ARRIVE IN",
+        "phrases": [
+            "an A-Number has 7 to 9 digits, a Social Security number exactly 9, a USCIS online account number 12, a U.S. phone number 10",
+            "are a Social Security number with one digit too many, never a phone number and never nine of them",
+            "\"Social Security numbers have 9 digits, I heard 10, could you say it again?\"",
+            "AN IDENTIFIER YOU DID NOT FILE IS NEVER READ BACK, whole or in pieces",
+        ],
+        "absent": [
+            "an A-Number has 7 to 9 digits, a Social Security number 9, a U.S. phone number 10",
+            "never her A-Number cut to nine",
+            "ten digits in phone groups are a phone number",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -930,6 +950,11 @@ VERSIONS[62]["absent"] = VERSIONS[61]["absent"] + VERSIONS[62]["absent"]
 # v63 carries every v62 phrase, and v62's once line as a phrase.
 VERSIONS[63]["phrases"] = VERSIONS[62]["phrases"] + [VERSIONS[62]["once"]] + VERSIONS[63]["phrases"]
 VERSIONS[63]["absent"] = VERSIONS[62]["absent"] + VERSIONS[63]["absent"]
+# v64 carries every v63 phrase except the two identifier lines it rewrites
+# (they move to its absent list), and v63's once line as a phrase.
+VERSIONS[64]["phrases"] = [p for p in VERSIONS[63]["phrases"] if p not in VERSIONS[64]["absent"]] \
+    + [VERSIONS[63]["once"]] + VERSIONS[64]["phrases"]
+VERSIONS[64]["absent"] = VERSIONS[63]["absent"] + VERSIONS[64]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

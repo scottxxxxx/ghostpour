@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 63
+served_version: 64
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-16 (v63)
+reconciled: 2026-10-17 (v64)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -2050,3 +2050,7 @@ Second v63 rule, the same day (the auditor, from Scott asking "if I answered in 
 Resolved the same day, agreed with the auditor: the floor accepts a CARRIED free-text fact (the auditor's suffixes plus p1.eligibility_other, locale not en) when her cited line answered that field. The app sends `applicant_line_field_ids` from build 203, one line per APPLICANT line in the window ("1: p7.employer1.occupation", "unknown" before 203). A line that answered other fields drops it. Without the key, with only unknown lines, or with a count that doesn't match the window, the floor is her immediately previous answer plus a field still on the agenda. Choice, identifier, date, name and address fields keep the conf-v18 test. Code: _free_text_carried in n400_interviewer_guard.py; chat.py passes the key. Sabotage: dropping the locale check, the router not passing the key, and letting a known-other line fall through each failed exactly the predicted tests (1, 1, 2).
 
 Also in v63, from the case 0e731ec1 read (t_009, 2026-10-16): GP's evidence floor dropped p2.other_name2_last_name "Evander" because she had SPELLED it ("E V A N D E R, but") the turn before, and _name_words_said needs the word itself. Agreed with the auditor: a maximal run of single letters (spaces, commas, periods or hyphens between) that joins to exactly the value's letters counts, on person-name fields only (_SPELLED_NAME_FIELD); a multi-word value passes only when each word does. Sabotage 3, 2, 1 as predicted. Prompt: "no middle name" on a row with no has-middle-name field files that row's middle name as "" (t_009 filed nothing). Also from that read: t_010 "Seymour, but." got "Got the first name" with no fact (a lane miss under v61; v62's never-say-back rule is the fix).
+
+## v64: the field asked decides which identifier the digits are
+
+From Scott's device run via the auditor (case 766ab91c, 2026-10-17 ~04:58 UTC, node q_p2_lpr_date). He said "My social security number is 555-444-7781", which is 10 digits. The egress masker typed it as a phone-shaped stand-in ("555-555-0189"). The lane read back "5 5 5 5 5 5 0 1 8 9" as "noted", and no p2.ssn reached the case. v63's wrong-count rule had fired on his A-Number earlier in the same case, but its clause "ten digits in phone groups are a phone number, never her A-Number cut to nine" told the lane a phone-shaped SSN was not an SSN. v64 retires that clause and the old count list (on v64's absent list, V64_RETIRED in the tests). It names every identifier (SSN exactly 9, A-Number 7 to 9, USCIS online account 12, phone 10) and says the field asked decides the identifier whatever shape the digits arrive in, with the SSN example said back as "Social Security numbers have 9 digits, I heard 10". An identifier not filed is never read back. Not probed live.
