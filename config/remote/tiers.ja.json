@@ -833,7 +833,7 @@
     {
       "id": "unlock_apple_cloud",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
-      "name": "Apple Cloud向けの拡張機能",
+      "name": "追加機能：Apple Cloud",
       "icon": "cloud",
       "bullets": [
         "Apple Cloudでプロジェクトチャット。Shoulder Surf AIは不要",
@@ -846,10 +846,15 @@
     {
       "id": "unlock_byok",
       "product_id": "com.weirtech.shouldersurf.unlock.byok",
-      "name": "自分のキー向けの拡張機能",
+      "name": "追加機能：自分のAPIキー",
       "icon": "key",
       "bullets": [
         "自分のAPIキーでプロジェクトチャット",
+        "AnthropicとOpenRouterのモデルでWeb検索",
+        "Claude、Gemini、OpenAI、OpenRouterのモデルで元のPDFを送信",
+        "テキスト、Markdown、Word、RTFファイルを送信",
+        "1回の質問で写真を複数枚",
+        "回答のストリーミング表示と会議の分析",
         "すでに契約しているモデルとプロバイダーを使えます",
         "買い切り。ずっと使えます"
       ]
@@ -857,10 +862,10 @@
     {
       "id": "bundle",
       "product_id": "com.weirtech.shouldersurf.unlock.bundle",
-      "name": "両方向けの拡張機能",
+      "name": "追加機能：両方",
       "icon": "square.stack",
       "bullets": [
-        "Apple Cloudと自分のキーを両方解放",
+        "Apple Cloudと自分のAPIキーの追加機能をまとめて",
         "別々に買うよりお得",
         "買い切り。ずっと使えます"
       ]
@@ -868,10 +873,10 @@
     {
       "id": "unlock_apple_cloud_upgrade",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud.upgrade",
-      "name": "Apple Cloudを追加",
+      "name": "追加機能：Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "お持ちの自分のキー向け拡張機能にApple Cloud向けの拡張機能を追加",
+        "お持ちの自分のAPIキーの追加機能にApple Cloudの追加機能を追加",
         "Apple Cloudで1回の質問につき写真を最大5枚",
         "Apple Cloudでテキスト、Markdown、PDF、Word、RTFファイルを送信",
         "買い切り。ずっと使えます"
@@ -880,10 +885,16 @@
     {
       "id": "unlock_byok_upgrade",
       "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
-      "name": "自分のキーを追加",
+      "name": "追加機能：自分のAPIキー",
       "icon": "key",
       "bullets": [
-        "お持ちのApple Cloud向け拡張機能に自分のキー向けの拡張機能を追加",
+        "お持ちのApple Cloudの追加機能に自分のAPIキーの追加機能を追加",
+        "自分のAPIキーでプロジェクトチャット",
+        "AnthropicとOpenRouterのモデルでWeb検索",
+        "Claude、Gemini、OpenAI、OpenRouterのモデルで元のPDFを送信",
+        "テキスト、Markdown、Word、RTFファイルを送信",
+        "1回の質問で写真を複数枚",
+        "回答のストリーミング表示と会議の分析",
         "買い切り。ずっと使えます"
       ]
     }
