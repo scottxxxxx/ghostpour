@@ -833,7 +833,7 @@
     {
       "id": "unlock_apple_cloud",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
-      "name": "Enhanced features for Apple Cloud",
+      "name": "Extras: Apple Cloud",
       "icon": "cloud",
       "bullets": [
         "Project Chat on Apple Cloud, no Shoulder Surf AI needed",
@@ -846,10 +846,15 @@
     {
       "id": "unlock_byok",
       "product_id": "com.weirtech.shouldersurf.unlock.byok",
-      "name": "Enhanced features for your own key",
+      "name": "Extras: Own API Key",
       "icon": "key",
       "bullets": [
         "Project Chat on your own API key",
+        "Web search on Anthropic and OpenRouter models",
+        "Send original PDFs on Claude, Gemini, OpenAI and OpenRouter models",
+        "Send text, Markdown, Word and RTF files",
+        "More than one photo per question",
+        "Streamed answers and meeting analysis",
         "Use the model and provider you already pay for",
         "One-time purchase, yours to keep"
       ]
@@ -857,10 +862,10 @@
     {
       "id": "bundle",
       "product_id": "com.weirtech.shouldersurf.unlock.bundle",
-      "name": "Enhanced features for both",
+      "name": "Extras: Both",
       "icon": "square.stack",
       "bullets": [
-        "Apple Cloud and your own key, both unlocked",
+        "Extras for Apple Cloud and your own API key together",
         "Costs less than buying them separately",
         "One-time purchase, yours to keep"
       ]
@@ -868,10 +873,10 @@
     {
       "id": "unlock_apple_cloud_upgrade",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud.upgrade",
-      "name": "Add Apple Cloud",
+      "name": "Extras: Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "Adds the Apple Cloud enhanced features to the own key ones you already have",
+        "Adds the Apple Cloud Extras to the Own API Key Extras you already have",
         "Up to 5 photos per question on Apple Cloud",
         "Send text, Markdown, PDF, Word and RTF files on Apple Cloud",
         "One-time purchase, yours to keep"
@@ -880,10 +885,16 @@
     {
       "id": "unlock_byok_upgrade",
       "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
-      "name": "Add your own key",
+      "name": "Extras: Own API Key",
       "icon": "key",
       "bullets": [
-        "Adds the own key enhanced features to the Apple Cloud ones you already have",
+        "Adds the Own API Key Extras to the Apple Cloud Extras you already have",
+        "Project Chat on your own API key",
+        "Web search on Anthropic and OpenRouter models",
+        "Send original PDFs on Claude, Gemini, OpenAI and OpenRouter models",
+        "Send text, Markdown, Word and RTF files",
+        "More than one photo per question",
+        "Streamed answers and meeting analysis",
         "One-time purchase, yours to keep"
       ]
     }
