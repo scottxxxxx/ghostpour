@@ -907,6 +907,9 @@
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Auth choice</h4><div id="onb-chart-auth"></div></div>
       <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Where abandoners dropped</h4><div id="onb-chart-dropoff"></div></div>
     </div>
+    <h3 style="margin:28px 0 8px">Cases and purchases <span style="font-size:11px;font-weight:normal;color:var(--text-dim)">(form apps: N-400 today)</span></h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Usage is measured from interview turns: a case is one application, a new session starts after a 30 minute gap, and active time counts gaps between turns up to 5 minutes. Purchases are measured from Apple's server notifications. <b>Who</b> bought is not: the purchase token is a hash of an A-Number GP never sees, so a purchase is tied to the one case active in the hour before it, and the time-to-purchase numbers are <b>inferred</b> from those matches only. Flagged test accounts are left out of usage; purchases cannot be, since they carry no account. Follows the header's app filter.</p>
+    <div id="cases-body"></div>
     <h3 style="margin:28px 0 8px">Shoulder Surf Companion (Mac + Windows)</h3>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Website downloads through <code>/v1/companion/download</code>, and the companions' own launches, phone links and recording sessions. An install is the first event GP ever received from a companion, so a first launch that never reached us still counts from its next event. Stored apart from iPhone telemetry, so nothing here is counted above. Raw rows kept 180 days; installs kept forever.</p>
     <div class="table-wrap"><table id="comp-platforms"><thead><tr>
@@ -1636,6 +1639,7 @@ async function loadTelemetry() {
     const d = await resp.json();
     _renderTelemetry(d, {version, os, device, model});
     _loadOnboarding(days, app);
+    _loadCases(app);
     _loadCompanion(days);
     _loadActivity(days);
   } catch (e) {
@@ -1768,6 +1772,57 @@ async function _loadOnboarding(days, app) {
     if (!resp.ok) return;
     _renderOnboarding(await resp.json());
   } catch (e) { /* onboarding is additive; a failure here is non-fatal */ }
+}
+
+async function _loadCases(app) {
+  // Not capped at telemetry's 90 days: usage_log keeps every turn.
+  const days = Math.min(365, parseInt(document.getElementById('period').value, 10) || 30);
+  const params = new URLSearchParams({days});
+  if (app) params.set('app', app);
+  const el = document.getElementById('cases-body');
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/cases?${params}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) { el.innerHTML = `<div class="card">Cases load failed (${resp.status})</div>`; return; }
+    _renderCases(await resp.json());
+  } catch (e) { el.innerHTML = '<div class="card">Cases load failed</div>'; }
+}
+
+function _renderCases(d) {
+  const n = (v, unit = '') => v == null ? 'n/a' : `${Number(v).toLocaleString()}${unit}`;
+  const card = (label, value, hint) => `
+    <div class="card">
+      <div class="card-label">${label}</div>
+      <div class="card-value">${value}</div>
+      ${hint ? `<div class="card-hint">${hint}</div>` : ''}
+    </div>`;
+  const blocks = (d.apps || []).map(a => {
+    const u = a.usage || {}, p = a.purchases || {}, t = a.to_purchase_inferred || {};
+    const m = t.match_counts || {};
+    const rev = (p.revenue || []).map(r => `${r.total.toLocaleString()} ${r.currency}`).join(', ') || 'none';
+    const env = Object.entries(p.by_environment || {}).map(([k, v]) => `${k} ${v}`).join(', ');
+    const conv = u.cases ? `${Math.round(100 * (t.cases_with_matched_purchase || 0) / u.cases)}%` : 'n/a';
+    return `
+      <h4 style="margin:12px 0 8px">${a.app_id} <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">last ${d.days}d</span></h4>
+      <div class="cards">
+        ${card('Users', n(u.users))}
+        ${card('Cases', n(u.cases), `${n(u.turns)} turns`)}
+        ${card('Sessions per case', n(u.median_sessions_per_case), 'median')}
+        ${card('Active time per case', n(u.median_active_minutes_per_case, ' min'), 'median')}
+        ${card('First to last turn', n(u.median_days_first_to_last_turn, ' days'), 'median per case')}
+        ${card('Purchases', n(p.count), `${n(p.refunded)} refunded${env ? ', ' + env : ''}`)}
+        ${card('Revenue', rev, 'gross, before Apple')}
+      </div>
+      <div class="cards" style="margin-top:8px">
+        ${card('Purchases tied to a case', `${n(m.matched)} of ${n((m.matched || 0) + (m.ambiguous || 0) + (m.unmatched || 0))}`, `${n(m.ambiguous)} ambiguous, ${n(m.unmatched)} no case nearby`)}
+        ${card('Cases that bought', conv, 'inferred, a floor')}
+        ${card('First turn to purchase', n(t.median_minutes_first_turn_to_purchase, ' min'), 'median, inferred')}
+        ${card('Active time before buying', n(t.median_active_minutes_before_purchase, ' min'), 'median, inferred')}
+        ${card('Sessions before buying', n(t.median_sessions_before_purchase), 'median, inferred')}
+      </div>`;
+  }).join('');
+  document.getElementById('cases-body').innerHTML = blocks || '<div class="card">No case-based app in this filter.</div>';
 }
 
 function _renderOnboarding(d) {

@@ -1328,6 +1328,30 @@ MIGRATIONS = [
                '[{"variant_id": "section", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-home-forms.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-home-forms.es.html"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/n400-home-forms.pt.html"}}}]',
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
+    # Record-only ledger of Apple's purchase notifications for client-gated
+    # apps (Scott, 2026-10-18; app/services/app_purchases.py). Never joined
+    # to a grant. app_account_token is N-400's A-Number hash, so it ties
+    # purchases to each other and to nothing GP holds.
+    """CREATE TABLE IF NOT EXISTS app_purchases (
+        transaction_id TEXT PRIMARY KEY NOT NULL,
+        original_transaction_id TEXT,
+        app_id TEXT NOT NULL,
+        bundle_id TEXT NOT NULL,
+        product_id TEXT,
+        app_account_token TEXT,
+        purchased_at TEXT,
+        price_milli INTEGER,
+        currency TEXT,
+        storefront TEXT,
+        environment TEXT,
+        recorded_at TEXT NOT NULL,
+        revoked_at TEXT,
+        revoke_reason TEXT
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_app_purchases_app ON app_purchases(app_id, purchased_at)",
+    # The dashboard's per-case usage read (app/services/case_stats.py).
+    # Partial, so it holds only the form apps' rows that carry a case.
+    "CREATE INDEX IF NOT EXISTS idx_usage_app_case_ts ON usage_log(app_id, case_id, request_timestamp, user_id) WHERE case_id IS NOT NULL",
 ]
 
 

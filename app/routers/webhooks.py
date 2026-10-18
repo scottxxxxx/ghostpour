@@ -4390,6 +4390,34 @@ async def telemetry_onboarding(
             "auth": auth, "drop_off": drop_off}
 
 
+@router.get("/admin/telemetry/cases")
+async def telemetry_cases(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=365),
+    app: str | None = Query(default=None),
+):
+    """Usage and purchases for case-based apps, one block per app (Scott,
+    2026-10-18). With no app filter, every app that records Apple purchases
+    (`purchase_ledger: true` in apps.yml). See app/services/case_stats.py for
+    which numbers are measured and which are inferred."""
+    _verify_admin(request, x_admin_key)
+    from app.services import app_purchases, case_stats
+
+    apps = _apps_from_filter(app) or tuple(sorted(set(app_purchases.ledger_bundles().values())))
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    out = []
+    for app_id in apps:
+        rows = await (await db.execute(case_stats.CASE_ROWS_SQL, (app_id, since))).fetchall()
+        cur = await db.execute(
+            "SELECT * FROM app_purchases WHERE app_id = ? AND purchased_at >= ?", (app_id, since))
+        purchases = [dict(r) for r in await cur.fetchall()]
+        out.append({"app_id": app_id, **case_stats.summarize(
+            [(r[0], r[1], r[2]) for r in rows], purchases)})
+    return {"days": days, "apps": out}
+
+
 @router.get("/admin/acquisition")
 async def acquisition_report(
     request: Request,
