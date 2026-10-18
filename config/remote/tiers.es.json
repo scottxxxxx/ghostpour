@@ -833,7 +833,7 @@
     {
       "id": "unlock_apple_cloud",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
-      "name": "Funciones avanzadas para Apple Cloud",
+      "name": "Extras: Apple Cloud",
       "icon": "cloud",
       "bullets": [
         "Chat de proyecto con Apple Cloud, sin necesidad de Shoulder Surf AI",
@@ -846,10 +846,15 @@
     {
       "id": "unlock_byok",
       "product_id": "com.weirtech.shouldersurf.unlock.byok",
-      "name": "Funciones avanzadas para tu propia clave",
+      "name": "Extras: tu propia clave",
       "icon": "key",
       "bullets": [
         "Chat de proyecto con tu propia clave de API",
+        "Búsqueda web en modelos de Anthropic y OpenRouter",
+        "Envía PDF originales en modelos de Claude, Gemini, OpenAI y OpenRouter",
+        "Envía archivos de texto, Markdown, Word y RTF",
+        "Más de una foto por pregunta",
+        "Respuestas en tiempo real y análisis de reuniones",
         "Usa el modelo y el proveedor que ya pagas",
         "Compra única, es tuya para siempre"
       ]
@@ -857,10 +862,10 @@
     {
       "id": "bundle",
       "product_id": "com.weirtech.shouldersurf.unlock.bundle",
-      "name": "Funciones avanzadas para ambos",
+      "name": "Extras: ambos",
       "icon": "square.stack",
       "bullets": [
-        "Apple Cloud y tu propia clave, los dos desbloqueados",
+        "Extras para Apple Cloud y tu propia clave, juntos",
         "Cuesta menos que comprarlos por separado",
         "Compra única, es tuya para siempre"
       ]
@@ -868,10 +873,10 @@
     {
       "id": "unlock_apple_cloud_upgrade",
       "product_id": "com.weirtech.shouldersurf.unlock.applecloud.upgrade",
-      "name": "Añade Apple Cloud",
+      "name": "Extras: Apple Cloud",
       "icon": "cloud",
       "bullets": [
-        "Añade las funciones avanzadas de Apple Cloud a las de clave propia que ya tienes",
+        "Añade los Extras de Apple Cloud a los Extras de tu propia clave que ya tienes",
         "Hasta 5 fotos por pregunta en Apple Cloud",
         "Envía archivos de texto, Markdown, PDF, Word y RTF en Apple Cloud",
         "Compra única, es tuya para siempre"
@@ -880,10 +885,16 @@
     {
       "id": "unlock_byok_upgrade",
       "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
-      "name": "Añade tu propia clave",
+      "name": "Extras: tu propia clave",
       "icon": "key",
       "bullets": [
-        "Añade las funciones avanzadas de clave propia a las de Apple Cloud que ya tienes",
+        "Añade los Extras de tu propia clave a los Extras de Apple Cloud que ya tienes",
+        "Chat de proyecto con tu propia clave de API",
+        "Búsqueda web en modelos de Anthropic y OpenRouter",
+        "Envía PDF originales en modelos de Claude, Gemini, OpenAI y OpenRouter",
+        "Envía archivos de texto, Markdown, Word y RTF",
+        "Más de una foto por pregunta",
+        "Respuestas en tiempo real y análisis de reuniones",
         "Compra única, es tuya para siempre"
       ]
     }

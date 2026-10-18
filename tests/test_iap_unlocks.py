@@ -307,17 +307,35 @@ def test_chat_refuses_a_second_free_conversation(client, tmp_db_path):
     assert r.json()["detail"] == {"code": "quota_exhausted"}
 
 
-def test_pack_names_are_sentence_case_like_the_store():
-    """Scott, 2026-10-13: the ASC names and the app use sentence case.
-    Renamed 2026-10-15 (Scott, via SS) to the App Store Connect names."""
+def test_unlock_names_are_the_extras_names_in_asc():
+    """Scott, 2026-10-17, via SS: the unlocks are one "Extras" family, and
+    each upgrade carries its full product's name. Social wrote these to App
+    Store Connect in all four languages; SS relayed them."""
     import json
     from pathlib import Path
-    d = json.loads((Path(__file__).resolve().parent.parent / "config/remote/tiers.json").read_text())
-    assert {u["id"]: u["name"] for u in d["unlocks"]} == {
-        "unlock_apple_cloud": "Enhanced features for Apple Cloud",
-        "unlock_byok": "Enhanced features for your own key",
-        "bundle": "Enhanced features for both", "unlock_apple_cloud_upgrade": "Add Apple Cloud",
-        "unlock_byok_upgrade": "Add your own key"}
+    root = Path(__file__).resolve().parent.parent / "config/remote"
+    names = {"": ("Extras: Apple Cloud", "Extras: Own API Key", "Extras: Both"),
+             ".es": ("Extras: Apple Cloud", "Extras: tu propia clave", "Extras: ambos"),
+             ".fr": ("Extras : Apple Cloud", "Extras : votre propre clé", "Extras : les deux"),
+             ".ja": ("追加機能：Apple Cloud", "追加機能：自分のAPIキー", "追加機能：両方")}
+    for suf, (ac, bk, both) in names.items():
+        d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
+        assert {u["id"]: u["name"] for u in d["unlocks"]} == {
+            "unlock_apple_cloud": ac, "unlock_apple_cloud_upgrade": ac,
+            "unlock_byok": bk, "unlock_byok_upgrade": bk, "bundle": both}, suf
+
+
+def test_own_key_extras_never_promise_apple_clouds_five_photos():
+    """SS, 2026-10-17, read in ModelUnlock.photoLimit: own key Extras lift the
+    photo cap to the model's own limit; 5 is Apple Cloud's number."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "config/remote"
+    for suf in ("", ".es", ".fr", ".ja"):
+        d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
+        for u in d["unlocks"]:
+            if u["id"] in ("unlock_byok", "unlock_byok_upgrade"):
+                assert not any("5" in b for b in u["bullets"]), (suf, u["bullets"])
 
 
 def test_apple_cloud_file_attachments_are_a_pack_bullet_in_every_language():
@@ -396,9 +414,9 @@ def test_upgrade_bullets_drop_the_old_pack_naming():
     d = json.loads((root / "tiers.json").read_text())
     by = {u["id"]: u for u in d["unlocks"]}
     assert by["unlock_apple_cloud_upgrade"]["bullets"][0] == \
-        "Adds the Apple Cloud enhanced features to the own key ones you already have"
+        "Adds the Apple Cloud Extras to the Own API Key Extras you already have"
     assert by["unlock_byok_upgrade"]["bullets"][0] == \
-        "Adds the own key enhanced features to the Apple Cloud ones you already have"
+        "Adds the Own API Key Extras to the Apple Cloud Extras you already have"
     for suf, word in (("", "pack"), (".es", "paquete"), (".fr", "pack"), (".ja", "パック")):
         d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
         for u in d["unlocks"]:
