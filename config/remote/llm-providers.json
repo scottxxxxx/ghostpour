@@ -1,5 +1,5 @@
 {
- "version": 29,
+ "version": 30,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -2494,7 +2494,7 @@
      }
     }
    ],
-   "notes": "OpenRouter provides a unified API for 300+ models. Pay-as-you-go with spend caps on the key itself. Create an API key at openrouter.ai/keys and set a monthly limit for safety.",
+   "notes": "Use your OpenRouter key with the models listed here, including Claude, GPT, Gemini, Grok and DeepSeek. Usage is billed to your OpenRouter account. Create a key at openrouter.ai/keys and set a monthly spend limit on it.",
    "keyURL": "https://openrouter.ai/keys"
   }
  ]

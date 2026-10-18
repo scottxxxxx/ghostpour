@@ -1,5 +1,5 @@
 {
- "version": 29,
+ "version": 30,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -2494,7 +2494,7 @@
      }
     }
    ],
-   "notes": "OpenRouter fournit une API unifiée pour plus de 300 modèles. Paiement à l'usage avec plafonds de dépense sur la clé elle-même. Créez une clé API sur openrouter.ai/keys et définissez une limite mensuelle par sécurité.",
+   "notes": "Utilisez votre clé OpenRouter avec les modèles de cette liste, dont Claude, GPT, Gemini, Grok et DeepSeek. L'utilisation est facturée sur votre compte OpenRouter. Créez une clé sur openrouter.ai/keys et fixez-lui une limite de dépense mensuelle.",
    "keyURL": "https://openrouter.ai/keys"
   }
  ]

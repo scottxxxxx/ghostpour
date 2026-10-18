@@ -407,3 +407,23 @@ def test_no_retired_model_is_offered_and_kimi_defaults_to_a_live_one(path):
     assert not (offered & _MODELS_GONE_LIVE), offered & _MODELS_GONE_LIVE
     kimi_default = [m["id"] for m in providers["kimi"]["models"] if m.get("isDefault")]
     assert kimi_default == ["kimi-k3"], kimi_default
+
+
+def test_openrouter_note_names_only_what_the_list_offers():
+    """Scott, 2026-10-17, via SS: "300+ models" let him down next to the 26
+    we list. The note carries no count, every family it names is in the list,
+    and every locale serves its own language."""
+    import re
+    families = {"Claude": "anthropic/", "GPT": "openai/gpt", "Gemini": "google/gemini",
+                "Grok": "x-ai/grok", "DeepSeek": "deepseek/"}
+    notes = {}
+    for path in PROVIDER_FILES:
+        p = next(x for x in _load(path)["providers"] if x["id"] == "openrouter")
+        notes[path] = p["notes"]
+        assert not re.search(r"\d{2,}", p["notes"]), (path, p["notes"])
+        ids = [m["id"] for m in p["models"]]
+        for name, prefix in families.items():
+            assert name in p["notes"], (path, name)
+            assert any(i.startswith(prefix) for i in ids), (path, name)
+        assert "—" not in p["notes"] and "–" not in p["notes"], path
+    assert len(set(notes.values())) == len(notes), notes
