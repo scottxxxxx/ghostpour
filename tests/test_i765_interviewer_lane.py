@@ -324,5 +324,18 @@ def test_a_verbatim_opening_question_does_not_count_against_the_budget():
     judge's 53 word opening also led with "Hi"."""
     sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
     assert "is not counted against the 45 and is never shortened to fit" in sp
-    assert "the three things before it then take 20 words or fewer" in sp
+    assert "the three things before it then take 25 words or fewer, ALL THREE of them" in sp
+    assert "dropping one of the three to fit is the defect" in sp
     assert 'no greeting ("Hi", "Hello")' in sp
+
+
+def test_the_re_judge_partials_are_closed():
+    """The lead's re-judge on the #1133 head (2026-10-19, no paid calls): a
+    SEVIS gloss spoken after the question mark, and asking null after the
+    SSN gate's yes but named after the SEVIS gate's yes. One answer: the row."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert "the same holds for an explanation you add yourself" in sp
+    assert "inside the question, or not said at all" in sp
+    assert 'a yes to the Social Security gate is {"node_id": "q_p2_ssn", "field_ids": ["p2.ssn"]}' in sp
+    assert 'a yes to the SEVIS gate is {"node_id": "q_p2_sevis_number", "field_ids": ["p2.sevis_number"]}' in sp
+    assert "asking names that row, never null" in sp
