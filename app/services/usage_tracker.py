@@ -79,8 +79,8 @@ def _short_text(value: object, limit: int) -> str | None:
 
 
 def n400_place_columns(request: ChatRequest, app_id: str | None) -> tuple:
-    """(jurisdiction, case_id, geo_country, geo_region, geo_city, form_city)
-    for an N-400 call, all None for every other app.
+    """(jurisdiction, case_id, geo_country, geo_region, geo_city, form_city,
+    ip_hash) for an N-400 call, all None for every other app.
 
     The client contract (auditor, 2026-10-05): metadata.jurisdiction
     ("US-XX" or "US-unknown"), metadata.case_id (a random UUID per
@@ -95,7 +95,7 @@ def n400_place_columns(request: ChatRequest, app_id: str | None) -> tuple:
     request IP after discarding anything the client sent under those keys.
     """
     if app_id not in _N400_PLACE_APPS:
-        return (None,) * 6
+        return (None,) * 7
     jur = request.get_meta("jurisdiction")
     jur = jur if isinstance(jur, str) and _JURISDICTION_RE.match(jur) else None
     case = request.get_meta("case_id")
@@ -106,6 +106,10 @@ def n400_place_columns(request: ChatRequest, app_id: str | None) -> tuple:
         _short_text(request.get_meta("geo_region"), 80),
         _short_text(request.get_meta("geo_city"), 80),
         _short_text(request.get_meta("city"), 80),
+        # The network key the per-IP allowance counts by, stamped by the chat
+        # router from the connection (anonymous_budget.network_key), never
+        # the client's.
+        _short_text(request.get_meta("ip_key"), 64),
     )
 
 
@@ -425,9 +429,9 @@ class UsageTracker:
                 status, error_message, call_type, prompt_mode,
                 image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario, scenario_kind,
                 ttft_ms, jurisdiction, case_id, geo_country, geo_region, geo_city,
-                form_city)
+                form_city, ip_hash)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?)""",
+                       ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
