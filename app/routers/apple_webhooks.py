@@ -255,6 +255,22 @@ async def apple_notifications(
     # apple_bundle_id, so this refuses nothing we legitimately receive.
     _ours = {b.strip() for b in (settings.apple_bundle_id or "").split(",") if b.strip()}
     _claimed = data.get("bundleId")
+    # Client-gated apps (N-400) are recorded and never acted on: their
+    # bundle stays OUT of apple_bundle_id, which also opens Sign in with
+    # Apple, so they get their own door here and it leads only to a ledger.
+    from app.services import app_purchases as _app_purchases
+    _ledger = _app_purchases.ledger_bundles()
+    if _claimed in _ledger and _claimed not in _ours:
+        _txn = data.get("signedTransactionInfo")
+        if not isinstance(_txn, dict):
+            logger.error("Apple notification for %s: transaction not decoded (type=%s)",
+                         _claimed, notification_type)
+            return {"status": "received", "action": "skipped", "reason": "transaction_info_not_decoded"}
+        action = await _app_purchases.record_notification(
+            db, app_id=_ledger[_claimed], bundle_id=_claimed,
+            notification_type=notification_type, transaction_info=_txn,
+            environment=data.get("environment"))
+        return {"status": "received", "action": "ledger_" + action}
     if _claimed not in _ours:
         logger.warning(
             "Apple notification for a bundle that is not ours: %r (type=%s)",

@@ -103,6 +103,13 @@ apps:
     dir: n400
     label: N-400 Helper
     bundle_id: com.weirtech.n400helper
+    # Apple's App Store Server Notifications for this bundle are RECORDED,
+    # never acted on (Scott, 2026-10-18: purchase stats with no N-400 code
+    # change). The pay sheet is client-gated per application, so these rows
+    # feed the dashboard only: no tier, no grant, no user row is touched.
+    # Kept apart from CZ_APPLE_BUNDLE_ID on purpose, because adding the bundle
+    # THERE also opens Sign in with Apple while the lane is uncapped.
+    purchase_ledger: true
     # Registered 2026-08-31, BEFORE the first TestFlight, which is the whole
     # point: resolve_app_dir fails open, so an unregistered id would have been
     # served ShoulderSurf's config with only a log line and nothing would have
@@ -110,8 +117,10 @@ apps:
     # BACKEND-CONTRACTS.md and GPGateway.appID) before we wrote this, so the
     # string is theirs, not ours, and it is permanent once a build ships.
     #
-    # NO `tier_overrides`: N-400's paid tier is a StoreKit non-consumable
-    # (com.weirtech.n400helper.case) gated ENTIRELY on the client, per case,
+    # NO `tier_overrides`: N-400's paid unlock is a StoreKit consumable,
+    # com.weirtech.n400helper.application, one per A-Number (read in the
+    # client's ApplicationPurchase.swift 2026-10-18; this said the retired
+    # non-consumable `.case` until then). It is gated ENTIRELY on the client,
     # so no per-call entitlement of theirs ever reaches GP.
     #
     # The budget below is FLAT for exactly that reason. Tech Rehearsal's is
