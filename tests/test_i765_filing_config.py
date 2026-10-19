@@ -21,7 +21,7 @@ def test_the_filing_document_is_served_to_i765_only(client):
     assert r.status_code == 200, r.text
     doc = r.json()
     assert doc["app_id"] == "i765" and doc["form"] == "I-765"
-    assert doc["version"] == 3 and doc["schema_version"] == 1
+    assert doc["version"] == 4 and doc["schema_version"] == 1
     assert TOP_KEYS <= set(doc), TOP_KEYS - set(doc)
     assert V1_CATEGORIES <= set(doc["categories"])
     # No other app has a filing document, and there is no flat fallback for it.
@@ -73,3 +73,29 @@ def test_portuguese_never_says_green_card():
     assert len(pt) > 5, "the walk must actually reach the pt values"
     assert [p for p, s in pt if "green card" in s.lower()] == []
     assert any("residência permanente" in s for _, s in pt)
+
+
+def test_every_courier_line_is_said_in_each_language():
+    """The I-765 lead, 2026-10-19: Social's screenshots showed English under
+    the Spanish lockbox address. All 12 courier.carriers values (7 chart rows,
+    A01, A02 and its nested I-907 box, both (c)(26) prefix rows) are objects
+    with en, es and pt now; a bare string decodes as English only."""
+    import json
+    found = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            c = o.get("courier")
+            if isinstance(c, dict) and "carriers" in c:
+                found.append(c["carriers"])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v)
+
+    walk(json.load(open("config/remote/i765/filing.json", encoding="utf-8")))
+    assert len(found) == 12
+    assert all(isinstance(c, dict) and set(c) == {"en", "es", "pt"} for c in found), found
+    assert {c["es"] for c in found} == {"Envíos por FedEx, UPS y DHL"}
+    assert {c["pt"] for c in found} == {"Entregas por FedEx, UPS e DHL"}
