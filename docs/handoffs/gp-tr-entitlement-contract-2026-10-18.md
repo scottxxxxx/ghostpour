@@ -104,6 +104,41 @@ he does, GP proposes `paid` = SS Plus's column and `free` = SS Free's.
 returns the same object as the verify-receipt response, so the client can
 show plan state from GP on launch and on restore.
 
+## Answers to TR's four notes (2026-10-18, read in GP's code)
+
+1. **The JWS field is `signed_transaction`.** It already exists on
+   `VerifyReceiptRequest` (chat.py) and is verified by
+   `receipt_verification.resolve_identity`. Send the CURRENT transaction's
+   `jwsRepresentation`, the renewal you just verified. Apple's payload
+   carries `originalTransactionId` inside it, so GP gets both ids from the
+   one signature. Keep sending `transaction_id` (originalID) and
+   `current_transaction_id` as today. GP uses Apple's signed values over
+   them.
+2. **A streamed call that's refused is NOT an SSE event.** The budget gates
+   in `chat()` run long before the stream decision (the gates near
+   chat.py:2370 and :2540 against the stream branch near :5222), so a
+   refused `stream: true` call answers a plain `200 application/json` with
+   `text: ""` and `feature_state`, and no stream ever opens. Branch on the
+   Content-Type: `application/json` means read `feature_state`;
+   `text/event-stream` means the call is running. The same holds for
+   `techrehearsal_plan_required`.
+3. **Context Quilt for anonymous accounts: today GP does NOT gate on
+   anonymous.** Nothing in `context_quilt.py` or the chat hook loop reads
+   `is_anonymous`, so an anonymous account whose entitlement enables the
+   CQ hook is captured and recalled. That's the mechanism behind what SS
+   Dev found. PROPOSED for TR, and Scott's call: no CQ capture or recall
+   for an anonymous account, paid or not, until it signs in. GP would
+   enforce it server-side in the hook loop, so no client gate is needed.
+   Whether the same rule should cover SS's anonymous accounts is also
+   Scott's.
+4. **Delete works for an anonymous account.** `POST /v1/account/delete`
+   with the anonymous bearer and `{}` purges and answers
+   `{"status": "deleted"}`. With no Apple code, revocation is skipped by
+   design (`test_an_anonymous_account_can_delete_itself`, which tests
+   SS's anonymous path). For TR the same route is scoped by
+   `X-App-ID: techrehearsal`, and GP will add a TR-anonymous test with
+   the build.
+
 ## What TR's client changes
 
 1. Anonymous mint on first launch, with no Sign in with Apple wall before
@@ -120,3 +155,5 @@ show plan state from GP on launch and on restore.
 - The `cta` copy for `techrehearsal_plan_required`.
 - The `free` and `paid` columns of `techrehearsal/entitlements`.
 - Whether a trial counts as paid for recall (proposed: yes, as SS's does).
+- No Context Quilt for anonymous accounts until sign-in (proposed for TR;
+  and whether it also applies to SS's anonymous accounts).
