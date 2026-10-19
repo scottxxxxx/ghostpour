@@ -32,7 +32,7 @@ sends when a budget stops a call: `text: ""` plus `feature_state`:
 
 ```json
 {"feature": "chat", "app": "techrehearsal", "budget_exhausted": true,
- "code": "techrehearsal_plan_required", "cta": {"text": {"en": "..."}}}
+ "code": "techrehearsal_plan_required", "cta": {"text": {"en": "Start your free week to use Tech Rehearsal AI, or sign in for the free plan."}}}
 ```
 
 `code` is NEW and is the one field to branch on. The copy is served, not
@@ -180,7 +180,11 @@ show plan state from GP on launch and on restore.
 
 ## Open, for Scott
 
-- The `cta` copy for `techrehearsal_plan_required`.
+- ✅ RULED (Scott, in the TR session, 2026-10-19, relayed by techrehearsal-26):
+  the `cta` copy for `techrehearsal_plan_required` is "Start your free week to
+  use Tech Rehearsal AI, or sign in for the free plan.", served as
+  `feature_state.cta.text.en`, chosen over the shorter "Start your free week to
+  use Tech Rehearsal AI." A copy decision only: it doesn't approve building.
 - The `free` and `paid` columns of `techrehearsal/entitlements`.
 - Whether a trial counts as paid for recall (proposed: yes, as SS's does).
 - No Context Quilt for anonymous accounts until sign-in (proposed for TR;
