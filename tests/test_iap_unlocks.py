@@ -144,10 +144,10 @@ def test_an_upgrade_never_grants_the_other_pack(client, tmp_db_path, monkeypatch
 
 # --- the webhook: an unlock refund never touches the subscription ------------------
 
-def _notify(client, monkeypatch, ntype, product, txn, token=None):
+def _notify(client, monkeypatch, ntype, product, txn, token=None, bundle=BUNDLE):
     import app.routers.apple_webhooks as W
     n = {"notificationType": ntype, "subtype": "", "data": {
-        "bundleId": BUNDLE, "environment": "Sandbox",
+        "bundleId": bundle, "environment": "Sandbox",
         "signedTransactionInfo": {"originalTransactionId": txn, "transactionId": txn,
                                   "productId": product, "appAccountToken": token,
                                   "purchaseDate": 1760000000000}}}
@@ -422,3 +422,31 @@ def test_upgrade_bullets_drop_the_old_pack_naming():
         for u in d["unlocks"]:
             for text in [u["name"]] + u["bullets"]:
                 assert word not in text.lower(), (suf, text)
+
+
+# --- another app's subscription never moves an SS tier (TR, 2026-10-18) -------
+
+TR_SUB = "com.weirtech.techrehearsal.sub.monthly"
+
+
+def test_a_lapsed_or_refunded_tr_subscription_leaves_the_ss_plan_alone(client, tmp_db_path, monkeypatch):
+    """TR shares the user row and sets appAccountToken to it, so before this a
+    TR EXPIRED or REFUND took the same person's SS Pro to free."""
+    uid, _ = _user(tmp_db_path, tier="pro")
+    for ntype in ("EXPIRED", "REFUND", "REVOKE", "GRACE_PERIOD_EXPIRED"):
+        r = _notify(client, monkeypatch, ntype, TR_SUB, "tr-otid", token=uid.upper())
+        assert r.json()["reason"] == "not_a_tier_product", (ntype, r.json())
+    assert _row(tmp_db_path, "SELECT tier FROM users WHERE id=?", uid) == ("pro",)
+
+
+def test_an_ss_notification_for_an_unmapped_product_still_takes_the_old_path(client, tmp_db_path, monkeypatch):
+    """The guard is about OTHER apps: SS's own bundle keeps its behaviour, so a
+    retired SS product id that expires still downgrades."""
+    from app.config import get_settings
+    ss = "com.shouldersurf.ShoulderSurf"
+    monkeypatch.setattr(get_settings(), "apple_bundle_id", f"{BUNDLE},{ss}")
+    uid, _ = _user(tmp_db_path, tier="pro")
+    r = _notify(client, monkeypatch, "EXPIRED", "com.weirtech.shouldersurf.retired", "old-otid",
+                token=uid.upper(), bundle=ss)
+    assert r.json().get("reason") != "not_a_tier_product"
+    assert _row(tmp_db_path, "SELECT tier FROM users WHERE id=?", uid) == ("free",)

@@ -451,12 +451,12 @@ def test_revoke_skipped_while_another_app_still_uses_the_account(
     _member(_db(app_env), "keep-siwa", "shouldersurf", "techrehearsal")
     called = []
 
-    async def _rv(code):
+    async def _rv(code, **kw):
         called.append(code)
         return True
 
     from app.services import siwa_revocation
-    monkeypatch.setattr(siwa_revocation, "is_configured", lambda: True)
+    monkeypatch.setattr(siwa_revocation, "is_configured", lambda *a: True)
     monkeypatch.setattr(siwa_revocation, "revoke_with_authorization_code", _rv)
 
     r = client.post("/v1/account/delete",
@@ -472,19 +472,20 @@ def test_revoke_runs_on_last_app_delete(client, app_env, monkeypatch):
     _member(_db(app_env), "rv2-user", "techrehearsal")
     called = []
 
-    async def _ok(code):
-        called.append(code)
+    async def _ok(code, **kw):
+        called.append((code, kw.get("app_id")))
         return True
 
     from app.services import siwa_revocation
-    monkeypatch.setattr(siwa_revocation, "is_configured", lambda: True)
+    monkeypatch.setattr(siwa_revocation, "is_configured", lambda *a: True)
     monkeypatch.setattr(siwa_revocation, "revoke_with_authorization_code", _ok)
     r = client.post("/v1/account/delete",
                     headers={"Authorization": f"Bearer {_jwt_token('rv2-user')}",
                              **TR},
                     json={"apple_authorization_code": "c_def"})
     assert r.status_code == 200
-    assert called == ["c_def"]
+    # Revoked as the app that deleted, so Apple redeems TR's code as TR.
+    assert called == [("c_def", "techrehearsal")]
 
 
 def test_revoke_skipped_without_siwa_key(client, app_env, monkeypatch):
@@ -493,7 +494,7 @@ def test_revoke_skipped_without_siwa_key(client, app_env, monkeypatch):
     _member(_db(app_env), "rv-user", "techrehearsal")
     called = []
 
-    async def _boom(code):
+    async def _boom(code, **kw):
         called.append(code)
         return True
 
@@ -531,12 +532,12 @@ def test_dryrun_window_returns_200_and_purges_nothing(client, app_env, monkeypat
     monkeypatch.setattr(cq, "notify_tier_change", _capture)
     revoked = []
 
-    async def _rv(code):
+    async def _rv(code, **kw):
         revoked.append(code)
         return True
 
     from app.services import siwa_revocation
-    monkeypatch.setattr(siwa_revocation, "is_configured", lambda: True)
+    monkeypatch.setattr(siwa_revocation, "is_configured", lambda *a: True)
     monkeypatch.setattr(siwa_revocation, "revoke_with_authorization_code", _rv)
 
     r = client.post("/v1/account/delete",
@@ -568,16 +569,113 @@ def test_dryrun_expired_or_malformed_deletes_for_real(client, app_env, monkeypat
 
 
 def test_dryrun_never_applies_to_other_apps(client, app_env, monkeypatch):
+    """TR joined the window 2026-10-18; every app outside it still purges."""
     import datetime as dt
 
     from app.config import get_settings
-    _insert_user(_db(app_env), "tr-user")
-    _member(_db(app_env), "tr-user", "techrehearsal")
+    from app.services.jwt_service import JWTService
+    _insert_user(_db(app_env), "n4-user")
+    _member(_db(app_env), "n4-user", "n400")
     until = (dt.datetime.now(dt.timezone.utc)
              + dt.timedelta(hours=1)).isoformat()
     monkeypatch.setattr(get_settings(), "account_delete_dryrun_until", until)
+    token = JWTService(secret="test-secret-key-that-is-long-enough-for-hs256-validation",
+                       algorithm="HS256", access_expire_minutes=60,
+                       refresh_expire_days=30).create_access_token("n4-user", "n400")
     r = client.post("/v1/account/delete",
-                    headers={"Authorization": f"Bearer {_jwt_token('tr-user')}",
-                             **TR})
-    assert r.status_code == 200
-    assert _users(_db(app_env), "tr-user") == 0
+                    headers={"Authorization": f"Bearer {token}", "X-App-ID": "n400"})
+    assert r.status_code == 200, r.text
+    assert _users(_db(app_env), "n4-user") == 0
+
+
+# --- revocation names the deleting app (TR, 2026-10-18) ---------------------
+
+
+def test_the_revocation_client_is_the_deleting_apps_bundle(monkeypatch):
+    from app.config import get_settings
+    from app.services import siwa_revocation as rv
+    monkeypatch.setattr(get_settings(), "app_store_bundle_id", "")
+    monkeypatch.setattr(get_settings(), "apple_bundle_id",
+                        "com.shouldersurf.ShoulderSurf,com.weirtech.techrehearsal")
+    assert rv._client_id("techrehearsal") == "com.weirtech.techrehearsal"
+    assert rv._client_id("shouldersurf") == "com.shouldersurf.ShoulderSurf"
+    # Headerless and unregistered keep the old default.
+    assert rv._client_id(None) == "com.shouldersurf.ShoulderSurf"
+    assert rv._client_id("nope") == "com.shouldersurf.ShoulderSurf"
+
+
+def test_a_tr_revocation_goes_to_apple_as_tr(monkeypatch):
+    """On the wire, not the helper: both Apple calls carry TR's client id."""
+    import asyncio
+
+    import httpx
+
+    from app.services import siwa_revocation as rv
+    seen = []
+
+    def handler(request):
+        seen.append((request.url.path, dict(httpx.QueryParams(request.content.decode()))))
+        if request.url.path == "/auth/token":
+            return httpx.Response(200, json={"refresh_token": "rt"})
+        return httpx.Response(200)
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(rv.httpx, "AsyncClient",
+                        lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
+    secrets = []
+    monkeypatch.setattr(rv, "_client_secret", lambda cid, app=None: secrets.append((cid, app)) or "s")
+    assert asyncio.run(rv.revoke_with_authorization_code("c", app_id="techrehearsal")) is True
+    assert [p for p, _ in seen] == ["/auth/token", "/auth/revoke"]
+    assert {d["client_id"] for _, d in seen} == {"com.weirtech.techrehearsal"}
+    assert secrets == [("com.weirtech.techrehearsal", "techrehearsal")]
+
+
+def test_dryrun_window_covers_tech_rehearsal(client, app_env, monkeypatch):
+    import datetime as dt
+
+    from app.config import get_settings
+    _insert_user(_db(app_env), "tr-dry")
+    _member(_db(app_env), "tr-dry", "techrehearsal")
+    monkeypatch.setattr(get_settings(), "account_delete_dryrun_until",
+                        (dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=1)).isoformat())
+    r = client.post("/v1/account/delete",
+                    headers={"Authorization": f"Bearer {_jwt_token('tr-dry')}", **TR},
+                    json={})
+    assert r.status_code == 200 and r.json() == {"status": "deleted"}
+    assert _users(_db(app_env), "tr-dry") == 1
+
+
+def test_tr_never_signs_with_the_ss_key(client, app_env, monkeypatch):
+    """TQCDG4GK4W is configured for SS's App ID only (SS Social read the
+    portal 2026-10-18). With no TR key, a TR delete skips revocation rather
+    than send a secret Apple refuses; with one, TR's own key signs."""
+    from app.config import get_settings
+    from app.services import siwa_revocation as rv
+    st = get_settings()
+    monkeypatch.setattr(st, "siwa_team_id", "TEAM")
+    monkeypatch.setattr(st, "siwa_key_id", "SSKEY")
+    monkeypatch.setattr(st, "siwa_private_key_b64", "c3M=")
+    monkeypatch.setattr(st, "tr_siwa_key_id", "")
+    monkeypatch.setattr(st, "tr_siwa_private_key_b64", "")
+    assert rv.is_configured("shouldersurf") and rv.is_configured(None)
+    assert not rv.is_configured("techrehearsal")
+
+    _insert_user(_db(app_env), "tr-nokey")
+    _member(_db(app_env), "tr-nokey", "techrehearsal")
+    called = []
+
+    async def _rv(code, **kw):
+        called.append(code)
+        return True
+
+    monkeypatch.setattr(rv, "revoke_with_authorization_code", _rv)
+    r = client.post("/v1/account/delete",
+                    headers={"Authorization": f"Bearer {_jwt_token('tr-nokey')}", **TR},
+                    json={"apple_authorization_code": "c_tr"})
+    assert r.status_code == 200 and called == []
+
+    monkeypatch.setattr(st, "tr_siwa_key_id", "TRKEY")
+    monkeypatch.setattr(st, "tr_siwa_private_key_b64", "dHI=")
+    assert rv.is_configured("techrehearsal")
+    assert rv._key("techrehearsal") == ("TRKEY", "dHI=")
+    assert rv._key("shouldersurf") == ("SSKEY", "c3M=")

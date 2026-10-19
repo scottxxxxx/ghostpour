@@ -69,6 +69,11 @@ class Settings(BaseSettings):
     siwa_team_id: str = ""                   # Apple developer team id
     siwa_key_id: str = ""                    # SIWA key id
     siwa_private_key_b64: str = ""           # base64 of the .p8 EC private key
+    # Tech Rehearsal's own Sign in with Apple key (2026-10-18). TR's App ID is
+    # its own SIWA primary, not grouped under SS, and Apple only accepts a
+    # client secret from a key configured for that App ID. Same team id.
+    tr_siwa_key_id: str = ""
+    tr_siwa_private_key_b64: str = ""
 
     # APNs push key — "your file is ready" when the user force-quit the app
     # (SS contract 2026-09-05). A DEDICATED Apple Push Notifications .p8
@@ -386,6 +391,7 @@ _SECRET_MANAGER_MAPPINGS: dict[str, str] = {
     # 5.1.1(v)). Unmapped until 2026-09-24, so revocation stayed dormant in
     # prod. Key id and team id are identifiers and live in env, like APNs.
     "CZ_SIWA_PRIVATE_KEY_B64": "siwa-private-key-b64",
+    "CZ_TR_SIWA_PRIVATE_KEY_B64": "tr-siwa-private-key-b64",
 }
 
 
