@@ -63,14 +63,24 @@ the client offers Sign in with Apple instead of minting again.
 with the signed transaction (JWS) required. GP never grants a TR plan on the
 client's word. That's the same rule as SS's one-time unlocks, whatever
 `require_signed_transaction` says for SS. Apple's signed `productId` must
-be `com.weirtech.techrehearsal.sub.monthly`.
+be one of the TR plan's products, and both map to the same `paid`
+entitlement (Scott added annual 2026-10-19):
+
+- `com.weirtech.techrehearsal.sub.monthly`, $9.99 a month
+- `com.weirtech.techrehearsal.sub.annual` (ASC 6824384738), $59.99 a year
+
+Both have a one-week trial and are in subscription group 22491987. The
+product list lives in one place in GP, so adding a third product is a
+one-line change.
 
 NEW response (an echo the client compares, rule 4):
 
 ```json
 {"app": "techrehearsal", "entitlement": "paid", "status": "active",
  "is_trial": true, "expires_at": "2026-10-25T...Z",
- "original_transaction_id": "..."}
+ "original_transaction_id": "...",
+ "product_id": "com.weirtech.techrehearsal.sub.monthly",
+ "renews_as_product_id": "com.weirtech.techrehearsal.sub.annual"}
 ```
 
 `status` is `active`, `expired`, `revoked` or `refunded`. A JWS that
@@ -89,6 +99,24 @@ GRACE_PERIOD_EXPIRED, REVOKE and REFUND set it inactive. The row is found
 by `originalTransactionId`, then by `appAccountToken` (TR sets it to the GP
 user id, `SubscriptionManager.swift:95-100`). PR #1131 already stops these
 from ever moving an SS tier.
+
+**Switching between monthly and annual is never an expiry.** Both products
+are in one group, so a switch keeps the same `originalTransactionId` and
+lands on the same row. DID_CHANGE_RENEWAL_PREF records the product the
+plan will renew as and changes nothing else. The row stays active on its
+current product until the switch takes effect. The DID_RENEW (or the
+SUBSCRIBED with an UPGRADE subtype) that carries the new `productId` then
+updates the row's product and `expiresDate` in place. Only EXPIRED,
+GRACE_PERIOD_EXPIRED, REVOKE and REFUND make the row inactive, and an
+EXPIRED for one product while the same `originalTransactionId` has a later
+`expiresDate` on file is ignored, so an out-of-order notification can't end
+a live plan. The read-back object gains `product_id` and
+`renews_as_product_id`, so the client can show "Annual from <date>".
+
+**SS tiers.** #1131's check has no product list. It stops any notification
+whose bundle isn't SS's and whose product isn't an SS tier product, so the
+annual product (and any later TR product) can never move an SS tier. I
+read that in the condition. There's no separate annual test.
 
 **Budget gate.** `X-TR-Entitlement` is IGNORED. GP keys the cap on the
 server-side row: active means paid ($25 a month), otherwise free ($5 a
