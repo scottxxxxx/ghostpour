@@ -5183,8 +5183,11 @@ _PAYWALL_PLANS = {"plus", "pro"}
 # Other forms section on Home) are N-400 Helper's too (2026-10-13). The share
 # campaign shipped seeded at boot without its id here, so the dashboard's
 # Save rejected it and Scott could not pause or edit a live campaign.
+# `i765_share` and `i765_home_forms` are I-765 Helper's mirrors (2026-10-18),
+# added in the same change that seeds them, so that Save works from day one.
 _PLACEMENTS = {"launch", "feature_locked", "post_meeting", "paywall", "settings",
-               "n400_complete", "i765_complete", "n400_share", "n400_home_forms"}
+               "n400_complete", "i765_complete", "n400_share", "n400_home_forms",
+               "i765_share", "i765_home_forms"}
 # Per-app allowlist of campaign-authorable deeplink targets. The client
 # allowlists the same routes; GP only authors what it will accept. SS provided
 # (2026-06-26): shouldersurf://record only — meeting/<uuid> and project/<uuid>

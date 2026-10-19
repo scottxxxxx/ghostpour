@@ -1357,6 +1357,30 @@ MIGRATIONS = [
     # form-app turns only (usage_tracker.n400_place_columns); never the IP.
     "ALTER TABLE usage_log ADD COLUMN ip_hash TEXT",
     "CREATE INDEX IF NOT EXISTS idx_usage_app_ip ON usage_log(app_id, ip_hash, request_timestamp, user_id, estimated_cost_usd) WHERE ip_hash IS NOT NULL",
+    # I-765 Helper's own share card and "Other forms" section (the I-765
+    # lead, 2026-10-18), mirrored from n400_share_card and n400_home_forms.
+    # BOTH PAUSED, unlike N-400's active share card: there is no I-765
+    # website and no App Store id yet, so the share link is the same
+    # id0000000000 placeholder the cross-promo cards carry. Scott turns each
+    # on from the Campaigns tab once its link is real (guideline 2.1).
+    """INSERT OR IGNORE INTO promo_campaigns
+         (id, name, status, app_id, priority, targeting, frequency, placements,
+          variants, created_at, updated_at)
+       VALUES ('i765_share_card', 'Share I-765 Helper card on the Form screen',
+               'paused', 'i765', 10, '{}', '{"repeat_after_convert": true}',
+               '[{"placement": "i765_share", "priority": 10}]',
+               '[{"variant_id": "card", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-share.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-share.es.html"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-share.pt.html"}}}]',
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
+    """INSERT OR IGNORE INTO promo_campaigns
+         (id, name, status, app_id, priority, targeting, frequency, placements,
+          variants, created_at, updated_at)
+       VALUES ('i765_home_forms', 'Other forms section on the I-765 Home screen',
+               'paused', 'i765', 10, '{}', '{"repeat_after_convert": true}',
+               '[{"placement": "i765_home_forms", "priority": 10}]',
+               '[{"variant_id": "section", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-home-forms.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-home-forms.es.html"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-home-forms.pt.html"}}}]',
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
+               strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
 ]
 
 

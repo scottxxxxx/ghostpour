@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": 2,
+  "version": 5,
   "as_of": "2026-10-09",
   "app_id": "i765",
   "form": "I-765",
@@ -26,7 +26,7 @@
     {"key": "TPS", "url": "https://www.uscis.gov/humanitarian/temporary-protected-status", "read_on": "2026-10-09", "note": "Temporary Protected Status. Read live 2026-10-09 (Last Reviewed/Updated 09/09/2026). The page carries no filing address itself: it says to send the TPS package or the I-765 to the mailing address on the country specific page, that when and where to file is on the country pages, and that the I-765 may be filed online when filed concurrently with an online I-821. Per-country notices are not encoded."}
   ],
   "categories": {
-    "c9": {"code": "(c)(9)", "label_en": "Pending green card application (Form I-485)", "label_es": "Solicitud de residencia permanente pendiente (Formulario I-485)", "label_pt": "Pedido de green card pendente (Formulário I-485)"},
+    "c9": {"code": "(c)(9)", "label_en": "Pending green card application (Form I-485)", "label_es": "Solicitud de residencia permanente pendiente (Formulario I-485)", "label_pt": "Pedido de residência permanente pendente (Formulário I-485)"},
     "c3a": {"code": "(c)(3)(A)", "label_en": "F-1 student, pre-completion OPT", "label_es": "Estudiante F-1, OPT antes de terminar los estudios", "label_pt": "Estudante F-1, OPT antes de concluir os estudos"},
     "c3b": {"code": "(c)(3)(B)", "label_en": "F-1 student, post-completion OPT", "label_es": "Estudiante F-1, OPT después de terminar los estudios", "label_pt": "Estudante F-1, OPT após concluir os estudos"},
     "c3c": {"code": "(c)(3)(C)", "label_en": "F-1 student, 24-month STEM OPT extension", "label_es": "Estudiante F-1, extensión STEM OPT de 24 meses", "label_pt": "Estudante F-1, extensão STEM OPT de 24 meses"},
@@ -394,7 +394,7 @@
               "city": "Dallas",
               "state": "TX",
               "zip": "75266-0867",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: NFB (Box 660867)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: NFB (Box 660867)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
             }
           },
           {
@@ -407,7 +407,7 @@
               "city": "Phoenix",
               "state": "AZ",
               "zip": "85036-1281",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: NFB (Box 21281)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: NFB (Box 21281)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
             }
           },
           {
@@ -420,7 +420,7 @@
               "city": "Chicago",
               "state": "IL",
               "zip": "60680-5371",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: NFB (Box 805371)", "street_lines": ["131 S. Dearborn St. - 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: NFB (Box 805371)", "street_lines": ["131 S. Dearborn St. - 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
             }
           }
         ],
@@ -444,7 +444,7 @@
               "city": "Dallas",
               "state": "TX",
               "zip": "75265-0288",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: AOS (Box 650288)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: AOS (Box 650288)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
             }
           },
           {
@@ -457,7 +457,7 @@
               "city": "Carol Stream",
               "state": "IL",
               "zip": "60197-4109",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: AOS (Box 4109)", "street_lines": ["2500 Westfield Drive"], "city": "Elgin", "state": "IL", "zip": "60124-7836"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: AOS (Box 4109)", "street_lines": ["2500 Westfield Drive"], "city": "Elgin", "state": "IL", "zip": "60124-7836"}
             }
           },
           {
@@ -470,7 +470,7 @@
               "city": "Phoenix",
               "state": "AZ",
               "zip": "85036-0500",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: AOS (Box 20500)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: AOS (Box 20500)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
             }
           },
           {
@@ -483,7 +483,7 @@
               "city": "Chicago",
               "state": "IL",
               "zip": "60680",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: AOS (Box 805887)", "street_lines": ["131 S. Dearborn St., 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: AOS (Box 805887)", "street_lines": ["131 S. Dearborn St., 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
             }
           }
         ],
@@ -527,7 +527,7 @@
           "city": "Chicago",
           "state": "IL",
           "zip": "60680-5374",
-          "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: I-765 C03 (Box 805373)", "street_lines": ["131 South Dearborn - 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+          "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: I-765 C03 (Box 805373)", "street_lines": ["131 South Dearborn - 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
         },
         "see_url": "https://www.uscis.gov/i-765-addresses",
         "see_url_reason": null,
@@ -548,7 +548,7 @@
           "city": "Chicago",
           "state": "IL",
           "zip": "60680-1782",
-          "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: I-907 (Box 88782)", "street_lines": ["131 South Dearborn, 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+          "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: I-907 (Box 88782)", "street_lines": ["131 South Dearborn, 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
         },
         "i907_for_pending_i765": {
           "en": "If your I-765 is already pending and you are now sending only Form I-907, do not resubmit Form I-765. Mail the I-907 to this address instead.",
@@ -562,7 +562,7 @@
             "city": "Chicago",
             "state": "IL",
             "zip": "60680-4116",
-            "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: I-907 (P.O. Box 805501)", "street_lines": ["131 South Dearborn, 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
+            "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: I-907 (P.O. Box 805501)", "street_lines": ["131 South Dearborn, 3rd Floor"], "city": "Chicago", "state": "IL", "zip": "60603-5517"}
           }
         },
         "see_url": "https://www.uscis.gov/i-765-addresses",
@@ -588,7 +588,7 @@
               "city": "Dallas",
               "state": "TX",
               "zip": "75266-0921",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: H4 (Box 660921)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: H4 (Box 660921)", "street_lines": ["2501 S. State Hwy. 121 Business", "Suite 400"], "city": "Lewisville", "state": "TX", "zip": "75067-8003"}
             }
           },
           {
@@ -601,7 +601,7 @@
               "city": "Phoenix",
               "state": "AZ",
               "zip": "85036-0400",
-              "courier": {"carriers": "FedEx, UPS, and DHL deliveries", "name_line": "USCIS", "attention_line": "Attn: H4 (Box 20400)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
+              "courier": {"carriers": {"en": "FedEx, UPS, and DHL deliveries", "es": "Envíos por FedEx, UPS y DHL", "pt": "Entregas por FedEx, UPS e DHL"}, "name_line": "USCIS", "attention_line": "Attn: H4 (Box 20400)", "street_lines": ["2108 E. Elliot Rd."], "city": "Tempe", "state": "AZ", "zip": "85284-1806"}
             }
           }
         ],
@@ -798,8 +798,8 @@
         "id": "C05_passport_photos",
         "when": null,
         "text_en": "Two identical color passport photos, 2 by 2 inches, with your name and A-Number written in pencil on the back.",
-        "text_es": "Dos fotos de pasaporte idénticas a color, de 2 por 2 pulgadas, con su nombre y su A-Number escritos con lápiz en el reverso.",
-        "text_pt": "Duas fotos de passaporte idênticas, coloridas, de 2 por 2 polegadas, com seu nome e seu A-Number escritos a lápis no verso.",
+        "text_es": "Dos fotos de pasaporte idénticas a color, de 2 por 2 pulgadas, con su nombre y su número A escritos con lápiz en el reverso.",
+        "text_pt": "Duas fotos de passaporte idênticas, coloridas, de 2 por 2 polegadas, com seu nome e seu número A escritos a lápis no verso.",
         "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'Two identical 2x2 color passport photos with name and A-Number in pencil on the back'"}
       },
       {
@@ -862,7 +862,7 @@
         "condition": {"niw_physician": true},
         "text_en": "If your green card case is a physician national interest waiver, proof of your progress, such as your W-2 forms.",
         "text_es": "Si su caso de residencia es una exención por interés nacional para médicos, prueba de su avance, como sus formularios W-2.",
-        "text_pt": "Se o seu caso de green card for uma isenção por interesse nacional para médicos, comprovação do seu progresso, como os seus formulários W-2.",
+        "text_pt": "Se o seu caso de residência permanente for uma isenção por interesse nacional para médicos, comprovação do seu progresso, como os seus formulários W-2.",
         "see_url": null,
         "source": {"keys": ["INSTR"], "where": "RESEARCH section 5: 'NIW physician renewals need proof of progress (W-2s)' (INSTR p.12)"}
       },
@@ -1063,7 +1063,7 @@
         "categories": ["c9"],
         "en": "Your green card case is before an immigration court. Those filings need proof of the proceedings and the court filing, and the rules differ, so an attorney should prepare it.",
         "es": "Su caso de residencia está ante un tribunal de inmigración. Esas solicitudes necesitan prueba del proceso y de la presentación ante el tribunal, y las reglas son distintas, así que un abogado debe prepararla.",
-        "pt": "Seu caso de green card está em um tribunal de imigração. Esses pedidos precisam de comprovação do processo e do protocolo no tribunal, e as regras são diferentes, então um advogado deve prepará-lo.",
+        "pt": "Seu caso de residência permanente está em um tribunal de imigração. Esses pedidos precisam de comprovação do processo e do protocolo no tribunal, e as regras são diferentes, então um advogado deve prepará-lo.",
         "source": "RESEARCH section 5 '(c)(9): If the I-485 is before EOIR, add proof of proceedings and the court filing'; section 7 'Safest scope: (c)(9) without proceedings'"
       },
       {
@@ -1072,7 +1072,7 @@
         "categories": ["c9"],
         "en": "Your green card case is based on VAWA, T or U status. Those filings use a safe address and their own filing location, and they are sometimes charged a fee by mistake, so an attorney should handle it.",
         "es": "Su caso de residencia se basa en VAWA o en un estatus T o U. Esas solicitudes usan una dirección segura y su propio lugar de presentación, y a veces se les cobra una tarifa por error, así que un abogado debe encargarse.",
-        "pt": "Seu caso de green card se baseia em VAWA ou em status T ou U. Esses pedidos usam um endereço seguro e seu próprio local de apresentação, e às vezes recebem uma cobrança de taxa por engano, então um advogado deve cuidar dele.",
+        "pt": "Seu caso de residência permanente se baseia em VAWA ou em status T ou U. Esses pedidos usam um endereço seguro e seu próprio local de apresentação, e às vezes recebem uma cobrança de taxa por engano, então um advogado deve cuidar dele.",
         "source": "RESEARCH section 7 item 7"
       },
       {
@@ -1162,7 +1162,7 @@
         "categories": null,
         "en": "The app cannot tell which category fits you, and the fee and the address both follow that category. For example, a refugee or asylee with a pending green card application files as (a)(3) or (a)(5), not (c)(9). An attorney can confirm it.",
         "es": "La aplicación no puede determinar qué categoría le corresponde, y tanto la tarifa como la dirección dependen de esa categoría. Por ejemplo, un refugiado o asilado con una solicitud de residencia pendiente presenta como (a)(3) o (a)(5), no como (c)(9). Un abogado puede confirmarlo.",
-        "pt": "O aplicativo não consegue determinar qual categoria se aplica a você, e tanto a taxa quanto o endereço dependem dessa categoria. Por exemplo, um refugiado ou asilado com um pedido de green card pendente apresenta como (a)(3) ou (a)(5), não como (c)(9). Um advogado pode confirmar.",
+        "pt": "O aplicativo não consegue determinar qual categoria se aplica a você, e tanto a taxa quanto o endereço dependem dessa categoria. Por exemplo, um refugiado ou asilado com um pedido de residência permanente pendente apresenta como (a)(3) ou (a)(5), não como (c)(9). Um advogado pode confirmar.",
         "source": "RESEARCH section 7 item 10 (INSTR pp.1 to 2, 12; PAGE)"
       },
       {
