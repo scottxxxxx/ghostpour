@@ -150,16 +150,14 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     i765 = json.load(open("config/remote/i765/interviewer-turn.json"))
     n400 = json.load(open("config/remote/n400/interviewer-turn.json"))
     assert i765["requiredVariables"] == n400["requiredVariables"]
-    # TODAY (N-400 v62, build 180) is the N-400 client's; I-765 gains it with
-    # its own client change.
-    _today = "TODAY (her calendar day; empty from an older client):\n{{today}}\n\n"
-    assert i765["optionalVariables"] == [v for v in n400["optionalVariables"] if v != "today"]
-    assert _today in n400["userPromptTemplate"]
-    assert i765["userPromptTemplate"] == n400["userPromptTemplate"].replace(_today, ""), \
-        "the client fills one template"
+    # TODAY (N-400 v62) reached I-765 at v4 (the lead, 2026-10-18), so the two
+    # templates are identical again and the client fills one.
+    assert i765["optionalVariables"] == n400["optionalVariables"]
+    assert "TODAY (her calendar day; empty from an older client):\n{{today}}" in i765["userPromptTemplate"]
+    assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 3
+    assert i765["server_only"] is True and i765["version"] == 4
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
@@ -277,3 +275,30 @@ def test_a_stream_request_takes_the_sentence_stream_not_the_generic_one(client, 
     assert "error" not in events
     env = json.loads(next(b for b in raw.strip().split("\n\n") if b.startswith("event: envelope")).split("\n")[1][len("data: "):])
     assert json.loads(env["text"])["reply"]["en"] == ENVELOPE["reply"]["en"]
+
+
+def test_today_resolves_her_relative_dates_and_an_anchor_is_never_filed():
+    """N-400 v62's TODAY rules, ported to I-765 at v4 (the lead, 2026-10-18),
+    without N-400's trip, job and address anchors this form has no field for."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert "TODAY IS THE APPLICANT'S OWN CALENDAR DAY, from the TODAY line of the request" in sp
+    assert "read the full date back as a question before you mint it" in sp
+    assert "When TODAY is empty, never resolve a relative year: ask which year." in sp
+    assert "AN ANCHOR MAY BE OFFERED, NEVER FILED" in sp
+    assert "you mint it only on their yes, with their yes as its provenance.utterance" in sp
+    assert "Wisteria Street" not in sp and "going home" not in sp, "no N-400 anchor leaked in"
+
+
+def test_a_gate_that_opens_rows_never_ends_its_part():
+    """The lead's replay runs, 2026-10-19: on the common path Part 2 ends on
+    the SEVIS gate (the interpreter opener answered no files p3.reads_english,
+    so Part 3 collapses), and a yes there opens the SEVIS number row. The
+    client sends SECTION BOUNDARY on that node, and its presence alone used to
+    round the part off. N-400's rule, in I-765 words."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    rule = sp[sp.index("A GATE OR COUNT THAT OPENS ROWS DOES NOT END ITS PART"):]
+    rule = rule[:rule.index("A part is not done while")]
+    assert "even when SECTION BOUNDARY is present" in rule
+    assert "no part summary and no section_checkpoint" in rule
+    assert 'Only "no", "none" or zero closes the part there' in rule
+    assert "What is your SEVIS number?" in rule

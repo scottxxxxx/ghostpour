@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>I-765 Helper</title>
+<!--
+  GP promo creative, render=html, app_id=i765, placement=i765_share (the
+  auditor's contract, 2026-10-13). N-400 Helper shows it INLINE on the Form
+  screen in a transparent web view sized to this page's height, so the body
+  is transparent, the page has no fixed height, and it fits 360pt wide.
+  One file per language; GP picks the file from the app's Accept-Language
+  through the campaign's content_locales, so there is no script at all.
+
+  Link convention: every link carries promo_cta_id (counted as a click). A
+  link that ALSO carries promo_action=share opens the iOS share sheet with
+  this URL after the client strips the promo_* params; any other link opens
+  outside the app. The share target is the website until the App Store
+  listing exists; change it here with a creative upload, no app release.
+  promo_share_text is the line the share sheet sends above the link; the
+  client swaps the literal {time_with_us} (percent-encoded here) for the
+  person's interview time in their language. promo_share_text_untimed is
+  the same line for a case that never counted its time (build 171 and up).
+  No dashes as punctuation in the copy (Scott's rule).
+-->
+<style>
+  :root {
+    --ink: #0b1220; --ink2: rgba(11,18,32,.66); --edge: rgba(255,255,255,.85);
+    --btn: #0b1220; --btnText: #fff; --a: rgba(18,160,94,.14); --b: rgba(13,99,232,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f4f7fc; --ink2: rgba(235,240,250,.66); --edge: rgba(255,255,255,.18);
+      --btn: #f4f7fc; --btnText: #0b1220; --a: rgba(63,208,138,.14); --b: rgba(92,157,251,.12);
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body { font: 16px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .card { padding: 18px; border-radius: 22px; background: linear-gradient(135deg, var(--a), var(--b)); border: .5px solid var(--edge); }
+  h1 { margin: 0 0 6px; font-size: 19px; font-weight: 700; letter-spacing: -.3px; color: var(--ink); }
+  p { margin: 0 0 14px; font-size: 14px; line-height: 1.4; color: var(--ink2); }
+  a.btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 999px; background: var(--btn); color: var(--btnText); font-size: 15px; font-weight: 600; text-decoration: none; }
+  a.btn:active { opacity: .85; }
+</style>
+</head>
+<body>
+  <main class="card">
+  <h1>Know someone applying for a work permit?</h1>
+  <p>Send them the app. You did the hard part; they shouldn't have to guess where their answers go either.</p>
+  <a class="btn" href="https://apps.apple.com/app/id0000000000?promo_cta_id=share_i765&amp;promo_action=share&amp;promo_share_text=Here%27s%20the%20app%20I%20used%20for%20my%20I-765.%20You%20just%20talk%20it%20through%20like%20a%20normal%20conversation%2C%20and%20it%20fills%20in%20the%20form%20from%20what%20you%20say.%20I%20answered%20the%20whole%20thing%20in%20%7Btime_with_us%7D.&amp;promo_share_text_untimed=Here%27s%20the%20app%20I%20used%20for%20my%20I-765.%20You%20just%20talk%20it%20through%20like%20a%20normal%20conversation%2C%20and%20it%20fills%20in%20the%20form%20from%20what%20you%20say." data-cta-id="share_i765"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg><span>Share I-765 Helper</span></a>
+  </main>
+</body>
+</html>
