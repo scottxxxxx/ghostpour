@@ -84,6 +84,44 @@ DAILY_SPEND_SQL = (
 )
 
 
+# The per-IP rule (Scott, 2026-10-19: "block on ip if they go over $2").
+# What OTHER anonymous accounts on this network spent in this app inside the
+# window; the caller's own account is left out, so its own per-application
+# and per-install allowance still decides its own turns, and a spouse's
+# application on the same phone still runs. A reinstall or a scripted mint is
+# a new account on the same network, and that is what this refuses. Accounts
+# flagged exclude_from_stats (Scott's test installs; TestFlight and Xcode
+# mints are flagged at birth) never count against a network, so testing at
+# home cannot lock the tester out. Covered by idx_usage_app_ip.
+IP_OTHERS_SPEND_SQL = (
+    "SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log "
+    "WHERE app_id = ? AND ip_hash = ? AND request_timestamp >= ? AND user_id != ? "
+    "AND user_id NOT IN (SELECT id FROM users WHERE exclude_from_stats = 1)"
+)
+
+# Fixed and versioned: changing it orphans every key already in usage_log.
+_NETWORK_KEY_SALT = "ghostpour/anonymous-network/v1|"
+
+
+def network_key(ip: str | None) -> str | None:
+    """A salted SHA-256 of the IPv4 address, or of the IPv6 /64 prefix,
+    because a phone rotates its IPv6 interface id daily and the /64 is the
+    network it sits on. None when there is no parsable address."""
+    import hashlib
+    import ipaddress
+    try:
+        addr = ipaddress.ip_address((ip or "").strip())
+    except ValueError:
+        return None
+    if addr.version == 6:
+        if addr.ipv4_mapped:
+            addr = addr.ipv4_mapped
+        else:
+            addr = ipaddress.ip_network(f"{addr}/64", strict=False).network_address
+            return hashlib.sha256(f"{_NETWORK_KEY_SALT}{addr}/64".encode()).hexdigest()
+    return hashlib.sha256(f"{_NETWORK_KEY_SALT}{addr}".encode()).hexdigest()
+
+
 # Apps whose anonymous accounts get an allowance, so their spend is carried
 # through a delete. ShoulderSurf's anonymous accounts get none, so nothing of
 # theirs is kept after a delete.
@@ -171,8 +209,13 @@ def caps(remote_configs: dict | None, apps_registry: dict,
     per_install = _usd(doc.get("per_install_lifetime_usd"))
     if per_install is None:
         return None
+    try:
+        window = max(1, int(doc.get("per_ip_window_days") or 30))
+    except (TypeError, ValueError):
+        window = 30
     return {"per_application": _usd(doc.get("per_application_usd")),
-            "per_install": per_install, "daily": _usd(doc.get("daily_all_installs_usd"))}
+            "per_install": per_install, "daily": _usd(doc.get("daily_all_installs_usd")),
+            "per_ip": _usd(doc.get("per_ip_usd")), "per_ip_window_days": window}
 
 
 def case_id(value) -> str | None:
@@ -197,7 +240,7 @@ def next_day_iso(now: datetime | None = None) -> str:
 
 async def check(db: aiosqlite.Connection, user_id: str, app_id: str,
                 estimate_usd: float | None, caps_: dict,
-                case: str | None = None) -> tuple[str | None, dict]:
+                case: str | None = None, *, ip_key: str | None = None) -> tuple[str | None, dict]:
     """(code, info): code is CODE_APPLICATION, CODE_INSTALL or CODE_DAILY when
     this call must be refused, else None. Checked narrowest first (this
     application, then this install, then everyone today), so a user hears
@@ -228,6 +271,21 @@ async def check(db: aiosqlite.Connection, user_id: str, app_id: str,
     info["spent"] = spent
     if spent >= caps_["per_install"] or spent + est > caps_["per_install"]:
         return CODE_INSTALL, info
+    # Other accounts on this network already used the allowance: answered
+    # with the install code, so the client words it as this app having used
+    # its free interview, with no client change. `reason` tells them apart
+    # in the log.
+    per_ip = caps_.get("per_ip")
+    if per_ip is not None and ip_key:
+        since = (datetime.now(timezone.utc)
+                 - timedelta(days=caps_.get("per_ip_window_days") or 30)).isoformat()
+        row = await (await db.execute(
+            IP_OTHERS_SPEND_SQL, (app_id, ip_key, since, user_id))).fetchone()
+        info["ip_spent_by_others"] = others = float(row[0] or 0.0) if row else 0.0
+        info["per_ip"] = per_ip
+        if others >= per_ip:
+            info["reason"] = "ip"
+            return CODE_INSTALL, info
     daily = caps_.get("daily")
     if daily is not None:
         row = await (await db.execute(

@@ -43,12 +43,20 @@
     "accounts get NOTHING, and the audit refuses the app if it is in",
     "ANONYMOUS_APPS. See app/services/anonymous_budget.py.",
     "A full interview measured about $1.10 to $1.60 (2026-10-05, 90 to 130",
-    "turns at $0.0121 per turn)."
+    "turns at $0.0121 per turn).",
+    "per_ip_usd (Scott, 2026-10-19: \"block on ip if they go over $2\"): when",
+    "OTHER unflagged anonymous accounts on this network (IPv4, or IPv6 /64)",
+    "spent this much in the last per_ip_window_days, a new account there is",
+    "refused with the install copy. -1 or absent turns it off. Carrier NAT puts",
+    "strangers on one address, so this can refuse an honest applicant who",
+    "shares a cell network with someone who used $2."
   ],
   "anonymous": {
     "per_application_usd": 2,
     "per_install_lifetime_usd": 10,
     "daily_all_installs_usd": 50,
+    "per_ip_usd": 2,
+    "per_ip_window_days": 30,
     "application_allowance_used": {
       "kind": "application_allowance_used",
       "text": {

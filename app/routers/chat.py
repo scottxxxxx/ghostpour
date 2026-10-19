@@ -1693,6 +1693,9 @@ async def _chat_impl(
         body.metadata["geo_country"] = _geo.get("country")
         body.metadata["geo_region"] = _geo.get("region")
         body.metadata["geo_city"] = _geo.get("city")
+        # The per-IP allowance key (Scott, 2026-10-19), hashed, IPv6 by /64.
+        from app.services.anonymous_budget import network_key
+        body.metadata["ip_key"] = network_key(_client_ip(request))
 
     # PRE-FLIGHT STOPWATCH. Everything between here and the first SSE byte is
     # silence on the user's phone.
@@ -2558,14 +2561,18 @@ async def _chat_impl(
             )
         _anon_code, _anon_info = await anonymous_budget.check(
             db, user.id, app_id, _anon_estimate, _anon_caps,
-            anonymous_budget.case_id(body.get_meta("case_id")))
+            anonymous_budget.case_id(body.get_meta("case_id")),
+            ip_key=body.get_meta("ip_key"))
         if _anon_code:
             logger.info(
                 "anonymous_budget_block app=%s user=%s code=%s case=%s application_spent=%s "
-                "per_application=%s spent=%.4f per_install=%.2f daily_spent=%s daily=%s",
+                "per_application=%s spent=%.4f per_install=%.2f daily_spent=%s daily=%s "
+                "reason=%s ip_spent_by_others=%s per_ip=%s",
                 app_id, user.id, _anon_code, _anon_info["case_id"], _anon_info["application_spent"],
                 _anon_info["per_application"], _anon_info["spent"],
                 _anon_info["per_install"], _anon_info["daily_spent"], _anon_info["daily"],
+                _anon_info.get("reason"), _anon_info.get("ip_spent_by_others"),
+                _anon_info.get("per_ip"),
             )
             if _anon_code == anonymous_budget.CODE_DAILY:
                 await anonymous_budget.report_daily_cap(

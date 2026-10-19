@@ -1352,6 +1352,11 @@ MIGRATIONS = [
     # The dashboard's per-case usage read (app/services/case_stats.py).
     # Partial, so it holds only the form apps' rows that carry a case.
     "CREATE INDEX IF NOT EXISTS idx_usage_app_case_ts ON usage_log(app_id, case_id, request_timestamp, user_id) WHERE case_id IS NOT NULL",
+    # The per-IP anonymous allowance (Scott, 2026-10-19: "block on ip if they
+    # go over $2"). A salted hash of the IPv4 address or IPv6 /64, written on
+    # form-app turns only (usage_tracker.n400_place_columns); never the IP.
+    "ALTER TABLE usage_log ADD COLUMN ip_hash TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_usage_app_ip ON usage_log(app_id, ip_hash, request_timestamp, user_id, estimated_cost_usd) WHERE ip_hash IS NOT NULL",
 ]
 
 
