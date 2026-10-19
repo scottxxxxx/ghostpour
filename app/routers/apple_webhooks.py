@@ -356,6 +356,21 @@ async def apple_notifications(
         logger.info("Apple notification: unlock %s type=%s, no action", product_id, notification_type)
         return {"status": "received", "action": "none", "type": notification_type}
 
+    # Only ShoulderSurf's own subscription products may move users.tier
+    # (TR, 2026-10-18). Tech Rehearsal's bundle is ours too, so its
+    # notifications are accepted above, and TR shares one user row with SS and
+    # sets appAccountToken to that user id. Without this, the first lapsed TR
+    # trial (EXPIRED) or TR refund fell through to _downgrade_to_free and took
+    # the same person's SS Plus or Pro to free: the upgrade branch below
+    # checks the product, the downgrade and refund branches never did.
+    from app.routers.config import load_apps as _load_apps
+    _ss_bundle = ((_load_apps().get("apps") or {}).get("shouldersurf") or {}).get("bundle_id")
+    if (_claimed != _ss_bundle
+            and product_id not in _build_product_to_tier(request.app.state.tier_config)):
+        logger.info("Apple notification: %s for %s product %s never moves an SS tier",
+                    notification_type, _claimed, product_id)
+        return {"status": "received", "action": "skipped", "reason": "not_a_tier_product"}
+
     # Find the user by originalTransactionId (stored during /v1/verify-receipt),
     # then by appAccountToken. SS sets the token on every signed-in purchase
     # (`UUID(uuidString: userId)`, SubscriptionManager.purchase; this comment
