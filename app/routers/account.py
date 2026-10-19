@@ -80,8 +80,9 @@ async def delete_account(
     old_tier = row["tier"]
     _app = getattr(request.state, "app_id", "unknown")
 
-    # Dry-run window (SS ask 2026-07-25, App Review video recording):
-    # scoped to SS-identified/headerless requests only — any other app
+    # Dry-run window (SS ask 2026-07-25, App Review video recording; TR
+    # added 2026-10-18 for its own recording): scoped to SS, TR and
+    # headerless requests. Any other app
     # identity keeps the real path. Auto-expires; malformed timestamp
     # fails safe to real deletion.
     from app.config import get_settings
@@ -96,7 +97,7 @@ async def delete_account(
                          _dry_until_raw)
             _dry_until = None
         if (_dry_until and datetime.now(timezone.utc) < _dry_until
-                and _app in ("shouldersurf", "unknown", None)):
+                and _app in ("shouldersurf", "techrehearsal", "unknown", None)):
             logger.warning(
                 "account_delete DRYRUN: 200 without purge for user %s "
                 "(app=%s, window ends %s)", user_id[:8], _app, _dry_until_raw)
@@ -137,11 +138,11 @@ async def delete_account(
         logger.info(
             "account_delete: SIWA revocation skipped for user %s — account "
             "still in use by another app", user_id[:8])
-    elif code and siwa_revocation.is_configured():
-        await siwa_revocation.revoke_with_authorization_code(code)
+    elif code and siwa_revocation.is_configured(scoped_app):
+        await siwa_revocation.revoke_with_authorization_code(code, app_id=scoped_app)
     elif code:
         logger.warning(
-            "account_delete: authorization code present but SIWA key "
-            "unconfigured — revocation skipped")
+            "account_delete: authorization code present but no SIWA key "
+            "for app=%s, revocation skipped", scoped_app)
 
     return {"status": "deleted"}
