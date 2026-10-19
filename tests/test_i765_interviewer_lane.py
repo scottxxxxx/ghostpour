@@ -315,3 +315,14 @@ def test_the_judge_partials_the_prompt_caused_are_closed():
     assert "And the day, if you have it.\")" not in sp and "if not, where you could check" not in sp
     assert "null when your question is not for any agenda node (a BEFORE WE BEGIN question" in sp
     assert "never invent a node id" in sp
+
+
+def test_a_verbatim_opening_question_does_not_count_against_the_budget():
+    """The lead, 2026-10-19: the interpreter opener stays in the form's own
+    words (Scott, 2026-09-30) and is 28 words alone, so the 45 word budget
+    could only be met by cutting the question it is not allowed to cut. The
+    judge's 53 word opening also led with "Hi"."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert "is not counted against the 45 and is never shortened to fit" in sp
+    assert "the three things before it then take 20 words or fewer" in sp
+    assert 'no greeting ("Hi", "Hello")' in sp
