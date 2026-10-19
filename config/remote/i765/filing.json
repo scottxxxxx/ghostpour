@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": 4,
+  "version": 5,
   "as_of": "2026-10-09",
   "app_id": "i765",
   "form": "I-765",
@@ -798,8 +798,8 @@
         "id": "C05_passport_photos",
         "when": null,
         "text_en": "Two identical color passport photos, 2 by 2 inches, with your name and A-Number written in pencil on the back.",
-        "text_es": "Dos fotos de pasaporte idénticas a color, de 2 por 2 pulgadas, con su nombre y su A-Number escritos con lápiz en el reverso.",
-        "text_pt": "Duas fotos de passaporte idênticas, coloridas, de 2 por 2 polegadas, com seu nome e seu A-Number escritos a lápis no verso.",
+        "text_es": "Dos fotos de pasaporte idénticas a color, de 2 por 2 pulgadas, con su nombre y su número A escritos con lápiz en el reverso.",
+        "text_pt": "Duas fotos de passaporte idênticas, coloridas, de 2 por 2 polegadas, com seu nome e seu número A escritos a lápis no verso.",
         "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'Two identical 2x2 color passport photos with name and A-Number in pencil on the back'"}
       },
       {

@@ -21,7 +21,7 @@ def test_the_filing_document_is_served_to_i765_only(client):
     assert r.status_code == 200, r.text
     doc = r.json()
     assert doc["app_id"] == "i765" and doc["form"] == "I-765"
-    assert doc["version"] == 4 and doc["schema_version"] == 1
+    assert doc["version"] == 5 and doc["schema_version"] == 1
     assert TOP_KEYS <= set(doc), TOP_KEYS - set(doc)
     assert V1_CATEGORIES <= set(doc["categories"])
     # No other app has a filing document, and there is no flat fallback for it.
@@ -73,6 +73,32 @@ def test_portuguese_never_says_green_card():
     assert len(pt) > 5, "the walk must actually reach the pt values"
     assert [p for p, s in pt if "green card" in s.lower()] == []
     assert any("residência permanente" in s for _, s in pt)
+
+
+def test_spanish_and_portuguese_carry_no_english_loanwords():
+    """The I-765 lead, 2026-10-19: the client's test flags any of these in an
+    es or pt value, and "da USCIS" in pt, so GP's bundle is held to the same
+    list. C05_passport_photos said "A-Number" in both until bundle v5."""
+    import json
+
+    def walk(o, path=""):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                yield from walk(v, f"{path}.{k}")
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                yield from walk(v, f"{path}[{i}]")
+        elif isinstance(o, str):
+            yield path, o
+
+    doc = json.load(open("config/remote/i765/filing.json", encoding="utf-8"))
+    loanwords = ("green card", "a-number", "work permit", "receipt notice")
+    es_pt = [(p, s) for p, s in walk(doc)
+             if p.endswith(("_es", ".es", "_pt", ".pt"))]
+    assert len(es_pt) > 10, "the walk must actually reach the es and pt values"
+    assert [p for p, s in es_pt if any(w in s.lower() for w in loanwords)] == []
+    assert [p for p, s in es_pt if p.endswith(("_pt", ".pt")) and "da USCIS" in s] == []
+    assert any("número A" in s for _, s in es_pt)
 
 
 def test_every_courier_line_is_said_in_each_language():
