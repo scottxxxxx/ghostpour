@@ -302,3 +302,16 @@ def test_a_gate_that_opens_rows_never_ends_its_part():
     assert "no part summary and no section_checkpoint" in rule
     assert 'Only "no", "none" or zero closes the part there' in rule
     assert "What is your SEVIS number?" in rule
+
+
+def test_the_judge_partials_the_prompt_caused_are_closed():
+    """The lead's blind judge, 2026-10-19 (no paid calls): a TODAY read-back
+    and a last-arrival ask that kept talking after the question mark, both
+    taught by the prompt's own examples, and an opening question filed under
+    an invented node id where N-400's rule says null."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert '("March of last year, so March 2025, and what day, if you have it?")' in sp
+    assert '("and what day, if you have it, or where could you check?")' in sp
+    assert "And the day, if you have it.\")" not in sp and "if not, where you could check" not in sp
+    assert "null when your question is not for any agenda node (a BEFORE WE BEGIN question" in sp
+    assert "never invent a node id" in sp
