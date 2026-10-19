@@ -21,7 +21,7 @@ def test_the_filing_document_is_served_to_i765_only(client):
     assert r.status_code == 200, r.text
     doc = r.json()
     assert doc["app_id"] == "i765" and doc["form"] == "I-765"
-    assert doc["version"] == 2 and doc["schema_version"] == 1
+    assert doc["version"] == 3 and doc["schema_version"] == 1
     assert TOP_KEYS <= set(doc), TOP_KEYS - set(doc)
     assert V1_CATEGORIES <= set(doc["categories"])
     # No other app has a filing document, and there is no flat fallback for it.
@@ -50,3 +50,26 @@ def test_the_attorney_triggers_cover_the_briefs_categories_and_name_a_source():
     assert len(keys) >= 10
     for t in doc["attorney_triggers"]["triggers"]:
         assert t["action"] and t["en"] and t["es"] and t["pt"] and t["source"], t["key"]
+
+
+def test_portuguese_never_says_green_card():
+    """The I-765 lead, 2026-10-19: the English loanword is gone from every pt
+    value (five of them, bundle v3), and a served copy must match or the
+    client's higher-version rule brings the loanword back."""
+    import json
+
+    def walk(o, path=""):
+        if isinstance(o, dict):
+            for k, v in o.items():
+                yield from walk(v, f"{path}.{k}")
+        elif isinstance(o, list):
+            for i, v in enumerate(o):
+                yield from walk(v, f"{path}[{i}]")
+        elif isinstance(o, str):
+            yield path, o
+
+    doc = json.load(open("config/remote/i765/filing.json", encoding="utf-8"))
+    pt = [(p, s) for p, s in walk(doc) if p.endswith("_pt") or p.endswith(".pt")]
+    assert len(pt) > 5, "the walk must actually reach the pt values"
+    assert [p for p, s in pt if "green card" in s.lower()] == []
+    assert any("residência permanente" in s for _, s in pt)

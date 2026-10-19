@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": 2,
+  "version": 3,
   "as_of": "2026-10-09",
   "app_id": "i765",
   "form": "I-765",
@@ -26,7 +26,7 @@
     {"key": "TPS", "url": "https://www.uscis.gov/humanitarian/temporary-protected-status", "read_on": "2026-10-09", "note": "Temporary Protected Status. Read live 2026-10-09 (Last Reviewed/Updated 09/09/2026). The page carries no filing address itself: it says to send the TPS package or the I-765 to the mailing address on the country specific page, that when and where to file is on the country pages, and that the I-765 may be filed online when filed concurrently with an online I-821. Per-country notices are not encoded."}
   ],
   "categories": {
-    "c9": {"code": "(c)(9)", "label_en": "Pending green card application (Form I-485)", "label_es": "Solicitud de residencia permanente pendiente (Formulario I-485)", "label_pt": "Pedido de green card pendente (Formulário I-485)"},
+    "c9": {"code": "(c)(9)", "label_en": "Pending green card application (Form I-485)", "label_es": "Solicitud de residencia permanente pendiente (Formulario I-485)", "label_pt": "Pedido de residência permanente pendente (Formulário I-485)"},
     "c3a": {"code": "(c)(3)(A)", "label_en": "F-1 student, pre-completion OPT", "label_es": "Estudiante F-1, OPT antes de terminar los estudios", "label_pt": "Estudante F-1, OPT antes de concluir os estudos"},
     "c3b": {"code": "(c)(3)(B)", "label_en": "F-1 student, post-completion OPT", "label_es": "Estudiante F-1, OPT después de terminar los estudios", "label_pt": "Estudante F-1, OPT após concluir os estudos"},
     "c3c": {"code": "(c)(3)(C)", "label_en": "F-1 student, 24-month STEM OPT extension", "label_es": "Estudiante F-1, extensión STEM OPT de 24 meses", "label_pt": "Estudante F-1, extensão STEM OPT de 24 meses"},
@@ -862,7 +862,7 @@
         "condition": {"niw_physician": true},
         "text_en": "If your green card case is a physician national interest waiver, proof of your progress, such as your W-2 forms.",
         "text_es": "Si su caso de residencia es una exención por interés nacional para médicos, prueba de su avance, como sus formularios W-2.",
-        "text_pt": "Se o seu caso de green card for uma isenção por interesse nacional para médicos, comprovação do seu progresso, como os seus formulários W-2.",
+        "text_pt": "Se o seu caso de residência permanente for uma isenção por interesse nacional para médicos, comprovação do seu progresso, como os seus formulários W-2.",
         "see_url": null,
         "source": {"keys": ["INSTR"], "where": "RESEARCH section 5: 'NIW physician renewals need proof of progress (W-2s)' (INSTR p.12)"}
       },
@@ -1063,7 +1063,7 @@
         "categories": ["c9"],
         "en": "Your green card case is before an immigration court. Those filings need proof of the proceedings and the court filing, and the rules differ, so an attorney should prepare it.",
         "es": "Su caso de residencia está ante un tribunal de inmigración. Esas solicitudes necesitan prueba del proceso y de la presentación ante el tribunal, y las reglas son distintas, así que un abogado debe prepararla.",
-        "pt": "Seu caso de green card está em um tribunal de imigração. Esses pedidos precisam de comprovação do processo e do protocolo no tribunal, e as regras são diferentes, então um advogado deve prepará-lo.",
+        "pt": "Seu caso de residência permanente está em um tribunal de imigração. Esses pedidos precisam de comprovação do processo e do protocolo no tribunal, e as regras são diferentes, então um advogado deve prepará-lo.",
         "source": "RESEARCH section 5 '(c)(9): If the I-485 is before EOIR, add proof of proceedings and the court filing'; section 7 'Safest scope: (c)(9) without proceedings'"
       },
       {
@@ -1072,7 +1072,7 @@
         "categories": ["c9"],
         "en": "Your green card case is based on VAWA, T or U status. Those filings use a safe address and their own filing location, and they are sometimes charged a fee by mistake, so an attorney should handle it.",
         "es": "Su caso de residencia se basa en VAWA o en un estatus T o U. Esas solicitudes usan una dirección segura y su propio lugar de presentación, y a veces se les cobra una tarifa por error, así que un abogado debe encargarse.",
-        "pt": "Seu caso de green card se baseia em VAWA ou em status T ou U. Esses pedidos usam um endereço seguro e seu próprio local de apresentação, e às vezes recebem uma cobrança de taxa por engano, então um advogado deve cuidar dele.",
+        "pt": "Seu caso de residência permanente se baseia em VAWA ou em status T ou U. Esses pedidos usam um endereço seguro e seu próprio local de apresentação, e às vezes recebem uma cobrança de taxa por engano, então um advogado deve cuidar dele.",
         "source": "RESEARCH section 7 item 7"
       },
       {
@@ -1162,7 +1162,7 @@
         "categories": null,
         "en": "The app cannot tell which category fits you, and the fee and the address both follow that category. For example, a refugee or asylee with a pending green card application files as (a)(3) or (a)(5), not (c)(9). An attorney can confirm it.",
         "es": "La aplicación no puede determinar qué categoría le corresponde, y tanto la tarifa como la dirección dependen de esa categoría. Por ejemplo, un refugiado o asilado con una solicitud de residencia pendiente presenta como (a)(3) o (a)(5), no como (c)(9). Un abogado puede confirmarlo.",
-        "pt": "O aplicativo não consegue determinar qual categoria se aplica a você, e tanto a taxa quanto o endereço dependem dessa categoria. Por exemplo, um refugiado ou asilado com um pedido de green card pendente apresenta como (a)(3) ou (a)(5), não como (c)(9). Um advogado pode confirmar.",
+        "pt": "O aplicativo não consegue determinar qual categoria se aplica a você, e tanto a taxa quanto o endereço dependem dessa categoria. Por exemplo, um refugiado ou asilado com um pedido de residência permanente pendente apresenta como (a)(3) ou (a)(5), não como (c)(9). Um advogado pode confirmar.",
         "source": "RESEARCH section 7 item 10 (INSTR pp.1 to 2, 12; PAGE)"
       },
       {
