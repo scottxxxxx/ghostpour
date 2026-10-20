@@ -1,5 +1,5 @@
-"""The I-765 filing document (edition, fees, addresses, online filing,
-evidence, attorney triggers, timing), served at GET /v1/config/filing to
+"""The I-765 filing document (edition, evidence, attorney triggers),
+served at GET /v1/config/filing to
 X-App-ID i765 through the existing per-app config route, no bespoke
 endpoint (agreed with the I-765 lead, 2026-10-09). The client bundles the
 same file as its boot default and honors the version counter. Every value
@@ -13,7 +13,10 @@ import re
 I765 = {"X-App-ID": "i765"}
 V1_CATEGORIES = {"c9", "c3a", "c3b", "c3c", "a12", "c19", "a17", "a18", "a3", "a5", "c26"}
 TOP_KEYS = {"schema_version", "version", "as_of", "app_id", "form", "notes", "sources", "categories",
-            "edition", "fees", "addresses", "online_filing", "evidence", "attorney_triggers", "timing"}
+            "edition", "evidence", "attorney_triggers"}
+# Scott, 2026-10-19 ("yes strip it"): the app never says where to mail, whom
+# to pay or how much; it links the official I-765 page. Version 6 drops these.
+REMOVED_KEYS = {"fees", "addresses", "online_filing", "timing"}
 
 
 def test_the_filing_document_is_served_to_i765_only(client):
@@ -21,8 +24,9 @@ def test_the_filing_document_is_served_to_i765_only(client):
     assert r.status_code == 200, r.text
     doc = r.json()
     assert doc["app_id"] == "i765" and doc["form"] == "I-765"
-    assert doc["version"] == 5 and doc["schema_version"] == 1
+    assert doc["version"] == 6 and doc["schema_version"] == 1
     assert TOP_KEYS <= set(doc), TOP_KEYS - set(doc)
+    assert not REMOVED_KEYS & set(doc), REMOVED_KEYS & set(doc)
     assert V1_CATEGORIES <= set(doc["categories"])
     # No other app has a filing document, and there is no flat fallback for it.
     for app in ("n400", "shouldersurf", "techrehearsal"):
@@ -33,13 +37,8 @@ def test_the_bundled_document_matches_the_leads_key_list_and_house_rules():
     doc = json.load(open("config/remote/i765/filing.json"))
     assert "server_only" not in doc, "the phone reads this one"
     assert set(doc["edition"]) >= {"accepted", "blocked", "note_en", "note_es", "note_pt", "checked_on", "source"}
-    assert set(doc["fees"]) >= {"currency", "addon_note", "fee_waiver", "premium_processing", "rules"}
-    assert set(doc["addresses"]) >= {"effective", "grace", "rules", "charts", "card_error_return", "entries"}
-    assert all({"id", "categories", "source"} <= set(rule) for rule in doc["fees"]["rules"])
-    assert all({"id", "categories", "address", "source"} & set(e) for e in doc["addresses"]["entries"])
     for item in doc["evidence"]["common"] + doc["evidence"]["specific"]:
         assert {"text_en", "text_es", "text_pt"} <= set(item), item.get("id")
-    assert doc["fees"]["currency"] == "USD"
     text = json.dumps(doc, ensure_ascii=False)
     assert not re.search("[–—]", text), "no em or en dashes in anything the app shows"
 
@@ -101,27 +100,25 @@ def test_spanish_and_portuguese_carry_no_english_loanwords():
     assert any("número A" in s for _, s in es_pt)
 
 
-def test_every_courier_line_is_said_in_each_language():
-    """The I-765 lead, 2026-10-19: Social's screenshots showed English under
-    the Spanish lockbox address. All 12 courier.carriers values (7 chart rows,
-    A01, A02 and its nested I-907 box, both (c)(26) prefix rows) are objects
-    with en, es and pt now; a bare string decodes as English only."""
-    import json
-    found = []
+def test_the_document_states_no_fee_payee_or_address():
+    """Scott, 2026-10-19 ("yes strip it", relayed by the I-765 lead), bundle
+    v6, taken byte for byte from the client at i765-helper 2a3445b. Nothing
+    in it names an amount, a courier or a mailing block, at any depth."""
+    doc = json.load(open("config/remote/i765/filing.json", encoding="utf-8"))
+    keys: set[str] = set()
 
     def walk(o):
         if isinstance(o, dict):
-            c = o.get("courier")
-            if isinstance(c, dict) and "carriers" in c:
-                found.append(c["carriers"])
+            keys.update(o)
             for v in o.values():
                 walk(v)
         elif isinstance(o, list):
             for v in o:
                 walk(v)
 
-    walk(json.load(open("config/remote/i765/filing.json", encoding="utf-8")))
-    assert len(found) == 12
-    assert all(isinstance(c, dict) and set(c) == {"en", "es", "pt"} for c in found), found
-    assert {c["es"] for c in found} == {"Envíos por FedEx, UPS y DHL"}
-    assert {c["pt"] for c in found} == {"Entregas por FedEx, UPS e DHL"}
+    walk(doc)
+    assert len(keys) > 20, "the walk must actually reach nested keys"
+    assert not keys & (REMOVED_KEYS | {"courier", "carriers", "lockbox", "address", "amount_usd", "payee"}), keys
+    assert "C01_fee" not in {e["id"] for e in doc["evidence"]["common"]}
+    assert not re.search(r"\$\s?\d", json.dumps(doc, ensure_ascii=False)), "no dollar amount anywhere"
+    assert "scope" in doc["notes"]

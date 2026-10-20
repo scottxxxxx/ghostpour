@@ -157,7 +157,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 4
+    assert i765["server_only"] is True and i765["version"] == 5
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
@@ -339,3 +339,18 @@ def test_the_re_judge_partials_are_closed():
     assert 'a yes to the Social Security gate is {"node_id": "q_p2_ssn", "field_ids": ["p2.ssn"]}' in sp
     assert 'a yes to the SEVIS gate is {"node_id": "q_p2_sevis_number", "field_ids": ["p2.sevis_number"]}' in sp
     assert "asking names that row, never null" in sp
+
+
+def test_the_lane_never_states_a_fee_payee_or_address():
+    """Scott, 2026-10-19 ("yes strip it", relayed by the I-765 lead): the app
+    never says where to mail, whom to pay or how much; it points to the
+    official I-765 page and the instructions, like the N-400. Before v5 the
+    lane told her the app's summary screen shows the fee and the address,
+    which is false once the client drops those blocks."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert "YOU NEVER STATE DATES, FEES, PAYEES OR ADDRESSES" in sp
+    assert "the official Form I-765 page on uscis.gov and the form's instructions" in sp
+    assert "never a payee" in sp
+    assert "What to gather screen" in sp
+    assert '"What to gather" in English, "Qué reunir" in Spanish, "O que reunir" in Portuguese' in sp, "her words match the app's labels"
+    assert "summary screen" not in sp, "the old promise that the app shows the fee"
