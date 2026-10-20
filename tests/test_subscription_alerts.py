@@ -144,3 +144,33 @@ async def test_unknown_environment_still_emails_tagged(client, app_env):
     rows = _incidents(_db(app_env))
     assert len(rows) == 1
     assert '"environment": "unknown"' in rows[0][1]
+
+
+@pytest.mark.anyio
+async def test_unverified_purchase_does_not_email(client, app_env):
+    """2026-10-20: a rejected signature (Xcode StoreKit testing) emailed "New
+    paid subscription" beside "A purchase we could not verify with Apple"."""
+    from app.services.subscription_alerts import notify_purchase
+    _insert_user(_db(app_env), "unv-buyer")
+    await notify_purchase("unv-buyer", "free", "pro", "upgrade",
+                          environment="Unverified")
+    assert _incidents(_db(app_env)) == []
+
+
+@pytest.mark.anyio
+async def test_unverified_history_outranks_an_older_production_event(client, app_env):
+    from app.services.subscription_alerts import notify_purchase
+    _insert_user(_db(app_env), "unv-hist")
+    _seed_env_event(_db(app_env), "unv-hist", "Production")
+    conn = sqlite3.connect(_db(app_env))
+    conn.execute(
+        """INSERT INTO subscription_events
+           (id, user_id, event_type, to_tier, source, environment,
+            effective_at, recorded_at)
+           VALUES ('unv-h',?,'subscribed','pro','verify_receipt','Unverified',
+                   '2026-10-20T00:00:00+00:00','2026-10-20T00:00:00+00:00')""",
+        ("unv-hist",))
+    conn.commit()
+    conn.close()
+    await notify_purchase("unv-hist", "free", "pro", "upgrade")
+    assert _incidents(_db(app_env)) == []
