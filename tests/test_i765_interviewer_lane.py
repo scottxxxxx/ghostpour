@@ -352,4 +352,5 @@ def test_the_lane_never_states_a_fee_payee_or_address():
     assert "the official Form I-765 page on uscis.gov and the form's instructions" in sp
     assert "never a payee" in sp
     assert "What to gather screen" in sp
+    assert '"What to gather" in English, "Qué reunir" in Spanish, "O que reunir" in Portuguese' in sp, "her words match the app's labels"
     assert "summary screen" not in sp, "the old promise that the app shows the fee"
