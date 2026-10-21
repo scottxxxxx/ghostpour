@@ -57,6 +57,17 @@ async def notify_purchase(user_id: str, old_tier: str, new_tier: str,
                     "WHERE user_id = ? AND environment IS NOT NULL "
                     "ORDER BY recorded_at DESC LIMIT 1", (user_id,))).fetchone()
                 environment = prior["environment"] if prior else None
+            from app.services.subscriptions import UNVERIFIED
+            if environment == UNVERIFIED:
+                # The signature failed Apple's chain (e.g. Xcode StoreKit
+                # testing, one self-signed cert). receipt_unverified already
+                # emailed for it; a "New paid subscription" beside it is the
+                # contradiction Scott got on 2026-10-20.
+                logger.info(
+                    "subscription_alerts: skipping %s alert for %s — signature "
+                    "unverified, not a purchase Apple signed",
+                    event_type, user_id[:8])
+                return
             if environment == "Sandbox":
                 logger.info(
                     "subscription_alerts: skipping %s alert for %s — Sandbox "

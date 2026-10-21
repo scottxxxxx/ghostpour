@@ -468,3 +468,103 @@ def test_the_app_account_token_reaches_the_user_in_either_case(
     assert r.status_code == 200, r.text
     assert r.json().get("reason") != "user_not_found", r.json()
     assert _tier_of(tmp_db_path, user_id) == "pro"
+
+
+# --- a rejected signature is labelled, never guessed (2026-10-20) ----------
+#
+# Scott's own account: an Xcode StoreKit-testing purchase (one self-signed
+# cert, "x5c chain too short: 1 certs") was rejected, then recorded as
+# "Production" at $14.99 because the environment fell back to his previous
+# event, and emailed "New paid subscription" beside "A purchase we could not
+# verify with Apple". Nobody paid.
+
+def _seed_event(db_path, user_id, environment):
+    import uuid
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            """INSERT INTO subscription_events
+               (id, user_id, event_type, to_tier, source, environment,
+                effective_at, recorded_at)
+               VALUES (?,?,'reconciled','free','reconciliation',?,
+                       '2026-10-04T22:57:59+00:00','2026-10-04T22:57:59+00:00')""",
+            (uuid.uuid4().hex, user_id, environment))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _post_rejected_signature(client, free_user, monkeypatch):
+    from app.services import context_quilt as cq
+    from app.services import receipt_verification as _rv
+
+    def _reject(jws, bundle_ids):
+        raise ValueError("x5c chain too short: 1 certs (need >= 3)")
+    monkeypatch.setattr(_rv, "verify_signed_transaction", _reject)
+    seen = []
+
+    async def _capture(**kw):
+        seen.append(kw)
+    monkeypatch.setattr(cq, "notify_tier_change", _capture)
+    r = client.post("/v1/verify-receipt", json={
+        "product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
+        "transaction_id": REAL_OTID,
+        "signed_transaction": "j.w.s",
+    }, headers=free_user["headers"])
+    return r, seen
+
+
+def test_a_rejected_signature_is_recorded_unverified_not_the_accounts_last_environment(
+        client, free_user, tmp_db_path, monkeypatch):
+    _seed_event(tmp_db_path, free_user["user_id"], "Production")
+    r, seen = _post_rejected_signature(client, free_user, monkeypatch)
+    assert r.status_code == 200, r.text   # the dial is off: the tier still moves
+
+    events = [e for e in _events(tmp_db_path, free_user["user_id"])
+              if e["event_type"] == "subscribed"]
+    assert len(events) == 1, events
+    assert events[0]["environment"] == "Unverified"
+    # The purchase alert is told, so it can stay silent (subscription_alerts).
+    assert seen and seen[0]["environment"] == "Unverified", seen
+
+
+@pytest.mark.anyio
+async def test_an_unverified_purchase_is_not_revenue(client, free_user, tmp_db_path):
+    """The Subscriptions tab buckets by each account's LATEST environment, so
+    an Unverified event must outrank the older Production one, and land in
+    "unknown", never in "production"."""
+    import aiosqlite
+    from app.services import subscriptions as subs
+    _seed_event(tmp_db_path, free_user["user_id"], "Production")
+    conn = sqlite3.connect(tmp_db_path)
+    try:
+        conn.execute(
+            """INSERT INTO subscription_events
+               (id, user_id, event_type, to_tier, source, environment,
+                effective_at, recorded_at)
+               VALUES ('unv-1',?,'subscribed','pro','verify_receipt','Unverified',
+                       '2026-10-20T19:26:12+00:00','2026-10-20T19:26:12+00:00')""",
+            (free_user["user_id"],))
+        conn.commit()
+    finally:
+        conn.close()
+    async with aiosqlite.connect(tmp_db_path) as db:
+        db.row_factory = aiosqlite.Row
+        envs = await subs.user_environments(db)
+    assert envs[free_user["user_id"]] == "Unverified"
+    assert subs._env_bucket(envs[free_user["user_id"]]) == "unknown"
+
+
+def test_an_unsigned_receipt_still_infers_from_history(
+        client, free_user, tmp_db_path, monkeypatch):
+    """Unchanged on purpose: an older build sends no signature at all, and
+    labelling every such sale Unverified would drop real ones out of MRR."""
+    _seed_event(tmp_db_path, free_user["user_id"], "Production")
+    r = client.post("/v1/verify-receipt", json={
+        "product_id": "com.weirtech.shouldersurf.sub.pro.monthly",
+        "transaction_id": REAL_OTID,
+    }, headers=free_user["headers"])
+    assert r.status_code == 200, r.text
+    events = [e for e in _events(tmp_db_path, free_user["user_id"])
+              if e["event_type"] == "subscribed"]
+    assert [e["environment"] for e in events] == ["Production"]

@@ -1,5 +1,5 @@
 {
-  "version": 41,
+  "version": 42,
   "server_only": true,
   "models": [
     {
@@ -70,6 +70,7 @@
         },
         "query": {
           "label": "Interactive Query",
+          "thinking": "disabled",
           "models": {
             "free": "anthropic/claude-sonnet-5",
             "plus": "anthropic/claude-sonnet-5",
@@ -79,6 +80,7 @@
         },
         "query_follow_up": {
           "label": "Interactive Query (Follow-up)",
+          "thinking": "disabled",
           "models": {
             "free": "anthropic/claude-sonnet-5",
             "plus": "anthropic/claude-sonnet-5",
@@ -230,6 +232,7 @@
         },
         "tr_query": {
           "label": "Ask (general query)",
+          "thinking": "disabled",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "paid": "anthropic/claude-haiku-4-5-20251001",

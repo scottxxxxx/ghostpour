@@ -304,6 +304,35 @@ def _apply_routed_model(body: ChatRequest, resolved: str | None) -> ChatRequest:
 
 
 
+def _apply_routed_thinking(request: Request, body: ChatRequest) -> ChatRequest:
+    """The resolved routing row's `thinking` lane setting onto the request.
+
+    Scott, 2026-10-21: live Copilot taps (`query`, `query_follow_up`) run with
+    the least thinking their model allows. On his EMIDS interview the default
+    put the first word at 7 to 15 s (b0f5628255c3: 14.7 s, 1,572 output
+    tokens for a five-second card). "disabled" is the existing lane value and
+    already means the floor per model (anthropic_thinking_block): off on
+    Sonnet 5, `between_tools` on Sonnet 5.5, no block at effort low on
+    Opus 5.5.
+
+    Set from the row that WON, never from call_type, so a ProjectChat or
+    PostMeetingChat send that arrives as call_type=query keeps its surface
+    row's setting. A later re-route (artifact generation) to a row with no
+    setting removes the one this function put there, so the Copilot lane's
+    setting never rides into a document build.
+    """
+    row = getattr(request.state, "routed_row", None) or {}
+    lane = row.get("thinking")
+    placed = getattr(request.state, "routed_thinking", None)
+    if lane:
+        request.state.routed_thinking = lane
+        return body.model_copy(update={"thinking": lane})
+    if placed is not None and body.thinking == placed:
+        request.state.routed_thinking = None
+        return body.model_copy(update={"thinking": None})
+    return body
+
+
 def _app(request) -> str | None:
     """The calling app's id, for entitlement resolution.
 
@@ -344,6 +373,9 @@ def _resolve_model_routing(
     """
     configs = request.app.state.remote_configs
     routing = configs.get("model-routing", {}).get("apps", {})
+    # Cleared on every resolution, so a tier-default fallback carries no
+    # lane setting from an earlier row on the same request.
+    request.state.routed_row = None
 
     if not routing:
         return tier.default_model
@@ -362,7 +394,11 @@ def _resolve_model_routing(
         if not row:
             return None
         models = row.get("models", {})
-        return models.get(tier_name) or models.get("default")
+        model = models.get(tier_name) or models.get("default")
+        if model:
+            # The row that won, for its lane settings (_apply_routed_thinking).
+            request.state.routed_row = row
+        return model
 
     # 0. Artifact generation is its own dial (Scott 2026-08-15) and is
     #    deliberately checked BEFORE the surface preference, because a
@@ -477,7 +513,8 @@ async def _resolve_storekit_environment(
     is explicitly a guess of last resort. When the enforcement dial is on
     there is no guessing left to do.
     """
-    if verified_environment in ("Production", "Sandbox"):
+    from app.services.subscriptions import UNVERIFIED
+    if verified_environment in ("Production", "Sandbox", UNVERIFIED):
         return verified_environment
     row = await (await db.execute(
         "SELECT environment FROM subscription_events "
@@ -1850,6 +1887,7 @@ async def _chat_impl(
             body = body.model_copy(update={"provider": parts[0], "model": parts[1]})
         else:
             body = body.model_copy(update={"model": resolved_model})
+        body = _apply_routed_thinking(request, body)
 
     # 2.5a. A client prompt on a call type we hold config for is a SHADOWED
     # config, and it is silent (2026-08-08, TR handover process note).
@@ -3212,8 +3250,8 @@ async def _chat_impl(
                     # failed on 'anthropic/claude-sonnet-4-6').
                     # Guarded turns stay on the already-resolved chat lane.
                     if _gen_armed:
-                        body = _apply_routed_model(body, _resolve_model_routing(
-                            request, body, tier, effective_tier_name))
+                        body = _apply_routed_thinking(request, _apply_routed_model(body, _resolve_model_routing(
+                            request, body, tier, effective_tier_name)))
             if not _gen_armed and not _img_guarded and not _offer_declined:
                 # guaranteed catch first (deterministic, no LLM); the
                 # classifier only judges the softer phrasings
@@ -3381,8 +3419,8 @@ async def _chat_impl(
                         logger.info(
                             "generation_fast_path armed=1 format=%s",
                             _intent.get("format"))
-                        body = _apply_routed_model(body, _resolve_model_routing(
-                            request, body, tier, effective_tier_name))
+                        body = _apply_routed_thinking(request, _apply_routed_model(body, _resolve_model_routing(
+                            request, body, tier, effective_tier_name)))
                     else:
                         # Deterministic hits skip the classifier, but the
                         # template offer's copy composes better with its
@@ -3647,8 +3685,8 @@ async def _chat_impl(
             "metadata": {**(body.metadata or {}),
                          "call_type": "artifact_generation"},
         })
-        body = _apply_routed_model(body, _resolve_model_routing(
-            request, body, tier, effective_tier_name))
+        body = _apply_routed_thinking(request, _apply_routed_model(body, _resolve_model_routing(
+            request, body, tier, effective_tier_name)))
         _gen_expected_seconds = _c.expected_seconds
         # Research becomes its own leg rather than a second tool on this
         # call. Deferred to the turn tail on purpose: it runs inside the
