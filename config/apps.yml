@@ -184,7 +184,7 @@ apps:
     # default identity rather than being handed one it does not use.
   i765:
     dir: i765
-    label: I-765 Helper
+    label: "Forms Helper: Immigration"
     bundle_id: com.weirtech.i765helper
     # Registered 2026-10-09, before any build, for the same reason n400 was:
     # resolve_app_dir fails open, and an unregistered id would be served
