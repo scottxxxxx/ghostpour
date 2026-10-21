@@ -1870,6 +1870,19 @@ async def _chat_impl(
         body.get_meta("meeting_id"),
     )
 
+    # 1.7. An interviewer lane serves exactly one form. A turn naming another
+    # form is refused before anything is spent, never answered by this form's
+    # prompt (I-765 lead, 2026-10-21, ahead of the multi-form app).
+    from app.services.interviewer_lanes import unknown_form_for_lane
+    _lane_form = unknown_form_for_lane(body.get_meta("call_type"), body.get_meta("form_code"))
+    if _lane_form is not None:
+        logger.error("interviewer_unknown_form call_type=%s form_code=%r expected=%s",
+                     body.get_meta("call_type"), body.get_meta("form_code"), _lane_form)
+        raise HTTPException(status_code=400, detail={
+            "code": "unknown_form",
+            "message": f"This interviewer serves {_lane_form} only.",
+        })
+
     # 2. Resolve "auto" model — check model-routing config first, then tier default
     managed_routing = body.model == "auto" or body.provider == "auto"
     if managed_routing:

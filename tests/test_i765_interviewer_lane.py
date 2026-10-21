@@ -354,3 +354,32 @@ def test_the_lane_never_states_a_fee_payee_or_address():
     assert "What to gather screen" in sp
     assert '"What to gather" in English, "Qué reunir" in Spanish, "O que reunir" in Portuguese' in sp, "her words match the app's labels"
     assert "summary screen" not in sp, "the old promise that the app shows the fee"
+
+
+# --- form_code guard (I-765 lead, 2026-10-21) -----------------------------------
+
+
+def test_a_turn_for_another_form_is_refused_before_anything_is_spent(client, tmp_db_path, mock_provider):
+    h = _headers(tmp_db_path)
+    mock_provider.return_value = _canned(json.dumps(ENVELOPE))
+    for form in ("N-400", "I-130"):
+        r = _turn(client, h, form_code=form)
+        assert r.status_code == 400, (form, r.text)
+        assert r.json()["detail"]["code"] == "unknown_form"
+    assert mock_provider.call_count == 0
+
+
+def test_the_i765_and_its_cosmetic_spellings_pass_the_form_guard(client, tmp_db_path, mock_provider):
+    """`I-765` is FormCatalog.swift:98 in the client; a fixture there spells it
+    `i765`, and a hyphen must never cost someone their interview."""
+    h = _headers(tmp_db_path)
+    mock_provider.return_value = _canned(json.dumps(ENVELOPE))
+    for form in ("I-765", "i765"):
+        assert _turn(client, h, form_code=form).status_code == 200, form
+
+
+def test_an_absent_form_code_is_not_refused():
+    from app.services.interviewer_lanes import unknown_form_for_lane
+    assert unknown_form_for_lane(CALL, None) is None
+    assert unknown_form_for_lane(CALL, "N-400") == "I-765"
+    assert unknown_form_for_lane("n400_interviewer_turn", "I-765") is None, "N-400 is not guarded"
