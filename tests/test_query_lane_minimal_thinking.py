@@ -129,3 +129,13 @@ def test_the_real_chat_route_sends_the_lane_setting(client, pro_user,
     assert r.status_code == 200, r.text[:300]
     assert seen, "the provider call was never reached"
     assert seen[-1].thinking == expected
+
+
+def test_tr_live_copilot_row_carries_the_setting_too():
+    """Scott, 2026-10-21: "1 yes" (TR's live lane gets the same treatment).
+    tr_query is on Haiku 4.5 today, which does not think by default, so this
+    is a floor for a later model change rather than a change in behaviour.
+    tr_query also carries TR's job chat until per-surface routing lands."""
+    tr = ROUTING["apps"]["techrehearsal"]["call_types"]
+    assert tr["tr_query"]["thinking"] == "disabled"
+    assert [k for k, v in tr.items() if "thinking" in v] == ["tr_query"]

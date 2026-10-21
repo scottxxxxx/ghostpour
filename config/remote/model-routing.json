@@ -232,6 +232,7 @@
         },
         "tr_query": {
           "label": "Ask (general query)",
+          "thinking": "disabled",
           "models": {
             "free": "anthropic/claude-haiku-4-5-20251001",
             "paid": "anthropic/claude-haiku-4-5-20251001",
