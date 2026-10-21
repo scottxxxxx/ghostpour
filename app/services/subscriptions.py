@@ -436,6 +436,11 @@ async def subscription_truth(db: aiosqlite.Connection) -> dict:
 
 PRODUCTION = "Production"
 SANDBOX = "Sandbox"
+# A signed transaction whose signature failed verification (2026-10-20: an
+# Xcode StoreKit-testing purchase, one self-signed cert, was recorded as
+# "Production" because the environment fell back to the account's previous
+# event). Never revenue, never a purchase alert; buckets as "unknown".
+UNVERIFIED = "Unverified"
 
 
 async def user_environments(db: aiosqlite.Connection) -> dict[str, str]:
