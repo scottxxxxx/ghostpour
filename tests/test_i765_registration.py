@@ -77,7 +77,7 @@ def test_i765_resolves_to_its_own_dir_and_carries_what_the_gate_needs():
     assert cfg.resolve_app_dir("i765helper") == "shouldersurf", "fails open, so the id must be exact"
     entry = cfg.load_apps()["apps"]["i765"]
     assert entry["bundle_id"] == "com.weirtech.i765helper"
-    assert entry["label"] == "I-765 Helper"
+    assert entry["label"] == "Forms Helper: Immigration"
     assert "tier_overrides" not in entry and "cq" not in entry
 
 

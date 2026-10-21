@@ -192,7 +192,7 @@ def test_the_creative_serves_and_every_link_carries_its_cta_id(client):
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     html = r.text
-    assert "I-765 Helper" in html
+    assert "Forms Helper: Immigration" in html
     hrefs = re.findall(r'href="([^"]+)"', html)
     assert hrefs, "a card with no link is not a CTA"
     for h in hrefs:
@@ -214,5 +214,5 @@ def test_the_campaign_dashboard_offers_both_new_apps():
     html = (_ROOT / "app" / "static" / "admin.html").read_text()
     select = re.search(r'<select id="cf-app">(.*?)</select>', html, flags=re.S).group(1)
     assert '<option value="n400">N-400 Helper</option>' in select
-    assert '<option value="i765">I-765 Helper</option>' in select
+    assert '<option value="i765">Forms Helper: Immigration</option>' in select
     assert "CAMPAIGN_APPS = ['shouldersurf', 'techrehearsal', 'n400', 'i765']" in html
