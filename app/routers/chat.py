@@ -1903,6 +1903,33 @@ async def _chat_impl(
             "message": f"This interviewer serves {_lane_form} only.",
         })
 
+    # 1.8. Tech Rehearsal's interview reference: interview scenarios only,
+    # and paid only (Scott, 2026-10-21). Refused before anything is spent;
+    # the plan refusal is the lean 200 envelope TR already branches on.
+    from app.services import tr_interview_reference as _tr_ref
+    _ref_refusal = _tr_ref.refusal(body.get_meta("call_type"), body.get_meta("scenario"),
+                                   request.headers.get("X-TR-Entitlement"))
+    if _ref_refusal == "scenario":
+        raise HTTPException(status_code=400, detail={
+            "code": "scenario_not_supported",
+            "message": "The interview reference is built for interview scenarios only.",
+        })
+    if _ref_refusal == "plan":
+        logger.info("tr_interview_reference_plan_required user=%s entitlement=%r",
+                    user.id, request.headers.get("X-TR-Entitlement"))
+        return JSONResponse(status_code=200, content={
+            "text": "",
+            "model": body.model,
+            "provider": body.provider,
+            "feature_state": {
+                "feature": "chat",
+                "app": "techrehearsal",
+                "budget_exhausted": True,
+                "code": "techrehearsal_plan_required",
+                "cta": _tr_ref.plan_required_cta(request.app.state.remote_configs),
+            },
+        })
+
     # 2. Resolve "auto" model — check model-routing config first, then tier default
     managed_routing = body.model == "auto" or body.provider == "auto"
     if managed_routing:
@@ -2846,6 +2873,15 @@ async def _chat_impl(
                     "resets_at": user.allocation_resets_at,
                     "cta": None,
                 }
+
+    # 5.7c. The interview reference researches before it writes, so search is
+    # on for that call type alone, set AFTER the search gate on purpose: the
+    # gate's caps are SS tiers and every TR account is `free` there. TR
+    # meters in dollars and the search fees land in that meter. See
+    # app/services/tr_interview_reference.py.
+    if body.get_meta("call_type") == _tr_ref.CALL_TYPE and body.provider == "anthropic":
+        body = body.model_copy(update={"metadata": {**(body.metadata or {}),
+                                                    "search_enabled": True}})
 
     # 5.8. Search-tool nudge. When `search_enabled` survives the gate
     # (Pro under hard cap; Plus under hard cap; Pro past soft cap), append
