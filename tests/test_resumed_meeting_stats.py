@@ -12,11 +12,14 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 import uuid
+from datetime import date, timedelta
 
 import aiosqlite
 
 ADMIN = {"X-Admin-Key": "test-admin-key"}
-DAY = "2026-10-13"
+# Yesterday, not a fixed date: the telemetry page reads a trailing 7-day window,
+# so a hard-coded day went red once the calendar moved past it (2026-10-21).
+DAY = (date.today() - timedelta(days=1)).isoformat()
 
 
 def _ev(conn, event_type, meeting_id=None, duration=None, resumed_from=None, t="20:55:00"):
