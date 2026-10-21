@@ -305,15 +305,20 @@ def _apply_routed_model(body: ChatRequest, resolved: str | None) -> ChatRequest:
 
 
 def _apply_routed_thinking(request: Request, body: ChatRequest) -> ChatRequest:
-    """The resolved routing row's `thinking` lane setting onto the request.
+    """The resolved routing row's lane settings onto the request.
 
-    Scott, 2026-10-21: live Copilot taps (`query`, `query_follow_up`) run with
-    the least thinking their model allows. On his EMIDS interview the default
-    put the first word at 7 to 15 s (b0f5628255c3: 14.7 s, 1,572 output
-    tokens for a five-second card). "disabled" is the existing lane value and
-    already means the floor per model (anthropic_thinking_block): off on
-    Sonnet 5, `between_tools` on Sonnet 5.5, no block at effort low on
-    Opus 5.5.
+    Two keys, both owned by GP and both set from the row:
+
+    - `thinking`: Scott, 2026-10-21, live Copilot taps (`query`,
+      `query_follow_up`) run with the least thinking their model allows.
+      On his EMIDS interview the default put the first word at 7 to 15 s
+      (b0f5628255c3: 14.7 s, 1,572 output tokens for a five-second card).
+      "disabled" is the existing lane value and already means the floor per
+      model (anthropic_thinking_block): off on Sonnet 5, `between_tools` on
+      Sonnet 5.5, no block at effort low on Opus 5.5.
+    - `reasoning`: the effort level, which wins over the client's pick.
+      Scott, 2026-10-21: TR's Copilot surface runs on Sonnet 5.5 at effort
+      low (TR's replay: first word about 1 s against 6 to 10 s).
 
     Set from the row that WON, never from call_type, so a ProjectChat or
     PostMeetingChat send that arrives as call_type=query keeps its surface
@@ -322,15 +327,18 @@ def _apply_routed_thinking(request: Request, body: ChatRequest) -> ChatRequest:
     setting never rides into a document build.
     """
     row = getattr(request.state, "routed_row", None) or {}
-    lane = row.get("thinking")
-    placed = getattr(request.state, "routed_thinking", None)
-    if lane:
-        request.state.routed_thinking = lane
-        return body.model_copy(update={"thinking": lane})
-    if placed is not None and body.thinking == placed:
-        request.state.routed_thinking = None
-        return body.model_copy(update={"thinking": None})
-    return body
+    update = {}
+    for key in ("thinking", "reasoning"):
+        lane = row.get(key)
+        state_key = f"routed_{key}"
+        placed = getattr(request.state, state_key, None)
+        if lane:
+            setattr(request.state, state_key, lane)
+            update[key] = lane
+        elif placed is not None and getattr(body, key) == placed:
+            setattr(request.state, state_key, None)
+            update[key] = None
+    return body.model_copy(update=update) if update else body
 
 
 def _app(request) -> str | None:
@@ -414,6 +422,18 @@ def _resolve_model_routing(
             return model
         # No row for this tier: fall through rather than dying, so a
         # half-configured dial degrades to the surface model.
+
+    # 0.5. An explicit client surface (`metadata.surface`, TR e916be4:
+    #    "copilot", "job_chat", "session_chat") picks a `<call_type>@<surface>`
+    #    row when one exists. The `@` keeps it from ever colliding with a
+    #    real call_type such as query_follow_up. No row, or no surface (every
+    #    TR build before e916be4), falls through to the routing below
+    #    unchanged.
+    surface_name = body.get_meta("surface")
+    if call_type and isinstance(surface_name, str) and surface_name:
+        model = _model_from_row(f"{call_type}@{surface_name}")
+        if model:
+            return model
 
     # 1. Surface-aware preference. Each surface has a (first, follow_up)
     #    pair of dials; iOS picks which by setting `call_type` to the
