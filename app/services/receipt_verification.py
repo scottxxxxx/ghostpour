@@ -171,10 +171,14 @@ def resolve_identity(body, settings) -> TransactionIdentity:
             # caller decides whether an unverifiable receipt is fatal;
             # our job is to make sure it can tell.
             logger.warning("verify-receipt: signed_transaction rejected: %s", e)
+            from app.services.subscriptions import UNVERIFIED
             return TransactionIdentity(
                 original_transaction_id=None,
                 transaction_id=None,
-                environment=None,
+                # Explicit, never None: None makes the caller guess from the
+                # account's history, which is how a local StoreKit-testing
+                # purchase became "Production" (2026-10-20).
+                environment=UNVERIFIED,
                 product_id=None,
                 verified=False,
                 reject_reason=f"signature_rejected: {e}",

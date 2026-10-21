@@ -513,7 +513,8 @@ async def _resolve_storekit_environment(
     is explicitly a guess of last resort. When the enforcement dial is on
     there is no guessing left to do.
     """
-    if verified_environment in ("Production", "Sandbox"):
+    from app.services.subscriptions import UNVERIFIED
+    if verified_environment in ("Production", "Sandbox", UNVERIFIED):
         return verified_environment
     row = await (await db.execute(
         "SELECT environment FROM subscription_events "
