@@ -1,5 +1,5 @@
 {
-  "version": 43,
+  "version": 44,
   "server_only": true,
   "models": [
     {
@@ -209,6 +209,15 @@
             "free": "anthropic/claude-haiku-4-5-20251001",
             "paid": "anthropic/claude-haiku-4-5-20251001",
             "default": "anthropic/claude-haiku-4-5-20251001"
+          }
+        },
+        "tr_interview_reference": {
+          "label": "Interview reference",
+          "reasoning": "medium",
+          "models": {
+            "free": "anthropic/claude-sonnet-5",
+            "paid": "anthropic/claude-sonnet-5",
+            "default": "anthropic/claude-sonnet-5"
           }
         },
         "tr_match_analysis": {

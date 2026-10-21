@@ -79,6 +79,9 @@ _CALL_TYPE_TO_CONFIG = {
     # counterpart was a pre-generated script that ignored his answers) —
     # the model plays the other person per turn, in character.
     "tr_counterpart_turn": "techrehearsal/counterpart-turn",
+    # The interview reference (2026-10-21, TR handoff section 1): a long,
+    # researched markdown document a live Copilot carries into the interview.
+    "tr_interview_reference": "techrehearsal/interview-reference",
     # N-400 Helper (2026-09-01). Registering it here is what makes the config
     # READ: `interview-turn.json` is server_only, so /v1/config 404s it on
     # purpose, and without this row assemble_prompt returns None and the
