@@ -36,11 +36,20 @@ def test_outside_texas_mirrors_the_n400_outcomes(client):
     assert tx["assess_moral_character_impact"] == "ESCALATE" and ca["assess_moral_character_impact"] == "BLOCK"
 
 
-def test_asking_the_i765_route_about_another_form_fails_closed(client):
-    m = client.get("/v1/i765/policy?state=TX&form=N-400").json()
-    assert m["form"] == "N-400"
-    assert {c["outcome"] for c in m["capabilities"]} == {"BLOCK"}
-    assert {c["reason_code"] for c in m["capabilities"]} == {"no_row_for_jurisdiction"}
+def test_asking_the_i765_route_about_another_form_is_refused(client):
+    """I-765 lead, 2026-10-21: it used to answer 200 with every capability
+    BLOCKed, which a multi-form client could read as that form's rules."""
+    for form in ("N-400", "I-130", ""):
+        r = client.get(f"/v1/i765/policy?state=TX&form={form}")
+        assert r.status_code == 400, (form, r.text)
+        assert r.json()["detail"]["code"] == "unknown_form"
+
+
+def test_cosmetic_spellings_of_the_i765_are_the_i765(client):
+    for form in ("I-765", "i765", "I765", "i-765"):
+        r = client.get(f"/v1/i765/policy?state=TX&form={form}")
+        assert r.status_code == 200, (form, r.text)
+        assert r.json()["form"] == "I-765"
 
 
 def test_each_route_reads_only_its_own_document(client):

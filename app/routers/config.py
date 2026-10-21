@@ -168,6 +168,15 @@ def resolve_build_pin(app_build: str | None) -> str | None:
     return f"build-lte-{applicable[0]}" if applicable else None
 
 
+# A second name for one file, per app, so a client can move to the new name
+# without a copy that drifts. I-765 lead, 2026-10-21: the app becomes a
+# multi-form app and its filing document is named per form from its next
+# build; today's builds keep asking for `filing`.
+_SLUG_ALIASES: dict[tuple[str, str], str] = {
+    ("i765", "filing-i765"): "filing",
+}
+
+
 def candidate_slugs(app_dir: str, name: str,
                     audience: str = "production",
                     build_pin: str | None = None) -> list[str]:
@@ -190,6 +199,9 @@ def candidate_slugs(app_dir: str, name: str,
     base = [f"{app_dir}/{name}"]
     if app_dir == "techrehearsal" and name.startswith("tr-"):
         base.append(f"{app_dir}/{name[3:]}")
+    alias = _SLUG_ALIASES.get((app_dir, name))
+    if alias:
+        base.append(f"{app_dir}/{alias}")
     base.append(name)
 
     out: list[str] = []

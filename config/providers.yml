@@ -77,6 +77,9 @@ providers:
       - id: "claude-opus-4-7"
         supports_vision: true
         max_tokens_default: 4096
+      - id: "claude-sonnet-5-5"
+        supports_vision: true
+        max_tokens_default: 4096
       - id: "claude-sonnet-4-6"
         supports_vision: true
         max_tokens_default: 4096

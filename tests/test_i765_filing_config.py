@@ -122,3 +122,18 @@ def test_the_document_states_no_fee_payee_or_address():
     assert "C01_fee" not in {e["id"] for e in doc["evidence"]["common"]}
     assert not re.search(r"\$\s?\d", json.dumps(doc, ensure_ascii=False)), "no dollar amount anywhere"
     assert "scope" in doc["notes"]
+
+
+def test_filing_i765_is_the_same_document_under_its_new_name(client):
+    """I-765 lead, 2026-10-21: the multi-form app asks for `filing-i765` from
+    its next build; today's builds keep asking for `filing`. One file, two
+    names, so they cannot drift."""
+    old = client.get("/v1/config/filing", headers=I765)
+    new = client.get("/v1/config/filing-i765", headers=I765)
+    assert old.status_code == new.status_code == 200, new.text
+    assert new.json() == old.json()
+    held = client.get("/v1/config/filing-i765",
+                      headers={**I765, "X-Config-Version": str(old.json()["version"])})
+    assert held.json() == {"changed": False, "version": old.json()["version"]}
+    for app in ("n400", "shouldersurf", "techrehearsal"):
+        assert client.get("/v1/config/filing-i765", headers={"X-App-ID": app}).status_code == 404, app
