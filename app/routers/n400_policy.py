@@ -44,8 +44,21 @@ async def get_i765_policy(request: Request, state: str | None = None,
                           form: str | None = None):
     """I-765 Helper's matrix (2026-10-09). Its own path and its own document
     (`i765/policy-matrix`), never the N-400 one: the client has one URL to
-    call, and a wrong URL answers 404 rather than another form's rules."""
-    return _matrix_for(request, state, form or "I-765", "i765")
+    call, and a wrong URL answers 404 rather than another form's rules.
+
+    A form other than the I-765 is a 400 (I-765 lead, 2026-10-21). It used
+    to answer 200 with every capability BLOCKed, which a multi-form client
+    could read as that form's real rules rather than as "not this route"."""
+    from app.services.interviewer_lanes import same_form
+    if form is not None and not same_form("I-765", form):
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "unknown_form",
+                "message": "This route serves the I-765 policy only.",
+            },
+        )
+    return _matrix_for(request, state, "I-765", "i765")
 
 
 def _matrix_for(request: Request, state: str | None, form: str, app_id: str) -> dict:
