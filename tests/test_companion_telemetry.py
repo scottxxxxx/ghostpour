@@ -13,7 +13,7 @@ import logging
 import sqlite3
 import uuid
 
-DMG = "https://storage.googleapis.com/weirtech-public-share/desktop/ShoulderSurfCompanion.dmg"
+MAC = "https://apps.apple.com/app/id6814643464"
 WIN = "https://storage.googleapis.com/weirtech-public-share/desktop/windows/ShoulderSurfCompanion-{}.exe"
 
 
@@ -120,7 +120,7 @@ def test_download_mac_is_counted_and_redirected(client, tmp_db_path):
     r = client.get("/v1/companion/download/mac", follow_redirects=False,
                    headers={"User-Agent": "Mozilla/5.0 (Macintosh) Safari/605.1.15",
                             "Referer": "https://shouldersurf.com/desktop?x=1"})
-    assert r.status_code == 302 and r.headers["location"] == DMG
+    assert r.status_code == 302 and r.headers["location"] == MAC
     assert _rows(tmp_db_path, "SELECT platform, arch, ua_family, referrer_host FROM companion_downloads") == \
         [("mac", None, "safari", "shouldersurf.com")]
 
