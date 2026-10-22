@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": 6,
+  "version": 7,
   "as_of": "2026-10-09",
   "app_id": "i765",
   "form": "I-765",
@@ -38,9 +38,9 @@
     "mixed_pages_rejected": true,
     "omb_number": "1615-0040",
     "omb_expires": "08/31/2027",
-    "note_en": "USCIS accepts only the 08/21/25 edition; a 09/15/26 edition exists but is not accepted while a September 14, 2026 federal court order (Presidents' Alliance v. DHS, D. Mass. 26-cv-13799) holds up the student and exchange visitor rule.",
-    "note_es": "USCIS acepta solo la edición 08/21/25; existe una edición 09/15/26, pero no se acepta mientras una orden judicial federal del 14 de septiembre de 2026 (Presidents' Alliance v. DHS, D. Mass. 26-cv-13799) mantenga suspendida la regla para estudiantes y visitantes de intercambio.",
-    "note_pt": "O USCIS aceita somente a edição 08/21/25; existe uma edição 09/15/26, mas ela não é aceita enquanto uma ordem judicial federal de 14 de setembro de 2026 (Presidents' Alliance v. DHS, D. Mass. 26-cv-13799) mantiver suspensa a regra para estudantes e visitantes de intercâmbio.",
+    "note_en": "USCIS accepts the 08/21/25 edition of Form I-765.",
+    "note_es": "USCIS acepta la edición 08/21/25 del Formulario I-765.",
+    "note_pt": "O USCIS aceita a edição 08/21/25 do Formulário I-765.",
     "checked_on": "2026-10-09",
     "source": {"keys": ["PAGE", "FORM", "INSTR"], "where": "RESEARCH section 1; PAGE re-read 2026-10-09: Edition Date 08/21/25, and the Sept. 14, 2026 order alert says USCIS is not accepting the 09/15/26 edition"}
   },
