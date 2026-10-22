@@ -92,7 +92,10 @@ def test_i765_budget_is_flat_on_its_own_document_like_n400s():
     assert SHIPPED["anonymous"]["per_application_usd"] == SHIPPED_N400["anonymous"]["per_application_usd"] == 2
     assert SHIPPED["anonymous"]["per_install_lifetime_usd"] == SHIPPED_N400["anonymous"]["per_install_lifetime_usd"] == 10
     assert SHIPPED["anonymous"]["daily_all_installs_usd"] == SHIPPED_N400["anonymous"]["daily_all_installs_usd"] == 50
-    assert SHIPPED["device_test"]["user_agent_app_name"] == "I-765 Helper"
+    # Read off the edge log, not predicted: the renamed build (client e42a4ae)
+    # sends "Forms%20Helper/1 CFNetwork/...", from CFBundleName, although
+    # PRODUCT_NAME is still "I-765 Helper" (2026-10-21).
+    assert SHIPPED["device_test"]["user_agent_app_name"] == "Forms Helper"
     for key in ("application_allowance_used", "install_allowance_used", "daily_capacity_reached"):
         assert set(SHIPPED["anonymous"][key]["text"]) == {"en", "es", "pt"}, key
 
