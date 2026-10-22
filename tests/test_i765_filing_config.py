@@ -24,7 +24,7 @@ def test_the_filing_document_is_served_to_i765_only(client):
     assert r.status_code == 200, r.text
     doc = r.json()
     assert doc["app_id"] == "i765" and doc["form"] == "I-765"
-    assert doc["version"] == 6 and doc["schema_version"] == 1
+    assert doc["version"] == 7 and doc["schema_version"] == 1
     assert TOP_KEYS <= set(doc), TOP_KEYS - set(doc)
     assert not REMOVED_KEYS & set(doc), REMOVED_KEYS & set(doc)
     assert V1_CATEGORIES <= set(doc["categories"])
