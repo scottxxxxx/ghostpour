@@ -1,8 +1,8 @@
 {
- "version": 1,
+ "version": 2,
  "server_only": true,
- "_comment": "Files behind GET /v1/companion/download/{platform}. The redirect records the hit, then 302s here. Windows has one file per CPU; x64 is the default when the site cannot tell. Change a file by editing this doc (scoped sync), not by deploying.",
- "mac": "https://storage.googleapis.com/weirtech-public-share/desktop/ShoulderSurfCompanion.dmg",
+ "_comment": "Files behind GET /v1/companion/download/{platform}. The redirect records the hit, then 302s here. Windows has one file per CPU; x64 is the default when the site cannot tell. Mac goes to the Mac App Store listing (2026-10-22); the DMG and its Sparkle appcast stay up for existing installs. Change a file by editing this doc (scoped sync), not by deploying.",
+ "mac": "https://apps.apple.com/app/id6814643464",
  "windows": {
   "x64": "https://storage.googleapis.com/weirtech-public-share/desktop/windows/ShoulderSurfCompanion-x64.exe",
   "arm64": "https://storage.googleapis.com/weirtech-public-share/desktop/windows/ShoulderSurfCompanion-arm64.exe"
