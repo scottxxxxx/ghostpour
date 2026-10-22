@@ -381,6 +381,7 @@ async def apple_notifications(
     tier_config = request.app.state.tier_config
 
     user = None
+    matched_by_token = False
 
     # Primary lookup: originalTransactionId stored in users table
     if original_transaction_id:
@@ -405,6 +406,7 @@ async def apple_notifications(
         row = await cursor.fetchone()
         if row:
             user = {"id": row[0], "tier": row[1], "is_trial": row[2], "monthly_used_usd": row[3]}
+            matched_by_token = True
 
     if not user:
         logger.warning(
@@ -511,6 +513,18 @@ async def apple_notifications(
                 transaction_info.get("productId"), user_id,
             )
             return {"status": "received", "action": "skipped", "reason": "unknown_product"}
+
+        # Matched by appAccountToken means the row holds some OTHER id (or
+        # none), and Apple just signed this one as active. Adopt it, or the
+        # reconcile sweep keeps asking Apple about the old subscription and
+        # drops a paying user back to free (2026-10-21: Scott's account held
+        # an August Production id that had lapsed, and a Sandbox RESUBSCRIBE
+        # at 03:08Z was reconciled away at 03:57Z). No other row can hold
+        # this id: the primary lookup above just found none.
+        if matched_by_token and original_transaction_id:
+            await db.execute(
+                "UPDATE users SET original_transaction_id = ? WHERE id = ?",
+                (original_transaction_id, user_id))
 
         if old_tier == new_tier_name and not user["is_trial"]:
             # DID_RENEW for same tier. Historically this path returned
