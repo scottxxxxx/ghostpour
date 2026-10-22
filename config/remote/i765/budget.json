@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "server_only": true,
   "_comment": [
     "I-765 Helper's monthly spend ceiling and the copy shown when it is reached.",
@@ -58,7 +58,7 @@
   ],
   "device_test": {
     "only_device": false,
-    "user_agent_app_name": "I-765 Helper",
+    "user_agent_app_name": "Forms Helper",
     "hourly_cap": 400
   },
   "exhausted": {
