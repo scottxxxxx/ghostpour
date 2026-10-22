@@ -51,6 +51,33 @@ async def _apply_tier(db: aiosqlite.Connection, user_id: str, tier_name: str, ti
         )
 
 
+_GRANT_EVENTS = ("subscribed", "upgraded", "renewed")
+
+
+async def _newer_grant(db: aiosqlite.Connection, user_id: str, otid: str,
+                       cur_tier: str, apple_expires_at: str | None) -> str | None:
+    """When the current tier was granted, if a purchase OTHER than `otid` gave
+    it after `otid` lapsed. Returns that grant's time, else None.
+
+    The stored id answers for one subscription only. A newer purchase that
+    never replaced it (an unsigned or rejected receipt keeps the old id by
+    design) is invisible to Apple's answer about the old one, and without
+    this the sweep took Pro off Scott's account within the hour after each of
+    his purchases on 2026-10-20 and 10-21. A grant under the SAME id is not a
+    reason to skip: that subscription lapsing is exactly the drift to fix.
+    """
+    if not apple_expires_at:
+        return None
+    row = await (await db.execute(
+        "SELECT effective_at FROM subscription_events "
+        "WHERE user_id = ? AND to_tier = ? AND event_type IN (?,?,?) "
+        "AND (original_transaction_id IS NULL OR original_transaction_id != ?) "
+        "AND effective_at > ? ORDER BY effective_at DESC LIMIT 1",
+        (user_id, cur_tier, *_GRANT_EVENTS, otid, apple_expires_at),
+    )).fetchone()
+    return row[0] if row else None
+
+
 async def reconcile_user(db: aiosqlite.Connection, user_row, tier_config) -> str | None:
     """Reconcile one user against Apple. Returns a "from->to" string if it fixed
     drift, else None (in sync, unverifiable, or unknown product)."""
@@ -76,6 +103,12 @@ async def reconcile_user(db: aiosqlite.Connection, user_row, tier_config) -> str
         apple_tier = "free"
     if apple_tier == cur_tier:
         return None  # in sync (cache already advanced above)
+    if apple_tier == "free":
+        newer = await _newer_grant(db, user_row["id"], otid, cur_tier, state.get("expires_at"))
+        if newer:
+            logger.info("reconcile skipped user=%s: %s grant at %s is newer than %s lapsing %s",
+                        user_row["id"], cur_tier, newer, otid, state.get("expires_at"))
+            return None
 
     await _apply_tier(db, user_row["id"], apple_tier, tier_config)
     await subs.record_subscription_event(
