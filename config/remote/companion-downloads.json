@@ -1,8 +1,8 @@
 {
- "version": 3,
+ "version": 4,
  "server_only": true,
- "_comment": "Files behind GET /v1/companion/download/{platform}. The redirect records the hit, then 302s here. Windows has one file per CPU; x64 is the default when the site cannot tell. Mac is back on the DMG (1.0.1) until Mac App Store 1.0.1 clears review; store 1.0 crashes when Meet takes the mic (2026-10-22). Change a file by editing this doc (scoped sync), not by deploying.",
- "mac": "https://storage.googleapis.com/weirtech-public-share/desktop/ShoulderSurfCompanion.dmg",
+ "_comment": "Files behind GET /v1/companion/download/{platform}. The redirect records the hit, then 302s here. Windows has one file per CPU; x64 is the default when the site cannot tell. Mac goes to the Mac App Store listing; store 1.0.1 went live 2026-10-23 (the DMG and its appcast stay up for people who installed it). Change a file by editing this doc (scoped sync), not by deploying.",
+ "mac": "https://apps.apple.com/app/id6814643464",
  "windows": {
   "x64": "https://storage.googleapis.com/weirtech-public-share/desktop/windows/ShoulderSurfCompanion-x64.exe",
   "arm64": "https://storage.googleapis.com/weirtech-public-share/desktop/windows/ShoulderSurfCompanion-arm64.exe"
