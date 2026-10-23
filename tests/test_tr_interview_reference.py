@@ -76,11 +76,28 @@ def test_the_prompt_carries_no_dash_punctuation():
 
 def test_the_prompt_names_every_part_and_the_truth_rules():
     sp = CFG["systemPrompt"]
-    for heading in ("# PART 1. FAST ANSWERS", "# PART T. TECHNICAL PLAYBOOKS",
-                    "# PART 5. DOMAIN DEPTH", "## 4. Why I'm looking", "NOT CONFIRMED",
+    for heading in ("# PART 1. FAST ANSWERS", "# PART 2. TECHNICAL PLAYBOOKS",
+                    "# PART 3. DOMAIN DEPTH", "## 4. Why I'm looking", "NOT CONFIRMED",
                     "Not provided. Ask the candidate before the interview.",
                     "20,000 and 35,000 characters", "web_search"):
         assert heading in sp, heading
+
+
+def test_the_first_real_run_findings_are_in_the_prompt():
+    """TR's first real run (request 568106810d43, 2026-10-22): the model's
+    search narration landed above the title in the exported file; known
+    negatives from the notes went on NOT CONFIRMED hedges; year ranges lost
+    their separator to the no dash rule; Part labels were 1, T and 5; an iOS
+    document said ANR and carried a cloud section for a role with no cloud."""
+    sp = CFG["systemPrompt"]
+    for phrase in ("Write nothing before the title, not even between searches",
+                   "that is a confirmed fact, not an open one, so it never goes on a NOT CONFIRMED line",
+                   "I haven't used X in production; the closest I've done is",
+                   '"2017 to 2021"', '"2021 to present"',
+                   "no Android terms in an iOS document",
+                   "write only: Not relevant for this role."):
+        assert phrase in sp, phrase
+    assert "PART T" not in sp and "PART 5" not in sp
 
 
 def test_every_template_placeholder_is_declared():
