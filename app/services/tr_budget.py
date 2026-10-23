@@ -8,7 +8,7 @@ the SS budget gate relies on.
 
 Instead we cap TR spend per calendar month (UTC) by summing the user's
 `techrehearsal` rows in `usage_log` (`estimated_cost_usd` holds the realized
-cost, with `app_id` on each row), against an entitlement-keyed cap read from
+cost, with `app_id` on each row) plus its web search fees in `search_usage`, against an entitlement-keyed cap read from
 `apps.yml` (`apps.techrehearsal.budget`).
 
 DORMANT until `apps.techrehearsal.budget.enabled` is true. Enable only once
@@ -91,14 +91,26 @@ def cap_for_entitlement(budget_cfg: dict | None, entitlement: str | None) -> flo
 
 
 async def tr_month_spend_usd(db: aiosqlite.Connection, user_id: str) -> float:
-    """Sum of the user's realized Tech Rehearsal spend this UTC month."""
+    """Sum of the user's realized Tech Rehearsal spend this UTC month: model
+    tokens from usage_log plus web search fees from search_usage. The fees
+    ($0.01 a search) never reach usage_log.estimated_cost_usd, so without the
+    second sum the interview reference's searches went unmetered (2026-10-22,
+    request 568106810d43: 3 searches, $0.03 on a $0.12 row)."""
+    since = _month_start_iso()
     cur = await db.execute(
         "SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log "
         "WHERE user_id = ? AND app_id = ? AND request_timestamp >= ?",
-        (user_id, _APP_ID, _month_start_iso()),
+        (user_id, _APP_ID, since),
     )
     row = await cur.fetchone()
-    return float(row[0] or 0.0) if row else 0.0
+    tokens = float(row[0] or 0.0) if row else 0.0
+    cur = await db.execute(
+        "SELECT COALESCE(SUM(search_cost_usd), 0) FROM search_usage "
+        "WHERE user_id = ? AND app_id = ? AND request_timestamp >= ?",
+        (user_id, _APP_ID, since),
+    )
+    row = await cur.fetchone()
+    return tokens + (float(row[0] or 0.0) if row else 0.0)
 
 
 def month_reset_iso() -> str:
