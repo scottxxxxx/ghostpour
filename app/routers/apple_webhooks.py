@@ -342,6 +342,8 @@ async def apple_notifications(
                         product_id, notification_type, touched)
             return {"status": "received", "action": "unlock_revoked", "users": touched}
         if notification_type == "ONE_TIME_CHARGE":
+            from app.services.subscriptions import money_fields_from_apple
+            _u_money = money_fields_from_apple(transaction_info)
             _u_user = await _unlocks.find_user(
                 db, transaction_id=_u_txn, original_transaction_id=_u_otid,
                 app_account_token=transaction_info.get("appAccountToken"))
@@ -351,7 +353,8 @@ async def apple_notifications(
             res = await _unlocks.record(
                 db, user_id=_u_user, transaction_id=_u_txn, product_id=product_id,
                 original_transaction_id=_u_otid, environment=_u_env,
-                purchased_at=_ms_to_iso(transaction_info.get("purchaseDate")), source="assn")
+                purchased_at=_ms_to_iso(transaction_info.get("purchaseDate")), source="assn",
+                price_paid=_u_money.get("price_paid"), currency=_u_money.get("currency"))
             return {"status": "received", "action": "unlock_" + res["status"]}
         logger.info("Apple notification: unlock %s type=%s, no action", product_id, notification_type)
         return {"status": "received", "action": "none", "type": notification_type}

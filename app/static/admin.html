@@ -968,6 +968,16 @@
           <th>When</th><th>User</th><th>Event</th><th>From → To</th><th>Source</th><th>Env</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">One-time unlocks <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">Shoulder Surf in-app purchases (Apple Cloud, BYOK, bundle, upgrades), last 365 days. Money is Production only and gross, before Apple's cut; Sandbox is TestFlight and review. Price is recorded from 2026-10-22 on, so older rows show none</span></h4>
+        <div class="cards" id="unlock-kpis"></div>
+        <div class="table-wrap" style="margin-top:8px"><table id="unlock-products-table"><thead><tr>
+          <th>Product</th><th>Production</th><th>Sandbox</th><th>Other</th><th>Refunded</th>
+        </tr></thead><tbody></tbody></table></div>
+        <div class="table-wrap" style="margin-top:8px;max-height:360px;overflow-y:auto"><table id="unlock-recent-table"><thead><tr>
+          <th>When</th><th>User</th><th>Product</th><th>Status</th><th>Price</th><th>Env</th><th>Source</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
     </div>
   </div>
 
@@ -1357,10 +1367,48 @@ async function loadSubscriptions() {
     const rep = await repResp.json();
     const events = evResp.ok ? (await evResp.json()).events : [];
     _renderSubscriptions(rep, events);
+    _loadUnlocks();
   } catch (e) {
     document.getElementById('sub-kpis').innerHTML =
       `<div class="card" style="grid-column:span 4">Subscriptions error: ${e.message}</div>`;
   }
+}
+
+async function _loadUnlocks() {
+  const kp = document.getElementById('unlock-kpis');
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/subscriptions/unlocks?days=365`, {headers:{'X-Admin-Key':adminKey}});
+    if (!resp.ok) { kp.innerHTML = `<div class="card">Unlocks load failed (${resp.status})</div>`; return; }
+    _renderUnlocks(await resp.json());
+  } catch (e) { kp.innerHTML = '<div class="card">Unlocks load failed</div>'; }
+}
+
+function _renderUnlocks(d) {
+  const t = d.totals || {};
+  const short = (p) => (p || '').replace('com.weirtech.shouldersurf.unlock.', '');
+  const rev = Object.entries(d.revenue_production || {}).map(([c, v]) => `${c} ${v.toLocaleString()}`).join(', ') || 'none';
+  document.getElementById('unlock-kpis').innerHTML = [
+    {label: 'Purchases (production)', value: (t.production || 0).toLocaleString(), hint: `${t.sandbox || 0} sandbox`},
+    {label: 'Revenue (production)', value: rev, hint: 'gross, refunds left out'},
+    {label: 'Refunded', value: (t.refunded || 0).toLocaleString(), hint: 'all environments'},
+    {label: 'Pending or flagged', value: ((t.pending || 0) + (t.refund_flagged || 0)).toLocaleString(),
+     hint: `${t.pending || 0} upgrade waiting on its pack, ${t.refund_flagged || 0} already owned`},
+  ].map(c => `
+    <div class="card">
+      <div class="card-label">${c.label}</div>
+      <div class="card-value">${c.value}</div>
+      <div class="card-hint">${c.hint}</div>
+    </div>`).join('');
+  document.querySelector('#unlock-products-table tbody').innerHTML = (d.by_product || []).map(b =>
+    `<tr><td>${esc(short(b.product_id))}</td><td>${b.production}</td><td>${b.sandbox}</td><td>${b.other}</td><td>${b.refunded}</td></tr>`
+  ).join('') || '<tr><td colspan="5" style="color:var(--text-dim)">No unlock purchases yet</td></tr>';
+  document.querySelector('#unlock-recent-table tbody').innerHTML = (d.recent || []).map(r => {
+    const when = (r.purchased_at || r.recorded_at || '').slice(0, 16).replace('T', ' ');
+    const status = r.revoked_at ? `refunded (${esc(r.revoke_reason || '')})` : esc(r.status);
+    const price = r.price_paid != null ? `${r.price_paid} ${esc(r.currency || '')}` : '<span style="color:var(--text-dim)">none</span>';
+    const who = r.email ? esc(r.email) : `<span style="color:var(--text-dim)">${esc((r.user_id || '').slice(0, 8))}</span>`;
+    return `<tr><td>${when}</td><td>${who}</td><td>${esc(short(r.product_id))}</td><td>${status}</td><td>${price}</td><td>${esc(r.environment || '')}</td><td>${esc(r.source || '')}</td></tr>`;
+  }).join('');
 }
 
 function _renderSubscriptions(rep, events) {
