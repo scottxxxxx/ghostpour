@@ -103,7 +103,9 @@ _UNTOUCHED_MODE_SHA = {
     "3": "6148b3e459ba218f11d94fe8ec02b795b3993a51cc282ea3769020e86711b24e",
     "4": "9d94f04717fc4ff7aaf4d2ea34abe7b08e271c95c79b2ca417b0f4f3337802ad"
 }
-_RULES_SHA = "28e4fc74c0f2d7de91da11b64528801945b1e7a05f123c6acf3a37a3605b8d2a"
+# Moved 2026-10-22 for rule 7 (answer the last question; a follow-up adds only
+# what is new): tests/test_ss_rule7_last_question.py.
+_RULES_SHA = "4d39d8d5ee77caf0c5fb2e7dcf8015d26b4a06ec21333517b51742fc3864d1a3"
 _TEMPLATE_SHA = "eddefd401abf112f2914dd96978203ee015fc9d75004dbc422ef41c1ae53e7e7"
 
 
