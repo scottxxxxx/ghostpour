@@ -79,6 +79,10 @@ async def _seed_db():
         ("u1", "techrehearsal", None, now),    # error row (NULL cost), ignored by SUM
     ]
     await db.executemany("INSERT INTO usage_log VALUES (?,?,?,?)", rows)
+    await db.execute(
+        "CREATE TABLE search_usage (user_id TEXT, app_id TEXT, "
+        "search_cost_usd REAL, request_timestamp TEXT)"
+    )
     await db.commit()
     return db
 
@@ -89,6 +93,24 @@ async def test_month_spend_scopes_user_app_and_period():
     assert await tr_budget.tr_month_spend_usd(db, "u1") == 4.0
     assert await tr_budget.tr_month_spend_usd(db, "u2") == 9.0
     assert await tr_budget.tr_month_spend_usd(db, "nobody") == 0.0
+    await db.close()
+
+
+@pytest.mark.asyncio
+async def test_month_spend_counts_web_search_fees():
+    """The fees live only in search_usage (2026-10-22: the interview
+    reference's 3 searches were $0.03 the meter never saw)."""
+    db = await _seed_db()
+    now = datetime.now(timezone.utc).isoformat()
+    await db.executemany("INSERT INTO search_usage VALUES (?,?,?,?)", [
+        ("u1", "techrehearsal", 0.03, now),                          # counted
+        ("u1", "shouldersurf", 0.50, now),                           # other app
+        ("u2", "techrehearsal", 0.25, now),                          # other user
+        ("u1", "techrehearsal", 0.40, "2020-01-01T00:00:00+00:00"),  # last period
+    ])
+    await db.commit()
+    assert await tr_budget.tr_month_spend_usd(db, "u1") == pytest.approx(4.03)
+    assert await tr_budget.tr_month_spend_usd(db, "u2") == pytest.approx(9.25)
     await db.close()
 
 
