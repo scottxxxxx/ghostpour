@@ -13,7 +13,7 @@ import logging
 import sqlite3
 import uuid
 
-MAC = "https://apps.apple.com/app/id6814643464"
+MAC = "https://storage.googleapis.com/weirtech-public-share/desktop/ShoulderSurfCompanion.dmg"
 WIN = "https://storage.googleapis.com/weirtech-public-share/desktop/windows/ShoulderSurfCompanion-{}.exe"
 
 
