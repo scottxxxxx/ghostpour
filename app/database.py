@@ -1246,6 +1246,10 @@ MIGRATIONS = [
         source TEXT
     )""",
     "CREATE INDEX IF NOT EXISTS idx_purchases_user ON purchases(user_id)",
+    # What Apple charged for an unlock, off the signed transaction only, so
+    # the dashboard can show money (Scott, 2026-10-22). None = Apple did not say.
+    "ALTER TABLE purchases ADD COLUMN price_paid REAL",
+    "ALTER TABLE purchases ADD COLUMN currency TEXT",
     # The free monthly Project Chat taste (Scott 2026-10-13): one
     # CONVERSATION a month on SS AI, counted as distinct metadata.session_id
     # per UTC calendar month. New builds only; see project_chat_policy.
