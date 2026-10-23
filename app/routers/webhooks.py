@@ -5701,6 +5701,20 @@ async def subscriptions_events(
     return {"events": await subs.recent_events(db, limit=limit)}
 
 
+@router.get("/admin/subscriptions/unlocks")
+async def subscriptions_unlocks(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=365, ge=1, le=3650),
+):
+    """One-time IAP unlock purchases (the purchases table), for the
+    Subscriptions tab. See app/services/unlocks.py report()."""
+    _verify_admin(request, x_admin_key)
+    from app.services import unlocks
+    return await unlocks.report(db, days=days)
+
+
 @router.get("/admin/subscriptions/redemptions")
 async def subscriptions_redemptions(
     request: Request,

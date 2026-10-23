@@ -637,7 +637,8 @@ async def verify_receipt(
             transaction_id=identity.transaction_id or identity.original_transaction_id,
             original_transaction_id=identity.original_transaction_id,
             product_id=identity.product_id, environment=identity.environment,
-            purchased_at=body.purchase_date, source="verify_receipt")
+            purchased_at=body.purchase_date, source="verify_receipt",
+            price_paid=identity.money.get("price_paid"), currency=identity.money.get("currency"))
         return res
 
     # Look up tier for this product

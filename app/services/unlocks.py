@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -118,6 +118,7 @@ async def record(
     db: aiosqlite.Connection, *, user_id: str, transaction_id: str, product_id: str,
     original_transaction_id: str | None = None, environment: str | None = None,
     purchased_at: str | None = None, source: str = "verify_receipt",
+    price_paid: float | None = None, currency: str | None = None,
 ) -> dict:
     """Record one verified unlock transaction for `user_id`. Idempotent per
     transaction: a re-post (Restore, launch reconciliation, the webhook after
@@ -135,6 +136,12 @@ async def record(
         "SELECT user_id, status FROM purchases WHERE transaction_id = ?", (transaction_id,))).fetchone()
     if row is not None:
         prev_user, status = row
+        if price_paid is not None:
+            # The client usually posts first; the money may arrive with the webhook.
+            await db.execute(
+                "UPDATE purchases SET price_paid = ?, currency = ? WHERE transaction_id = ? AND price_paid IS NULL",
+                (price_paid, currency, transaction_id))
+            await db.commit()
         if prev_user != user_id:
             await db.execute("UPDATE purchases SET user_id = ? WHERE transaction_id = ?", (user_id, transaction_id))
             await db.execute(
@@ -152,10 +159,10 @@ async def record(
 
     await db.execute(
         """INSERT INTO purchases (transaction_id, original_transaction_id, user_id, product_id, grants,
-               status, environment, purchased_at, recorded_at, source)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               status, environment, purchased_at, recorded_at, source, price_paid, currency)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (transaction_id, original_transaction_id, user_id, product_id, json.dumps(grants),
-         status, environment, purchased_at, _now(), source))
+         status, environment, purchased_at, _now(), source, price_paid, currency))
     if status == "refund_flagged":
         await _flag_refund(db, user_id, transaction_id, product_id)
     if status == "granted":
@@ -201,3 +208,39 @@ async def find_user(db: aiosqlite.Connection, *, transaction_id: str | None,
     return None
 
 
+
+
+async def report(db: aiosqlite.Connection, days: int = 365) -> dict:
+    """One-time unlock purchases for the dashboard (Scott, 2026-10-22): counts
+    per product and environment, money by currency, and the newest rows.
+    Money is Production only; Sandbox (TestFlight, review) is counted beside
+    it, never inside it, as the subscription cards do."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    cur = await db.execute(
+        "SELECT p.transaction_id, p.user_id, u.email, p.product_id, p.status, p.environment, "
+        "p.purchased_at, p.recorded_at, p.revoked_at, p.revoke_reason, p.source, p.price_paid, p.currency "
+        "FROM purchases p LEFT JOIN users u ON u.id = p.user_id "
+        "WHERE COALESCE(p.purchased_at, p.recorded_at) >= ? "
+        "ORDER BY COALESCE(p.purchased_at, p.recorded_at) DESC", (since,))
+    cols = [c[0] for c in cur.description]
+    rows = [dict(zip(cols, r)) for r in await cur.fetchall()]
+    by_product: dict[str, dict] = {}
+    revenue: dict[str, float] = {}
+    totals = {"production": 0, "sandbox": 0, "other": 0, "refunded": 0, "pending": 0, "refund_flagged": 0}
+    for r in rows:
+        env = (r["environment"] or "").lower()
+        env = env if env in ("production", "sandbox") else "other"
+        b = by_product.setdefault(r["product_id"], {"product_id": r["product_id"], "production": 0,
+                                                    "sandbox": 0, "other": 0, "refunded": 0})
+        b[env] += 1
+        totals[env] += 1
+        if r["revoked_at"]:
+            b["refunded"] += 1
+            totals["refunded"] += 1
+        if r["status"] in ("pending", "refund_flagged"):
+            totals[r["status"]] += 1
+        if env == "production" and not r["revoked_at"] and r["price_paid"] and r["currency"]:
+            revenue[r["currency"]] = round(revenue.get(r["currency"], 0) + r["price_paid"], 2)
+    return {"days": days, "totals": totals, "revenue_production": revenue,
+            "by_product": sorted(by_product.values(), key=lambda b: b["product_id"]),
+            "recent": rows[:100]}
