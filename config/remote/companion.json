@@ -1,7 +1,7 @@
 {
-  "version": 4,
+  "version": 5,
   "_comment": "Destination for the Set up on my Mac button. channel is web or appStore; a client that does not recognise the value uses webURL.",
-  "channel": "web",
+  "channel": "appStore",
   "webURL": "https://shouldersurf.com/desktop",
   "appStoreURL": "https://apps.apple.com/app/id6814643464"
 }
