@@ -157,7 +157,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 5
+    assert i765["server_only"] is True and i765["version"] == 6
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
@@ -383,3 +383,21 @@ def test_an_absent_form_code_is_not_refused():
     assert unknown_form_for_lane(CALL, None) is None
     assert unknown_form_for_lane(CALL, "N-400") == "I-765"
     assert unknown_form_for_lane("n400_interviewer_turn", "I-765") is None, "N-400 is not guarded"
+
+
+def test_spoken_turns_stay_short_and_never_read_the_option_list():
+    """The lead, 2026-10-24, from Scott's device test of build 3: one spoken
+    line ran far too long because the Part 1 boundary was a framing sentence
+    folded into a category ask read out with its whole list. The REASON
+    FIRST example taught the framing, so it is gone from the example too."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert "one idea per turn, one to three sentences and under about 35 spoken words" in sp
+    assert "add no coaching the agenda line does not carry" in sp
+    assert "If an agenda ask runs long, speak its question and its first example only." in sp
+    assert "Never read an option list aloud: the options are on screen." in sp
+    assert "That list is on screen and is never read aloud" in sp
+    assert "A part boundary is one short clause folded into the next question, never a sentence announcing the part is done." in sp
+    assert '("A first permit. Which category code is on your paperwork, for example c9?")' in sp
+    for gone in ("Now the one thing that decides the rest of the form: ...", "read as given", "one long opener",
+                 "That is Part 2: your name", "ONE SENTENCE THAT NAMES WHAT THE PART COVERED"):
+        assert gone not in sp, gone
