@@ -83,6 +83,7 @@ section labels the prompt expects:
   anchored to the plan, `drifted` may be empty, applied coaching never reads
   worse, and (refinement 2026-07-10) recap silence is unknown, not `missed` —
   see the amendment block in the contract doc.
+  v2 PROPOSED 2026-10-23 (`tr-compare-reality-v2-2026-10-23.md`): QUESTIONS PRACTICED input block, per-section `question` / `practice_index` / `rating` / `held` / `fix`, `new` delta, top-level `counts`; all additive and optional.
 - `tr_research_company` — company name / context (routes to a search-grounded model).
 
 > **No `tr_parse_resume`.** Confirmed by TR 2026-06-24: the résumé is never parsed as its own step;
@@ -141,6 +142,8 @@ clear to ship the injection.
 
 ## Change log
 
+- 2026-10-23: TR proposed `tr_compare_reality` v2 (per-question cards for the one Review screen), see
+  `tr-compare-reality-v2-2026-10-23.md`. Additive only; no config change yet.
 - 2026-06-30 — Cutover live for `tr_parse_jd`, `tr_match_analysis`, `tr_research_company` (TR dropped
   their `system_prompt`; GP assembles). Gap shape firmed to **v7**: added `closeable` (Strengthen gate),
   `share_prompt` (hint), and `example_excerpt` (editable box seed). Ready-but-not-yet-cutover (live
