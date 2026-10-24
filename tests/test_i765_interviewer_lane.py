@@ -157,7 +157,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 6
+    assert i765["server_only"] is True and i765["version"] == 7
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
@@ -401,3 +401,11 @@ def test_spoken_turns_stay_short_and_never_read_the_option_list():
     for gone in ("Now the one thing that decides the rest of the form: ...", "read as given", "one long opener",
                  "That is Part 2: your name", "ONE SENTENCE THAT NAMES WHAT THE PART COVERED"):
         assert gone not in sp, gone
+
+
+def test_a_yes_or_no_question_never_ends_on_an_alternative():
+    """The lead, 2026-10-24: a stand-in ended the reads-English question with
+    "or is someone interpreting for you?", so a bare "yes" had two readings."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert "A question that can be answered yes or no ends as a yes or no question and never tacks on an alternative" in sp
+    assert 'so a bare "yes" has exactly one reading; ask the follow-up only after the answer.' in sp
