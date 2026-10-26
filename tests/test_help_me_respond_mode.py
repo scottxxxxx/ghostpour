@@ -101,11 +101,14 @@ _UNTOUCHED_MODE_SHA = {
     "0": "5ac89480abbb830011c022ff7cb2d9d5fcdba0d8c16e8ba094eed714ea87142a",
     "2": "b69f86c84fe51f9ab9f188768ea82c1b05f7ce2923fb4f1309d7cc11357ff647",
     "3": "6148b3e459ba218f11d94fe8ec02b795b3993a51cc282ea3769020e86711b24e",
-    "4": "9d94f04717fc4ff7aaf4d2ea34abe7b08e271c95c79b2ca417b0f4f3337802ad"
+    "4": "12016f31b4c95d58c8a3bbace4bc280018465627ab5a92de72582006475fd5b0"
 }
 # Moved 2026-10-22 for rule 7 (answer the last question; a follow-up adds only
 # what is new): tests/test_ss_rule7_last_question.py.
-_RULES_SHA = "4d39d8d5ee77caf0c5fb2e7dcf8015d26b4a06ec21333517b51742fc3864d1a3"
+# Moved 2026-10-26 with mode 4 for the prod review batch (rule 4 answers a lone
+# question, rule 6 stops narrating images, rule 8 never invents the user, What
+# Are We Missing capped at three): tests/test_ss_prod_review_batch1.py.
+_RULES_SHA = "c868e0e08ad9a47cf066be487484fb1a297a6d632e5457eb5d3a3ed6e83a9579"
 _TEMPLATE_SHA = "eddefd401abf112f2914dd96978203ee015fc9d75004dbc422ef41c1ae53e7e7"
 
 
