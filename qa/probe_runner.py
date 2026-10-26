@@ -45,6 +45,7 @@ OUTPUT_ASSUMED = 1000
 # listed here cannot be estimated, so the runner refuses it rather than guess.
 PRICES = {
     "claude-sonnet-5": (2.0, 10.0),
+    "claude-sonnet-5-5": (2.0, 10.0),
     "claude-sonnet-4-6": (3.0, 15.0),
     "claude-opus-5-5": (4.0, 20.0),
     "claude-opus-5": (5.0, 25.0),
