@@ -85,6 +85,14 @@ _SYSTEM = (
     "Title Case only in languages that have it.\n\n"
     "Good: Cigna Demo Prep. Pricing Model Rework. Hardware Form Testing. "
     "Underwriter Interview Prep. Revue du Budget Marketing.\n\n"
+    # Scott, 2026-10-25: no people's names and no health details in titles.
+    # A title shows in lists and share cards, so it is the most visible
+    # thing written about a meeting.
+    "Never put a person's name in the title, and never a health detail "
+    "(an illness, injury, diagnosis, medication, pregnancy or medical "
+    "appointment). Name the subject instead: Underwriter Interview Prep, "
+    "not Interview with Dana Lee. A company, product or team name is "
+    "fine.\n\n"
     "Bad, and never acceptable: Meeting Summary. Status Update. Weekly "
     "Sync. Team Meeting. Project Discussion. Any name that would fit a "
     "different meeting equally well.\n\n"

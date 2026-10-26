@@ -254,3 +254,10 @@ def test_the_prompt_asks_for_the_summary_language_and_names_interviews():
     assert "or for an interview, a one on one, a lecture, a class or a training" in mt._SYSTEM
     assert "No decisions or action items does not mean no subject." in mt._SYSTEM
     assert "Latency and QA Blockers" not in mt._SYSTEM, "the compound first example taught 'X and Y'"
+
+
+def test_titles_carry_no_names_or_health_details():
+    """Scott, 2026-10-25: no people's names and no health details in titles."""
+    assert "Never put a person's name in the title" in mt._SYSTEM
+    assert "never a health detail" in mt._SYSTEM
+    assert "not Interview with Dana Lee" in mt._SYSTEM

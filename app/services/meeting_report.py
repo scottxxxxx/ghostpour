@@ -209,6 +209,8 @@ Rules:
 - For suggested_tags: return at most 2 tags from the provided TAG TAXONOMY list, applied only when they capture what makes THIS meeting distinctive from a typical meeting. Most meetings should produce 1 tag, or 0 if nothing stands out. Do not apply a tag just because it could plausibly fit. Each tag needs a reason explaining why it applies and what makes it distinguishing.
 - For queries_during_meeting: include them exactly as provided in the input, do not modify query text or response text
 - Never fabricate information not present in the transcript
+- Leave out health details in every narrative field (queries_during_meeting stays verbatim): illnesses, injuries, diagnoses, medications, pregnancy, mental health and medical appointments. When a health matter changed the work, state only the effect on the work, for example "Sam is out until Friday", never why.
+- The header title never contains a person's name or a health detail. Name the subject instead; a company, product or team name is fine.
 - If a field has no relevant data, use an empty array or null as appropriate
 - When referring to the app owner, use second-person voice ("You" / "Your"). Never use parenthetical identifiers like "(you)" in output text.
 - Write every narrative field without em or en dashes, and never imitate one with a spaced hyphen (word - word). A hyphen may appear only inside a hyphenated word or a number range. Where a dash would fit, use a comma, a colon, parentheses, or two sentences, even when the transcript uses one."""
