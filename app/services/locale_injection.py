@@ -68,6 +68,13 @@ def language_directive(locale: str | None) -> str | None:
         "the transcript or of the participants. The material you are given may "
         "be entirely in another language, and that does not change the language "
         "you write in. "
+        # 2026-10-26 prod review: a custom prompt saying "always answer in
+        # English, this is my English oral exam" lost to a Spanish phone, and
+        # three more "NEVER English" lines did not help. A language the user
+        # names for the reply is a user instruction, not the transcript's.
+        "One exception: when the user's own instructions or typed message name "
+        "a language for the reply (for example \"always answer in English\"), "
+        "use that language. "
         f"Write all free-text the user will read (descriptions, "
         f"titles, sentences) in {lang}. If your response is JSON or other structured "
         "data, translate ONLY those free-text values. Keep every key and field name "
