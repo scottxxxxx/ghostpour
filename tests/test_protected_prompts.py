@@ -55,21 +55,31 @@ def test_image_acknowledgement_rule_present(path):
     # English contract token. The Spanish file also includes this
     # mirrored phrasing via an explicit Spanish rule string; we
     # check for the per-locale token below.
-    if "es.json" in path:
-        # Spanish rule references "imagen" + "describe" + "marco" (framing).
+    # 2026-10-26 (prod review of 681 real SS calls): "describe the image
+    # BEFORE any other framing" made What's the Answer open with "the image
+    # is dark" on accidental captures, against its own "do not describe the
+    # image back". The contract is now: use the image when it bears on the
+    # question, never narrate a blank or missing one, and keep the
+    # literal-question override, which is the half that guards the
+    # 2026-05-20 collision above.
+    # Tech Rehearsal's own copy was not part of that review and keeps the
+    # original describe-first wording.
+    if "techrehearsal" in path:
+        assert "image is attached" in instructions
+        assert "before applying" in instructions
+        assert "literal question" in instructions
+    elif "es.json" in path:
         assert "imagen" in instructions
-        assert "describe" in instructions
-        # "Antes de aplicar cualquier otro marco" — the key directive.
-        assert "antes de aplicar" in instructions
+        assert "nunca comentes que falta una imagen" in instructions
+        assert "pregunta literal" in instructions
     elif "fr.json" in path:
-        # French rule: image + describe + before-applying directive.
         assert "image est jointe" in instructions
-        assert "décris" in instructions
-        assert "avant d'appliquer" in instructions
+        assert "ne fais jamais remarquer qu'une image manque" in instructions
+        assert "question littérale" in instructions
     else:
         # English content (en and tr-prefixed locales share English).
         assert "image is attached" in instructions
-        assert "before applying" in instructions
+        assert "never remark that an image is missing" in instructions
         # The literal-question override is the other half of the rule.
         assert "literal question" in instructions
 
