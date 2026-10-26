@@ -117,3 +117,13 @@ def test_the_echo_reports_the_directive_and_nothing_else():
     assert locale_injection.output_language_subtag("es-MX") == "es"
     assert locale_injection.output_language_subtag("en") == "en"
     assert locale_injection.output_language_subtag(None) is None
+
+
+def test_a_language_the_user_names_wins_over_the_phone():
+    """2026-10-26 prod review: a custom prompt saying "always answer in English,
+    this is my English oral exam" came back in Spanish on a Spanish phone, and
+    a user who added three more "NEVER English" lines still got English. The
+    phone's language beats the transcript's, never the user's own words."""
+    d = locale_injection.language_directive("es")
+    assert "the user's own instructions or typed message name a language for the reply" in d
+    assert d.index("overrides every other language instruction") < d.index("One exception")

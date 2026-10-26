@@ -63,6 +63,12 @@ _FILLER = {
     "regular", "routine", "the", "a", "an", "and", "or", "of", "for",
     "with", "on", "project", "planning", "plan", "touchpoint", "touch",
     "base", "1", "one", "1on1", "agenda", "minutes", "transcript",
+    # The served languages say "meeting" too, now that titles follow the
+    # summary's language (2026-10-26).
+    "réunion", "reunión", "réunions", "reuniones", "séance", "sesión",
+    "résumé", "resumen", "équipe", "equipo", "hebdo", "semanal",
+    "de", "d", "du", "la", "l", "le", "les", "el", "los", "las", "et", "y",
+    "会議", "ミーティング", "打ち合わせ", "定例",
 }
 
 _SYSTEM = (
@@ -71,23 +77,32 @@ _SYSTEM = (
     "Return JSON only: {\"title\": \"...\"} or {\"title\": null}.\n\n"
     "A good title is what someone would call this meeting to tell it "
     "apart from every other meeting in a list. Name the SUBJECT: the "
-    "system, team, customer, decision or problem it was actually about. "
-    "Two to five words. Title Case.\n\n"
-    "Good: Latency and QA Blockers. Cigna Demo Prep. Pricing Model "
-    "Rework. Hardware Form Testing.\n\n"
+    "system, team, customer, decision or problem it was actually about, "
+    "or for an interview, a one on one, a lecture, a class or a training, "
+    "the role, topic or course. Pick the ONE main subject; use \"and\" "
+    "only when two were equally central. Two to five words.\n\n"
+    "Write the title in the language the summary is written in. Use "
+    "Title Case only in languages that have it.\n\n"
+    "Good: Cigna Demo Prep. Pricing Model Rework. Hardware Form Testing. "
+    "Underwriter Interview Prep. Revue du Budget Marketing.\n\n"
     "Bad, and never acceptable: Meeting Summary. Status Update. Weekly "
     "Sync. Team Meeting. Project Discussion. Any name that would fit a "
     "different meeting equally well.\n\n"
     "Do not summarise the summary. A title is a name, not a sentence, "
     "and it never contains a verb phrase describing what the team did.\n\n"
-    "If the summary has no distinguishing subject, return null. A "
+    "No decisions or action items does not mean no subject. Return null "
+    "only when the summary says the recording was empty or unintelligible, "
+    "or it was purely social small talk. A "
     "missing title is better than a generic one, because something else "
     "supplies the fallback and a wrong name sticks."
 )
 
 
 def _normalise(title: str) -> list[str]:
-    return [w for w in re.split(r"[^a-z0-9]+", title.lower()) if w]
+    # Unicode word characters, not [a-z0-9]: the ASCII class reduced every
+    # Japanese title to no words at all, and is_generic() then threw it away
+    # as a label (found 2026-10-26 reviewing real titles).
+    return [w for w in re.split(r"[\W_]+", title.lower()) if w]
 
 
 def is_generic(title: str) -> bool:

@@ -233,3 +233,24 @@ def test_a_title_and_a_build_decision_can_never_share_a_turn():
     assert not overlap, (
         f"{overlap} can now both build a file and name a meeting; a title "
         "derived from a turn that is mostly a decision is not worth having")
+
+
+# --- 2026-10-26 review of 187 real titles ------------------------------------
+
+@pytest.mark.parametrize("title", ["上期予算レビュー", "Revue du Budget Marketing", "Presupuesto de Ventas Q3"])
+def test_a_title_in_another_language_survives_the_filter(title):
+    """The filter split on [a-z0-9], so a Japanese title had no words and was
+    dropped as generic every time; now titles follow the summary's language."""
+    assert mt.clean_title(title) == title
+
+
+@pytest.mark.parametrize("title", ["Réunion d'équipe", "Reunión semanal", "ミーティング", "会議"])
+def test_a_generic_title_in_another_language_is_still_rejected(title):
+    assert mt.clean_title(title) is None
+
+
+def test_the_prompt_asks_for_the_summary_language_and_names_interviews():
+    assert "Write the title in the language the summary is written in." in mt._SYSTEM
+    assert "or for an interview, a one on one, a lecture, a class or a training" in mt._SYSTEM
+    assert "No decisions or action items does not mean no subject." in mt._SYSTEM
+    assert "Latency and QA Blockers" not in mt._SYSTEM, "the compound first example taught 'X and Y'"
