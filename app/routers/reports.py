@@ -305,11 +305,21 @@ async def _generate(meeting_id, body, request, user, tier, db, meeting_data):
     # 2. Build LLM prompt — localize narrative content from Accept-Language.
     # Wire enums (stoplight color, emoji_label, severity, etc.) stay English
     # so iOS keying continues to work; only display text gets translated.
+    # The meeting's own date, for resolving "Friday" and "end of the month".
+    # Same source as the masthead below; today when the client sent none.
+    # Aliased: the cleanup block above imports datetime inside this function,
+    # which makes the bare name local and unbound here when cleanup is skipped.
+    from datetime import datetime as _dt, timezone as _tz
+    try:
+        _prompt_dt = _dt.fromisoformat(body.meeting_start_iso or "")
+    except (ValueError, TypeError):
+        _prompt_dt = _dt.now(_tz.utc)
     system_prompt, user_message = build_report_prompt(
         meeting_data,
         attendees=body.attendees,
         tag_taxonomy=body.tag_taxonomy,
         locale=locale,
+        meeting_date=f"{_prompt_dt:%A} {_prompt_dt:%Y-%m-%d}",
     )
 
     # 3. Select model — server-controlled per tier. Clients do not pick.

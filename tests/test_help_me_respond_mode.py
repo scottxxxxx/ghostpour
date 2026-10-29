@@ -109,7 +109,9 @@ _UNTOUCHED_MODE_SHA = {
 # question, rule 6 stops narrating images, rule 8 never invents the user, What
 # Are We Missing capped at three): tests/test_ss_prod_review_batch1.py.
 _RULES_SHA = "c868e0e08ad9a47cf066be487484fb1a297a6d632e5457eb5d3a3ed6e83a9579"
-_TEMPLATE_SHA = "eddefd401abf112f2914dd96978203ee015fc9d75004dbc422ef41c1ae53e7e7"
+# Moved 2026-10-29: the dash rule now shows hyphens that stay (follow-up,
+# hands-on, vis-à-vis): tests/test_ss_summary_report_batch2.py.
+_TEMPLATE_SHA = "56029b889634fc65611f07e746dcfd451663accc8ecd4021c0c623521dc867d7"
 
 
 def _sha(text: str) -> str:

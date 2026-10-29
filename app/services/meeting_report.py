@@ -171,6 +171,9 @@ Rules:
 - Attribute an action to the person who committed to doing it, not to someone merely named in the surrounding discussion or who authored a related document. If a task was proposed but no one took it on, treat it as an open question rather than assigning it to a plausible-sounding name.
 - If the action text itself states who will do it (for example "Joy to validate the QA items" or "Priya and Sam to draft the spec"), set owner to that person's name, or both names joined with " & " when two people share it. Only fall back to "Multiple" when the responsible person genuinely cannot be determined from the text, even when the speaker who said it is unknown or labeled as multiple.
 - Use the confirmed attendee list for names, not the transcript (transcription often mangles names)
+- A decision is something the participants agreed. A proposal, a preference, or one person's opinion that the others did not accept is an open question, not a decision.
+- An open question's owner is the person named to answer or resolve it, or who took it on. When nobody was, leave owner as an empty string; never put someone who was not in the meeting there because they were mentioned.
+- Resolve relative dates ("Friday", "end of the month") against the MEETING DATE. Never write a year or a full date that neither the transcript nor the MEETING DATE supports; when a deadline cannot be resolved with confidence, keep it in the words the speaker used.
 - The sentiment_score is 0 to 100 where 50 is neutral, above 50 is positive, below 50 is negative
 - The stoplight color is an EVIDENCE-ANCHORED classification, not a vibe. Apply the first band whose criteria the transcript observably meets, and make the stoplight's `label`/summary cite the specific evidence (the blocker, deadline, or open item) that drove the color:
   - red: a stated blocker with no agreed path forward, a missed or unmeetable committed date, or an explicit escalation ("we cannot ship", "this blocks the release")
@@ -178,6 +181,7 @@ Rules:
   - yellow: open items or unassigned questions that do not threaten a committed date
   - green: no blockers and no threatened dates; routine progress
   Borderline rule: when evidence sits between two bands, choose the more urgent band only if a committed date is involved; otherwise the calmer band. The same conversation must always classify the same way.
+  The stoplight rates risk to work being delivered. An interview, a lecture, a class, or a social or personal conversation has nothing being delivered: use green unless someone states a blocker to real work, and let the label say what kind of conversation it was. A hard interview question or a difficult topic is not a blocker.
 - The sentiment_arc should have 8 to 14 data points representing the emotional trajectory across the meeting. Each point's `value` is on the SAME 0-100 scale as sentiment_score (0 = very negative, 50 = neutral, 100 = very positive), and `mood` is one of "confident", "tense", "concern", or "neutral".
 - USE THE FULL 0-100 RANGE on the arc. Do NOT cluster all values around 50. Calibrate to the actual emotional content:
   - Casual / amused / mocking conversation, jokes, laughter: peaks 70-90, baseline 55-70.
@@ -238,7 +242,7 @@ JSON SCHEMA:
     "label": "string: 2 to 5 word characterization",
     "detail": "string: 1 to 2 sentences describing the overall emotional tone",
     "category": "string: exactly one of: positive, collaborative, informational, cautious, pressured, tense, disconnected, decisive",
-    "category_evidence": "string: REQUIRED when category is tense, pressured, or disconnected. A verbatim quote from the transcript: participants disagreeing (tense), time or workload forcing an action (pressured), or the misalignment itself (disconnected). Empty string for every other category.",
+    "category_evidence": "string: REQUIRED when category is tense, pressured, or disconnected. A verbatim quote from the transcript: participants disagreeing (tense), time or workload forcing an action (pressured), or the misalignment itself (disconnected). For any other category, a verbatim quote that supports it when one exists, otherwise an empty string.",
     "category_also": [
       {{
         "category": "string: decisive | disconnected, and never the value chosen for category above",
@@ -290,7 +294,7 @@ JSON SCHEMA:
   "open_questions": [
     {{
       "question": "string: the open question",
-      "owner": "string: who is responsible"
+      "owner": "string: the person named to answer or resolve it, or empty string when nobody was"
     }}
   ],
   "queries_during_meeting": [
@@ -304,6 +308,9 @@ JSON SCHEMA:
 }}
 
 ---
+
+MEETING DATE:
+{meeting_date}
 
 CONFIRMED ATTENDEES:
 {attendees}
@@ -460,6 +467,7 @@ def build_report_prompt(
     attendees: list[str] | None = None,
     tag_taxonomy: list[str] | None = None,
     locale: str | None = None,
+    meeting_date: str | None = None,
 ) -> tuple[str, str]:
     """Build the system prompt and user message for the report LLM call.
 
@@ -489,6 +497,9 @@ def build_report_prompt(
         transcript=transcript,
         summary=summary,
         queries_json=queries_json,
+        # 2026-10-29 review: with no date in the prompt a report wrote
+        # "2024" deadlines for a 2026 meeting.
+        meeting_date=meeting_date or "(not given)",
     )
 
     system_prompt = REPORT_SYSTEM_PROMPT
