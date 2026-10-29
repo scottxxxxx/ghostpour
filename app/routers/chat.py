@@ -2289,6 +2289,15 @@ async def _chat_impl(
             "system_prompt": body.system_prompt.replace("{{context_quilt}}", "")
         })
 
+    # 2.79. Today's date for SS conversational calls (2026-10-29 review: no
+    # served prompt carried one). Before 2.8 so the language directive stays
+    # last. See app.services.date_line.
+    from app.services.date_line import apply as _apply_date
+    _dated_system = _apply_date(body.system_prompt, app_id, body.get_meta("call_type"),
+                                tz_name=body.get_meta("timezone"))
+    if _dated_system != body.system_prompt:
+        body = body.model_copy(update={"system_prompt": _dated_system})
+
     # 2.8. Locale injection — append the language directive to the now-final
     # system prompt so the model answers in the user's language. Central + in
     # one place so the rule can't drift across managed calls; no-op for
