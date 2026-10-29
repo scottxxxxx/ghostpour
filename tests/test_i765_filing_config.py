@@ -24,7 +24,7 @@ def test_the_filing_document_is_served_to_i765_only(client):
     assert r.status_code == 200, r.text
     doc = r.json()
     assert doc["app_id"] == "i765" and doc["form"] == "I-765"
-    assert doc["version"] == 7 and doc["schema_version"] == 1
+    assert doc["version"] == 8 and doc["schema_version"] == 1
     assert TOP_KEYS <= set(doc), TOP_KEYS - set(doc)
     assert not REMOVED_KEYS & set(doc), REMOVED_KEYS & set(doc)
     assert V1_CATEGORIES <= set(doc["categories"])
@@ -137,3 +137,17 @@ def test_filing_i765_is_the_same_document_under_its_new_name(client):
     assert held.json() == {"changed": False, "version": old.json()["version"]}
     for app in ("n400", "shouldersurf", "techrehearsal"):
         assert client.get("/v1/config/filing-i765", headers={"X-App-ID": app}).status_code == 404, app
+
+
+def test_es_and_pt_keep_the_form_code_on_the_word_before_it():
+    """Version 8 (I-765 lead, 2026-10-29): es and pt join "Formulario" and
+    "Formulário" to the form code with U+00A0 so a wrap never strands "I-765"
+    on its own line (the app's Scripts/form_code_spacing.py). English "Form"
+    keeps its plain space. The app keeps its bundle only when the bundle is
+    STRICTLY newer, so a served copy below 8 would lose to build 9's bundle
+    and any served copy at 8 must carry the joins."""
+    doc = json.load(open("config/remote/i765/filing.json", encoding="utf-8"))
+    text = json.dumps(doc, ensure_ascii=False)
+    assert not re.search(r"\b[Ff]ormul[a\u00e1]rio (?=[A-Z]{1,3}-\d)", text)
+    assert "Formulario\u00a0I-" in text and "Formul\u00e1rio\u00a0I-" in text
+    assert "Form\u00a0I-" not in text
