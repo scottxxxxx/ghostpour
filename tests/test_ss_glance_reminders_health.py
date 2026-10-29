@@ -48,8 +48,14 @@ def _dashfree(text):
 @pytest.mark.parametrize("loc", LOCALES)
 def test_glance_instruction_carries_the_wire_format_and_the_bracket_ban(loc):
     g = _load(loc)["glanceInstruction"]
-    assert "\n<cues>\n" in g and "\n</cues>\n" in g
-    assert g.count(" | ") == 2, "the format line is the only pipe line"
+    # 2026-10-29: the format is prose only. A template line inside the tags
+    # was copied as a card in 3 of 43 managed replies, and as an extra first
+    # card (a header row) in 2 of 40 replays; a sentence saying its words were
+    # not content changed nothing (1 of 20 either way). So no line of the
+    # instruction may look like a card.
+    assert "<cues>" in g and "</cues>" in g
+    assert not any(line.count("|") >= 2 for line in g.split("\n")), "nothing shaped like a card to copy"
+    assert "|" in g, "the separator is still named"
     assert NO_BRACKET[loc] in g
     _dashfree(g)
 
