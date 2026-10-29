@@ -86,7 +86,8 @@ def test_the_call_type_is_mapped_to_its_own_slug_and_the_lane_set_names_both():
     from app.services.prompt_assembly import _CALL_TYPE_TO_CONFIG
     assert _CALL_TYPE_TO_CONFIG[CALL] == "i765/interviewer-turn"
     assert _CALL_TYPE_TO_CONFIG["n400_interviewer_turn"] == "n400/interviewer-turn"
-    assert INTERVIEWER_CALL_TYPES == frozenset({"n400_interviewer_turn", CALL})
+    # 2026-10-29: the generic lane joined (tests/test_form_interviewer_lane.py).
+    assert INTERVIEWER_CALL_TYPES == frozenset({"n400_interviewer_turn", CALL, "form_interviewer_turn"})
     assert is_interviewer_turn(CALL) and not is_interviewer_turn("n400_interview_turn")
 
 

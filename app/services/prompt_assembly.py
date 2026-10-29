@@ -92,6 +92,9 @@ _CALL_TYPE_TO_CONFIG = {
     # I-765 Helper (2026-10-09): the same contract on its own slug, so the
     # brief and the model can move for one form without touching the other.
     "i765_interviewer_turn": "i765/interviewer-turn",
+    # The generic lane (2026-10-29): the same contract with no form in it;
+    # the form's block is appended by form_code below.
+    "form_interviewer_turn": "i765/interviewer-lane",
 }
 
 
@@ -276,6 +279,19 @@ def assemble_prompt(
         return None
 
     system_prompt = _apply_scenario(system_prompt, config, scenario_kind, scenario)
+
+    # The generic interviewer lane: the form is a block chosen by form_code,
+    # after the lane, so the lane's rules come first and each form's system
+    # prompt is static and caches on its own. The route refuses a form with
+    # no block before this (unknown_form); this is the backstop.
+    from app.services.interviewer_lanes import FORM_BLOCK_CALL_TYPES, form_block_text
+    if call_type in FORM_BLOCK_CALL_TYPES:
+        block = form_block_text(call_type, (variables or {}).get("form_code"), remote_configs)
+        if block is None:
+            logger.error("prompt_assembly: no form block for %s form_code=%r",
+                         call_type, (variables or {}).get("form_code"))
+            return None
+        system_prompt = f"{system_prompt}\n\n{block}"
 
     # Replace {{placeholders}} in the user template with the raw user content.
     # The primary placeholder varies by config type:

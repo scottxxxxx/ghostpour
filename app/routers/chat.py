@@ -1903,6 +1903,23 @@ async def _chat_impl(
             "code": "unknown_form",
             "message": f"This interviewer serves {_lane_form} only.",
         })
+    # The generic lane serves its own app, and only a form with a published
+    # block: no block is a refusal, never the lane text alone.
+    from app.services.interviewer_lanes import FORM_BLOCK_CALL_TYPES, form_block_text
+    _ct = body.get_meta("call_type")
+    if _ct in FORM_BLOCK_CALL_TYPES:
+        if getattr(request.state, "app_id", None) != FORM_BLOCK_CALL_TYPES[_ct]:
+            raise HTTPException(status_code=400, detail={
+                "code": "unknown_call_type",
+                "message": "This call type is not available to this app.",
+            })
+        if form_block_text(_ct, body.get_meta("form_code"), request.app.state.remote_configs) is None:
+            logger.error("interviewer_unknown_form call_type=%s form_code=%r expected=a published block",
+                         _ct, body.get_meta("form_code"))
+            raise HTTPException(status_code=400, detail={
+                "code": "unknown_form",
+                "message": "No interviewer is published for this form.",
+            })
 
     # 1.8. Tech Rehearsal's interview reference: interview scenarios only,
     # and paid only (Scott, 2026-10-21). Refused before anything is spent;
