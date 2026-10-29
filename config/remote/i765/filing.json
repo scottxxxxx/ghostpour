@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": 7,
+  "version": 8,
   "as_of": "2026-10-09",
   "app_id": "i765",
   "form": "I-765",
@@ -18,7 +18,7 @@
     {"key": "TPS", "url": "https://www.uscis.gov/humanitarian/temporary-protected-status", "read_on": "2026-10-09", "note": "Temporary Protected Status. Read live 2026-10-09 (Last Reviewed/Updated 09/09/2026). The page carries no filing address itself: it says to send the TPS package or the I-765 to the mailing address on the country specific page, that when and where to file is on the country pages, and that the I-765 may be filed online when filed concurrently with an online I-821. Per-country notices are not encoded."}
   ],
   "categories": {
-    "c9": {"code": "(c)(9)", "label_en": "Pending green card application (Form I-485)", "label_es": "Solicitud de residencia permanente pendiente (Formulario I-485)", "label_pt": "Pedido de residência permanente pendente (Formulário I-485)"},
+    "c9": {"code": "(c)(9)", "label_en": "Pending green card application (Form I-485)", "label_es": "Solicitud de residencia permanente pendiente (Formulario I-485)", "label_pt": "Pedido de residência permanente pendente (Formulário I-485)"},
     "c3a": {"code": "(c)(3)(A)", "label_en": "F-1 student, pre-completion OPT", "label_es": "Estudiante F-1, OPT antes de terminar los estudios", "label_pt": "Estudante F-1, OPT antes de concluir os estudos"},
     "c3b": {"code": "(c)(3)(B)", "label_en": "F-1 student, post-completion OPT", "label_es": "Estudiante F-1, OPT después de terminar los estudios", "label_pt": "Estudante F-1, OPT após concluir os estudos"},
     "c3c": {"code": "(c)(3)(C)", "label_en": "F-1 student, 24-month STEM OPT extension", "label_es": "Estudiante F-1, extensión STEM OPT de 24 meses", "label_pt": "Estudante F-1, extensão STEM OPT de 24 meses"},
@@ -39,8 +39,8 @@
     "omb_number": "1615-0040",
     "omb_expires": "08/31/2027",
     "note_en": "USCIS accepts the 08/21/25 edition of Form I-765.",
-    "note_es": "USCIS acepta la edición 08/21/25 del Formulario I-765.",
-    "note_pt": "O USCIS aceita a edição 08/21/25 do Formulário I-765.",
+    "note_es": "USCIS acepta la edición 08/21/25 del Formulario I-765.",
+    "note_pt": "O USCIS aceita a edição 08/21/25 do Formulário I-765.",
     "checked_on": "2026-10-09",
     "source": {"keys": ["PAGE", "FORM", "INSTR"], "where": "RESEARCH section 1; PAGE re-read 2026-10-09: Edition Date 08/21/25, and the Sept. 14, 2026 order alert says USCIS is not accepting the 09/15/26 edition"}
   },
@@ -51,8 +51,8 @@
         "id": "C02_signed_form",
         "when": null,
         "text_en": "Your Form I-765, every page, signed by hand in ink. A typed or stamped name is rejected. A parent or guardian signs for a child under 14.",
-        "text_es": "Su Formulario I-765, todas las páginas, firmado a mano con tinta. Un nombre escrito a máquina o con sello se rechaza. El padre, la madre o el tutor firma por un menor de 14 años.",
-        "text_pt": "Seu Formulário I-765, todas as páginas, assinado à mão com caneta. Um nome digitado ou carimbado é rejeitado. O pai, a mãe ou o responsável assina por uma criança menor de 14 anos.",
+        "text_es": "Su Formulario I-765, todas las páginas, firmado a mano con tinta. Un nombre escrito a máquina o con sello se rechaza. El padre, la madre o el tutor firma por un menor de 14 años.",
+        "text_pt": "Seu Formulário I-765, todas as páginas, assinado à mão com caneta. Um nome digitado ou carimbado é rejeitado. O pai, a mãe ou o responsável assina por uma criança menor de 14 anos.",
         "source": {"keys": ["INSTR"], "where": "RESEARCH section 2 Part 3 Item 7 (INSTR p.16, 20) and 'Include all pages, even blank ones' (INSTR p.17)"}
       },
       {
@@ -83,8 +83,8 @@
         "id": "C06_g28_if_represented",
         "when": {"represented": true},
         "text_en": "Form G-28, only if an attorney or accredited representative represents you.",
-        "text_es": "El Formulario G-28, solo si un abogado o representante acreditado lo representa.",
-        "text_pt": "O Formulário G-28, somente se um advogado ou representante credenciado representar você.",
+        "text_es": "El Formulario G-28, solo si un abogado o representante acreditado lo representa.",
+        "text_pt": "O Formulário G-28, somente se um advogado ou representante credenciado representar você.",
         "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: 'G-28 if represented'"}
       },
       {
@@ -127,8 +127,8 @@
         "reasons": ["initial", "renewal", "replacement"],
         "condition": null,
         "text_en": "Your Form I-485 receipt notice, or file this I-765 together with your Form I-485.",
-        "text_es": "Su aviso de recibo del Formulario I-485, o presente este I-765 junto con su Formulario I-485.",
-        "text_pt": "Seu aviso de recebimento do Formulário I-485, ou apresente este I-765 junto com o seu Formulário I-485.",
+        "text_es": "Su aviso de recibo del Formulario I-485, o presente este I-765 junto con su Formulario I-485.",
+        "text_pt": "Seu aviso de recebimento do Formulário I-485, ou apresente este I-765 junto com o seu Formulário I-485.",
         "see_url": null,
         "source": {"keys": ["INSTR", "PAGE"], "where": "RESEARCH section 5: '(c)(9): file with the I-485, or include an I-485 receipt notice'"}
       },
@@ -149,8 +149,8 @@
         "reasons": ["initial", "renewal", "replacement"],
         "condition": null,
         "text_en": "Your Form I-20 with the DSO's OPT recommendation, signed by the DSO within the last 30 days.",
-        "text_es": "Su Formulario I-20 con la recomendación de OPT del DSO, firmado por el DSO en los últimos 30 días.",
-        "text_pt": "Seu Formulário I-20 com a recomendação de OPT do DSO, assinado pelo DSO nos últimos 30 dias.",
+        "text_es": "Su Formulario I-20 con la recomendación de OPT del DSO, firmado por el DSO en los últimos 30 días.",
+        "text_pt": "Seu Formulário I-20 com a recomendação de OPT do DSO, assinado pelo DSO nos últimos 30 dias.",
         "see_url": null,
         "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(c)(3)(B): ... Send the I-20 signed within 30 days' (INSTR pp.4 to 5)"}
       },
@@ -171,8 +171,8 @@
         "reasons": ["initial", "renewal", "replacement"],
         "condition": null,
         "text_en": "Your Form I-20 with the STEM OPT recommendation, signed by the DSO within the last 60 days.",
-        "text_es": "Su Formulario I-20 con la recomendación de STEM OPT, firmado por el DSO en los últimos 60 días.",
-        "text_pt": "Seu Formulário I-20 com a recomendação de STEM OPT, assinado pelo DSO nos últimos 60 dias.",
+        "text_es": "Su Formulario I-20 con la recomendación de STEM OPT, firmado por el DSO en los últimos 60 días.",
+        "text_pt": "Seu Formulário I-20 com a recomendação de STEM OPT, assinado pelo DSO nos últimos 60 dias.",
         "see_url": null,
         "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(c)(3)(C): ... the I-20 signed within 60 days' (INSTR p.5)"}
       },
@@ -215,8 +215,8 @@
         "reasons": ["initial", "renewal", "replacement"],
         "condition": null,
         "text_en": "Your Form I-821 receipt notice or approval notice, or file this I-765 together with your Form I-821.",
-        "text_es": "Su aviso de recibo o de aprobación del Formulario I-821, o presente este I-765 junto con su Formulario I-821.",
-        "text_pt": "Seu aviso de recebimento ou de aprovação do Formulário I-821, ou apresente este I-765 junto com o seu Formulário I-821.",
+        "text_es": "Su aviso de recibo o de aprobación del Formulario I-821, o presente este I-765 junto con su Formulario I-821.",
+        "text_pt": "Seu aviso de recebimento ou de aprovação do Formulário I-821, ou apresente este I-765 junto com o seu Formulário I-821.",
         "see_url": null,
         "source": {"keys": ["INSTR", "CHECK"], "where": "RESEARCH section 5: '(a)(12): file with the I-821, or proof the I-821 was received or approved' (INSTR p.3). The research states this under (a)(12); 'received' is the (c)(19) pending case."}
       },
@@ -270,8 +270,8 @@
         "reasons": ["initial", "renewal", "replacement"],
         "condition": null,
         "text_en": "A copy of your H-1B spouse's most recent Form I-797 notice for Form I-129. Its receipt number goes in Item 29.",
-        "text_es": "Una copia del aviso más reciente del Formulario I-797 para el Formulario I-129 de su cónyuge H-1B. Su número de recibo va en el Punto 29.",
-        "text_pt": "Uma cópia do aviso mais recente do Formulário I-797 para o Formulário I-129 do seu cônjuge H-1B. O número de recibo vai no Item 29.",
+        "text_es": "Una copia del aviso más reciente del Formulario I-797 para el Formulario I-129 de su cónyuge H-1B. Su número de recibo va en el Punto 29.",
+        "text_pt": "Uma cópia do aviso mais recente do Formulário I-797 para o Formulário I-129 do seu cônjuge H-1B. O número de recibo vai no Item 29.",
         "see_url": null,
         "source": {"keys": ["FORM", "INSTR"], "where": "RESEARCH section 2 Item 29: '(c)(26): receipt number of the H-1B spouse's most recent I-797 for the I-129'"}
       },
@@ -281,8 +281,8 @@
         "reasons": ["initial", "renewal", "replacement"],
         "condition": null,
         "text_en": "A copy of the Form I-140 approval notice for your H-1B spouse.",
-        "text_es": "Una copia del aviso de aprobación del Formulario I-140 de su cónyuge H-1B.",
-        "text_pt": "Uma cópia do aviso de aprovação do Formulário I-140 do seu cônjuge H-1B.",
+        "text_es": "Una copia del aviso de aprobación del Formulario I-140 de su cónyuge H-1B.",
+        "text_pt": "Uma cópia do aviso de aprovação do Formulário I-140 do seu cônjuge H-1B.",
         "see_url": null,
         "source": {"keys": ["INSTR"], "where": "RESEARCH section 3: '(c)(26) H-4 spouse of an H-1B with an approved I-140' (INSTR p.8). v1 covers only the approved I-140 path; the AC21 path is an attorney trigger."}
       },
@@ -420,8 +420,8 @@
         "action": "stop",
         "categories": ["c33"],
         "en": "A DACA work permit is filed with Form I-821D and the I-765 Worksheet and is tied to ongoing litigation. An attorney or a DACA legal clinic should file it.",
-        "es": "Un permiso de trabajo de DACA se presenta con el Formulario I-821D y la hoja de trabajo del I-765, y está ligado a litigios en curso. Un abogado o una clínica legal de DACA debe presentarlo.",
-        "pt": "Um cartão de trabalho do DACA é apresentado com o Formulário I-821D e a planilha do I-765, e está ligado a litígios em andamento. Um advogado ou uma clínica jurídica do DACA deve apresentá-lo.",
+        "es": "Un permiso de trabajo de DACA se presenta con el Formulario I-821D y la hoja de trabajo del I-765, y está ligado a litigios en curso. Un abogado o una clínica legal de DACA debe presentarlo.",
+        "pt": "Um cartão de trabalho do DACA é apresentado com o Formulário I-821D e a planilha do I-765, e está ligado a litígios em andamento. Um advogado ou uma clínica jurídica do DACA deve apresentá-lo.",
         "source": "RESEARCH section 7 item 8"
       },
       {
@@ -429,8 +429,8 @@
         "action": "stop",
         "categories": ["c1", "c4", "c7"],
         "en": "Dependents of diplomats, international organization staff and NATO personnel file through the State Department or NATO channels with Form I-566, not with USCIS.",
-        "es": "Los dependientes de diplomáticos, de personal de organizaciones internacionales y de personal de la OTAN presentan a través del Departamento de Estado o de los canales de la OTAN con el Formulario I-566, no ante USCIS.",
-        "pt": "Os dependentes de diplomatas, de funcionários de organizações internacionais e de pessoal da OTAN apresentam pelo Departamento de Estado ou pelos canais da OTAN com o Formulário I-566, não ao USCIS.",
+        "es": "Los dependientes de diplomáticos, de personal de organizaciones internacionales y de personal de la OTAN presentan a través del Departamento de Estado o de los canales de la OTAN con el Formulario I-566, no ante USCIS.",
+        "pt": "Os dependentes de diplomatas, de funcionários de organizações internacionais e de pessoal da OTAN apresentam pelo Departamento de Estado ou pelos canais da OTAN com o Formulário I-566, não ao USCIS.",
         "source": "RESEARCH section 7 item 9 (ADDR)"
       },
       {
