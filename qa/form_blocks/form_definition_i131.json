@@ -1,0 +1,5290 @@
+{
+  "schema_version": 1,
+  "form_code": "I-131",
+  "revision": "2026-10",
+  "jurisdiction": "US-TX",
+  "title": {
+    "en": "Application for Travel Documents, Parole Documents, and Arrival/Departure Records",
+    "es": "Solicitud de Documentos de Viaje, Documentos de Permiso de Permanencia Temporal y Registros de Llegada y Salida",
+    "pt": "Pedido de Documentos de Viagem, Documentos de Parole e Registros de Chegada e Saída"
+  },
+  "field_catalog": [
+    {
+      "field_id": "p1.screen_rtd_or_reentry",
+      "part": 1,
+      "label": {
+        "en": "A refugee travel document or a reentry permit",
+        "es": "Un documento de viaje de refugiado o un permiso de reingreso",
+        "pt": "Um documento de viagem de refugiado ou uma autorização de reentrada"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "case.application_type.rtd_or_reentry",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p1.ap_pending_i485",
+      "part": 1,
+      "label": {
+        "en": "Advance parole for a pending Form I-485 (Part 1, Item 5.A)",
+        "es": "Permiso adelantado por un Formulario I-485 pendiente (Parte 1, punto 5.A)",
+        "pt": "Advance parole por um Formulário I-485 pendente (Parte 1, item 5.A)"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "5A",
+      "semantic": "case.application_type.ap_i485",
+      "pdf_field": "form1[0].P1[0].CB_AppType[4]",
+      "pdf_on_state": "5",
+      "pdf_options": {
+        "yes": "form1[0].P1[0].CB_AppType[4]"
+      },
+      "pdf_option_on_states": {
+        "yes": "5"
+      },
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p1.refugee_status",
+      "part": 1,
+      "label": {
+        "en": "Refugee status, paroled as a refugee, or permanent resident as a refugee",
+        "es": "Estatus de refugiado, admitido con parole como refugiado o residente permanente como refugiado",
+        "pt": "Status de refugiado, admitido com parole como refugiado ou residente permanente como refugiado"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "13",
+      "semantic": "immigration.refugee_status",
+      "pdf_field": "form1[0].P4[0].P1_Line13_YesNo[0]",
+      "pdf_on_state": "Y",
+      "pdf_options": {
+        "yes": "form1[0].P4[0].P1_Line13_YesNo[0]",
+        "no": "form1[0].P4[0].P1_Line13_YesNo[1]"
+      },
+      "pdf_option_on_states": {
+        "yes": "Y",
+        "no": "N"
+      },
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p1.inside_us",
+      "part": 1,
+      "label": {
+        "en": "Inside the United States now",
+        "es": "Dentro de Estados Unidos ahora",
+        "pt": "Dentro dos Estados Unidos agora"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "5",
+      "semantic": "travel.inside_us",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p1.filing_with_i485",
+      "part": 1,
+      "label": {
+        "en": "How this I-131 is filed with the Form I-485",
+        "es": "Cómo se presenta este I-131 con el Formulario I-485",
+        "pt": "Como este I-131 é apresentado com o Formulário I-485"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "5A",
+      "semantic": "case.concurrent_with_i485",
+      "options": [
+        "same_package",
+        "sent_before"
+      ],
+      "option_labels": {
+        "same_package": {
+          "en": "In the same package as my I-485",
+          "es": "En el mismo paquete que mi I-485",
+          "pt": "No mesmo pacote que o meu I-485"
+        },
+        "sent_before": {
+          "en": "I sent my I-485 before",
+          "es": "Mandé mi I-485 antes",
+          "pt": "Mandei o meu I-485 antes"
+        }
+      }
+    },
+    {
+      "field_id": "p1.i485_receipt",
+      "part": 1,
+      "label": {
+        "en": "Form I-485 receipt number",
+        "es": "Número de recibo del Formulario I-485",
+        "pt": "Número de recibo do Formulário I-485"
+      },
+      "type": "text",
+      "required": "if:p1.filing_with_i485==\"sent_before\"",
+      "item": "5A",
+      "semantic": "immigration.receipt.i485",
+      "pdf_field": "form1[0].P1[0].P1_Line5A[0]",
+      "sensitive": true,
+      "max_length": 34
+    },
+    {
+      "field_id": "p4.proceedings_ever",
+      "part": 4,
+      "label": {
+        "en": "Ever in exclusion, deportation, removal or rescission proceedings",
+        "es": "Alguna vez en un proceso de exclusión, deportación, remoción o rescisión",
+        "pt": "Alguma vez em processo de exclusão, deportação, remoção ou rescisão"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "1",
+      "semantic": "history.proceedings.ever",
+      "pdf_field": "form1[0].P7[0].P4_Line1_YesNo[0]",
+      "pdf_on_state": "Y",
+      "pdf_options": {
+        "yes": "form1[0].P7[0].P4_Line1_YesNo[0]",
+        "no": "form1[0].P7[0].P4_Line1_YesNo[1]"
+      },
+      "pdf_option_on_states": {
+        "yes": "Y",
+        "no": "N"
+      },
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_overstay",
+      "part": 4,
+      "label": {
+        "en": "Ever stayed past the I-94 date or after a status ended",
+        "es": "Alguna vez se quedó después de la fecha del I-94 o después de que terminó su estatus",
+        "pt": "Alguma vez ficou depois da data do I-94 ou depois que o seu status terminou"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "history.overstay.ever",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_no_inspection",
+      "part": 4,
+      "label": {
+        "en": "Ever entered without inspection",
+        "es": "Alguna vez entró sin inspección",
+        "pt": "Alguma vez entrou sem inspeção"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "history.entry_without_inspection",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_status_gap",
+      "part": 4,
+      "label": {
+        "en": "Any time in the United States without lawful status",
+        "es": "Algún tiempo en Estados Unidos sin estatus legal",
+        "pt": "Algum tempo nos Estados Unidos sem status legal"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "history.status_gap",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_prior_removal",
+      "part": 4,
+      "label": {
+        "en": "Ever denied entry, deported or removed, or left under voluntary departure",
+        "es": "Alguna vez le negaron la entrada, tuvo una deportación o remoción, o salió con salida voluntaria",
+        "pt": "Alguma vez teve a entrada negada, foi deportado ou removido, ou saiu com partida voluntária"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "history.removal_or_denied_entry",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_false_identity",
+      "part": 4,
+      "label": {
+        "en": "Ever gave a border officer a different name or date of birth",
+        "es": "Alguna vez le dio a un oficial de frontera otro nombre u otra fecha de nacimiento",
+        "pt": "Alguma vez deu a um oficial de fronteira outro nome ou outra data de nascimento"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "history.false_identity_to_officer",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_criminal",
+      "part": 4,
+      "label": {
+        "en": "Ever arrested, cited, charged or convicted",
+        "es": "Alguna vez arrestado, citado, acusado o condenado",
+        "pt": "Alguma vez preso, citado, acusado ou condenado"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "history.criminal.any",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_j_visa",
+      "part": 4,
+      "label": {
+        "en": "Ever a J-1 exchange visitor or a J-2 dependent",
+        "es": "Alguna vez visitante de intercambio J-1 o dependiente J-2",
+        "pt": "Alguma vez visitante de intercâmbio J-1 ou dependente J-2"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "history.j_visa.ever",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_victim_based",
+      "part": 4,
+      "label": {
+        "en": "Green card application based on VAWA, or on T or U status",
+        "es": "Solicitud de residencia basada en VAWA, o en estatus T o U",
+        "pt": "Pedido de residência baseado em VAWA, ou em status T ou U"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "immigration.basis.victim_based",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_parole",
+      "part": 4,
+      "label": {
+        "en": "On parole now, or last entered the United States on parole",
+        "es": "Con parole ahora, o entró a Estados Unidos la última vez con parole",
+        "pt": "Com parole agora, ou entrou nos Estados Unidos da última vez com parole"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "immigration.parole.current_or_last_entry",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_asylum",
+      "part": 4,
+      "label": {
+        "en": "Granted asylum, or an asylum application pending",
+        "es": "Asilo otorgado, o una solicitud de asilo pendiente",
+        "pt": "Asilo concedido, ou um pedido de asilo pendente"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "immigration.asylum.granted_or_pending",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_daca_tps",
+      "part": 4,
+      "label": {
+        "en": "DACA or TPS, or a TPS application pending",
+        "es": "DACA o TPS, o una solicitud de TPS pendiente",
+        "pt": "DACA ou TPS, ou um pedido de TPS pendente"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "immigration.daca_or_tps",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.screen_pending_i539",
+      "part": 4,
+      "label": {
+        "en": "A Form I-539 to extend or change status is pending",
+        "es": "Un Formulario I-539 para extender o cambiar su estatus está pendiente",
+        "pt": "Um Formulário I-539 para prorrogar ou mudar o seu status está pendente"
+      },
+      "type": "choice",
+      "required": true,
+      "semantic": "immigration.i539.pending",
+      "options": [
+        "yes",
+        "no",
+        "unsure"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        },
+        "unsure": {
+          "en": "I'm not sure",
+          "es": "No lo sé con certeza",
+          "pt": "Não tenho certeza"
+        }
+      }
+    },
+    {
+      "field_id": "p4.had_reentry_or_rtd",
+      "part": 4,
+      "label": {
+        "en": "Ever issued a reentry permit or refugee travel document",
+        "es": "Alguna vez recibió un permiso de reingreso o un documento de viaje de refugiado",
+        "pt": "Alguma vez recebeu uma autorização de reentrada ou um documento de viagem de refugiado"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "2a",
+      "semantic": "history.travel_doc.reentry_or_rtd",
+      "pdf_field": "form1[0].P7[0].P4_Line2a_YesNo[0]",
+      "pdf_on_state": "Y",
+      "pdf_options": {
+        "yes": "form1[0].P7[0].P4_Line2a_YesNo[0]",
+        "no": "form1[0].P7[0].P4_Line2a_YesNo[1]"
+      },
+      "pdf_option_on_states": {
+        "yes": "Y",
+        "no": "N"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p4.reentry_or_rtd_issued",
+      "part": 4,
+      "label": {
+        "en": "Date that document was issued",
+        "es": "Fecha en que se emitió ese documento",
+        "pt": "Data em que esse documento foi emitido"
+      },
+      "type": "date",
+      "required": "if:p4.had_reentry_or_rtd==\"yes\"",
+      "item": "2b",
+      "semantic": "history.travel_doc.reentry_or_rtd.date",
+      "pdf_field": "form1[0].P7[0].P4_Line2b_DateIssued[0]",
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01",
+        "max": "today"
+      }
+    },
+    {
+      "field_id": "p4.reentry_or_rtd_disposition",
+      "part": 4,
+      "label": {
+        "en": "What happened to that document",
+        "es": "Qué pasó con ese documento",
+        "pt": "O que aconteceu com esse documento"
+      },
+      "type": "text",
+      "required": "if:p4.had_reentry_or_rtd==\"yes\"",
+      "item": "2c",
+      "semantic": "history.travel_doc.reentry_or_rtd.disposition",
+      "pdf_field": "form1[0].P7[0].P4_Line2c_Disposition[0]",
+      "pdf_visible": {
+        "chars": 54,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "7",
+        "part": "4",
+        "item": "2.c."
+      }
+    },
+    {
+      "field_id": "p4.had_advance_parole",
+      "part": 4,
+      "label": {
+        "en": "Ever issued an advance parole document",
+        "es": "Alguna vez recibió un documento de permiso adelantado",
+        "pt": "Alguma vez recebeu um documento de advance parole"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "3a",
+      "semantic": "history.advance_parole.ever",
+      "pdf_field": "form1[0].P7[0].P4_Line3a_YesNo[0]",
+      "pdf_on_state": "Y",
+      "pdf_options": {
+        "yes": "form1[0].P7[0].P4_Line3a_YesNo[0]",
+        "no": "form1[0].P7[0].P4_Line3a_YesNo[1]"
+      },
+      "pdf_option_on_states": {
+        "yes": "Y",
+        "no": "N"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p4.advance_parole_issued",
+      "part": 4,
+      "label": {
+        "en": "Date that advance parole document was issued",
+        "es": "Fecha en que se emitió ese permiso adelantado",
+        "pt": "Data em que esse advance parole foi emitido"
+      },
+      "type": "date",
+      "required": "if:p4.had_advance_parole==\"yes\"",
+      "item": "3b",
+      "semantic": "history.advance_parole.date",
+      "pdf_field": "form1[0].P7[0].P4_Line3b_DateIssued[0]",
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01",
+        "max": "today"
+      }
+    },
+    {
+      "field_id": "p4.advance_parole_disposition",
+      "part": 4,
+      "label": {
+        "en": "What happened to that advance parole document",
+        "es": "Qué pasó con ese permiso adelantado",
+        "pt": "O que aconteceu com esse advance parole"
+      },
+      "type": "text",
+      "required": "if:p4.had_advance_parole==\"yes\"",
+      "item": "3c",
+      "semantic": "history.advance_parole.disposition",
+      "pdf_field": "form1[0].P7[0].P4_Line3c_Disposition[0]",
+      "pdf_visible": {
+        "chars": 54,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "7",
+        "part": "4",
+        "item": "3.c."
+      }
+    },
+    {
+      "field_id": "p4.replacement",
+      "part": 4,
+      "label": {
+        "en": "Requesting a replacement document",
+        "es": "Solicita un documento de reemplazo",
+        "pt": "Pede um documento de substituição"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "4",
+      "semantic": "case.replacement",
+      "pdf_field": "form1[0].P7[0].P4_Line4_YesNo[1]",
+      "pdf_on_state": "N",
+      "pdf_options": {
+        "new_request": "form1[0].P7[0].P4_Line4_YesNo[1]",
+        "replacement": "form1[0].P7[0].P4_Line4_YesNo[0]"
+      },
+      "pdf_option_on_states": {
+        "new_request": "N",
+        "replacement": "Y"
+      },
+      "options": [
+        "new_request",
+        "replacement"
+      ],
+      "option_labels": {
+        "new_request": {
+          "en": "A new request",
+          "es": "Una solicitud nueva",
+          "pt": "Um pedido novo"
+        },
+        "replacement": {
+          "en": "A replacement for a document I already got",
+          "es": "Un reemplazo de un documento que ya recibí",
+          "pt": "Uma substituição de um documento que já recebi"
+        }
+      }
+    },
+    {
+      "field_id": "p2.given_name",
+      "part": 2,
+      "label": {
+        "en": "Given name (first name)",
+        "es": "Nombre de pila",
+        "pt": "Prenome"
+      },
+      "type": "text",
+      "required": true,
+      "item": "1",
+      "semantic": "person.name.given",
+      "pdf_field": "form1[0].P4[0].Part2_Line1_GivenName[0]",
+      "pdf_extra_fields": [
+        "form1[0].#subform[13].Part2_Line1_GivenName[0]"
+      ],
+      "component": "first_name",
+      "pdf_visible": {
+        "chars": 25,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "4",
+        "part": "2",
+        "item": "1."
+      }
+    },
+    {
+      "field_id": "p2.middle_name",
+      "part": 2,
+      "label": {
+        "en": "Middle name",
+        "es": "Segundo nombre",
+        "pt": "Nome do meio"
+      },
+      "type": "text",
+      "required": "if:p2.has_middle_name==\"yes\"",
+      "item": "1",
+      "semantic": "person.name.middle",
+      "pdf_field": "form1[0].P4[0].Part2_Line1_MiddleName[0]",
+      "pdf_extra_fields": [
+        "form1[0].#subform[13].Part2_Line1_MiddleName[0]"
+      ],
+      "component": "middle_name",
+      "pdf_visible": {
+        "chars": 21,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "4",
+        "part": "2",
+        "item": "1."
+      }
+    },
+    {
+      "field_id": "p2.family_name",
+      "part": 2,
+      "label": {
+        "en": "Family name (last name)",
+        "es": "Apellidos",
+        "pt": "Sobrenome"
+      },
+      "type": "text",
+      "required": true,
+      "item": "1",
+      "semantic": "person.name.family",
+      "pdf_field": "form1[0].P4[0].Part2_Line1_FamilyName[0]",
+      "pdf_extra_fields": [
+        "form1[0].#subform[13].Part2_Line1_FamilyName[0]"
+      ],
+      "component": "last_name",
+      "pdf_visible": {
+        "chars": 28,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "4",
+        "part": "2",
+        "item": "1."
+      }
+    },
+    {
+      "field_id": "p2.has_middle_name",
+      "part": 2,
+      "label": {
+        "en": "Has a legal middle name",
+        "es": "Tiene segundo nombre legal",
+        "pt": "Tem nome do meio legal"
+      },
+      "type": "choice",
+      "required": "missing:p2.middle_name",
+      "item": "1",
+      "semantic": "person.name.middle.has",
+      "spoken_label": {
+        "en": "having a legal middle name",
+        "es": "tener un segundo nombre legal",
+        "pt": "ter um nome do meio legal"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.has_other_names",
+      "part": 2,
+      "label": {
+        "en": "Other names used",
+        "es": "Otros nombres usados",
+        "pt": "Outros nomes usados"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "2",
+      "semantic": "person.other_name.has",
+      "spoken_label": {
+        "en": "other names you have used",
+        "es": "otros nombres que ha usado",
+        "pt": "outros nomes que você usou"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.other_name1.given_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 1: first name",
+        "es": "Otro nombre 1: nombre",
+        "pt": "Outro nome 1: nome"
+      },
+      "type": "text",
+      "required": "if:p2.has_other_names==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[1].given",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_GivenName1[0]",
+      "component": "first_name",
+      "pdf_visible": {
+        "chars": 25,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name1.middle_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 1: middle name",
+        "es": "Otro nombre 1: segundo nombre",
+        "pt": "Outro nome 1: nome do meio"
+      },
+      "type": "text",
+      "required": false,
+      "item": "2",
+      "semantic": "person.other_name[1].middle",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_MiddleName1[0]",
+      "component": "middle_name",
+      "pdf_visible": {
+        "chars": 20,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name1.family_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 1: last name",
+        "es": "Otro nombre 1: apellido",
+        "pt": "Outro nome 1: sobrenome"
+      },
+      "type": "text",
+      "required": "if:p2.has_other_names==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[1].family",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_FamilyName1[0]",
+      "pdf_empty_text": "N/A",
+      "component": "last_name",
+      "pdf_visible": {
+        "chars": 33,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name1.date_of_birth",
+      "part": 2,
+      "label": {
+        "en": "Other name 1: date of birth used",
+        "es": "Otro nombre 1: fecha de nacimiento usada",
+        "pt": "Outro nome 1: data de nascimento usada"
+      },
+      "type": "date",
+      "required": "if:p2.has_other_names==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[1].dob",
+      "pdf_text_prefix": "Date of birth used with other name 1: ",
+      "pdf_overflow": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      },
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01",
+        "max": "today"
+      }
+    },
+    {
+      "field_id": "p2.has_other_name2",
+      "part": 2,
+      "label": {
+        "en": "Another other name",
+        "es": "Otro nombre más",
+        "pt": "Mais um outro nome"
+      },
+      "type": "choice",
+      "required": "if:p2.has_other_names==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[2].has",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.other_name2.given_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 2: first name",
+        "es": "Otro nombre 2: nombre",
+        "pt": "Outro nome 2: nome"
+      },
+      "type": "text",
+      "required": "if:p2.has_other_name2==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[2].given",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_GivenName2[0]",
+      "component": "first_name",
+      "pdf_visible": {
+        "chars": 25,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name2.middle_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 2: middle name",
+        "es": "Otro nombre 2: segundo nombre",
+        "pt": "Outro nome 2: nome do meio"
+      },
+      "type": "text",
+      "required": false,
+      "item": "2",
+      "semantic": "person.other_name[2].middle",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_MiddleName2[0]",
+      "component": "middle_name",
+      "pdf_visible": {
+        "chars": 20,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name2.family_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 2: last name",
+        "es": "Otro nombre 2: apellido",
+        "pt": "Outro nome 2: sobrenome"
+      },
+      "type": "text",
+      "required": "if:p2.has_other_name2==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[2].family",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_FamilyName2[0]",
+      "component": "last_name",
+      "pdf_visible": {
+        "chars": 33,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name2.date_of_birth",
+      "part": 2,
+      "label": {
+        "en": "Other name 2: date of birth used",
+        "es": "Otro nombre 2: fecha de nacimiento usada",
+        "pt": "Outro nome 2: data de nascimento usada"
+      },
+      "type": "date",
+      "required": "if:p2.has_other_name2==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[2].dob",
+      "pdf_text_prefix": "Date of birth used with other name 2: ",
+      "pdf_overflow": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      },
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01",
+        "max": "today"
+      }
+    },
+    {
+      "field_id": "p2.has_other_name3",
+      "part": 2,
+      "label": {
+        "en": "Another other name",
+        "es": "Otro nombre más",
+        "pt": "Mais um outro nome"
+      },
+      "type": "choice",
+      "required": "if:p2.has_other_name2==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[3].has",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.other_name3.given_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 3: first name",
+        "es": "Otro nombre 3: nombre",
+        "pt": "Outro nome 3: nome"
+      },
+      "type": "text",
+      "required": "if:p2.has_other_name3==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[3].given",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_GivenName3[0]",
+      "component": "first_name",
+      "pdf_visible": {
+        "chars": 25,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name3.middle_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 3: middle name",
+        "es": "Otro nombre 3: segundo nombre",
+        "pt": "Outro nome 3: nome do meio"
+      },
+      "type": "text",
+      "required": false,
+      "item": "2",
+      "semantic": "person.other_name[3].middle",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_MiddleName3[0]",
+      "component": "middle_name",
+      "pdf_visible": {
+        "chars": 20,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name3.family_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 3: last name",
+        "es": "Otro nombre 3: apellido",
+        "pt": "Outro nome 3: sobrenome"
+      },
+      "type": "text",
+      "required": "if:p2.has_other_name3==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[3].family",
+      "pdf_field": "form1[0].P5[0].Part2_Line2_FamilyName3[0]",
+      "component": "last_name",
+      "pdf_visible": {
+        "chars": 33,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p2.other_name3.date_of_birth",
+      "part": 2,
+      "label": {
+        "en": "Other name 3: date of birth used",
+        "es": "Otro nombre 3: fecha de nacimiento usada",
+        "pt": "Outro nome 3: data de nascimento usada"
+      },
+      "type": "date",
+      "required": "if:p2.has_other_name3==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[3].dob",
+      "pdf_text_prefix": "Date of birth used with other name 3: ",
+      "pdf_overflow": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      },
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01",
+        "max": "today"
+      }
+    },
+    {
+      "field_id": "p2.has_other_name4",
+      "part": 2,
+      "label": {
+        "en": "Another other name",
+        "es": "Otro nombre más",
+        "pt": "Mais um outro nome"
+      },
+      "type": "choice",
+      "required": "if:p2.has_other_name3==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[4].has",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.other_name4.given_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 4: first name",
+        "es": "Otro nombre 4: nombre",
+        "pt": "Outro nome 4: nome"
+      },
+      "type": "text",
+      "required": "if:p2.has_other_name4==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[4].given",
+      "pdf_overflow": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      },
+      "component": "first_name",
+      "pdf_join_field_ids": [
+        "p2.other_name4.middle_name",
+        "p2.other_name4.family_name"
+      ],
+      "pdf_join_separator": " "
+    },
+    {
+      "field_id": "p2.other_name4.middle_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 4: middle name",
+        "es": "Otro nombre 4: segundo nombre",
+        "pt": "Outro nome 4: nome do meio"
+      },
+      "type": "text",
+      "required": false,
+      "item": "2",
+      "semantic": "person.other_name[4].middle",
+      "component": "middle_name"
+    },
+    {
+      "field_id": "p2.other_name4.family_name",
+      "part": 2,
+      "label": {
+        "en": "Other name 4: last name",
+        "es": "Otro nombre 4: apellido",
+        "pt": "Outro nome 4: sobrenome"
+      },
+      "type": "text",
+      "required": "if:p2.has_other_name4==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[4].family",
+      "component": "last_name"
+    },
+    {
+      "field_id": "p2.other_name4.date_of_birth",
+      "part": 2,
+      "label": {
+        "en": "Other name 4: date of birth used",
+        "es": "Otro nombre 4: fecha de nacimiento usada",
+        "pt": "Outro nome 4: data de nascimento usada"
+      },
+      "type": "date",
+      "required": "if:p2.has_other_name4==\"yes\"",
+      "item": "2",
+      "semantic": "person.other_name[4].dob",
+      "pdf_text_prefix": "Date of birth used with other name 4: ",
+      "pdf_overflow": {
+        "page": "5",
+        "part": "2",
+        "item": "2."
+      },
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01",
+        "max": "today"
+      }
+    },
+    {
+      "field_id": "p2.mailing_address.street",
+      "part": 2,
+      "label": {
+        "en": "Mailing address: Street address",
+        "es": "Dirección postal: Calle y número",
+        "pt": "Endereço de correspondência: Rua e número"
+      },
+      "type": "text",
+      "required": true,
+      "item": "3",
+      "semantic": "address.mailing.street",
+      "pdf_field": "form1[0].P5[0].Part2_Line3_StreetNumberName[0]",
+      "component": "street",
+      "max_length": 34
+    },
+    {
+      "field_id": "p2.mailing_address.unit",
+      "part": 2,
+      "label": {
+        "en": "Mailing address: Apartment, suite, or floor",
+        "es": "Dirección postal: Apartamento, suite o piso",
+        "pt": "Endereço de correspondência: Apartamento, sala ou andar"
+      },
+      "type": "text",
+      "required": false,
+      "item": "3",
+      "semantic": "address.mailing.unit",
+      "pdf_unit_type_fields": {
+        "APT": "form1[0].P5[0].Part2_Line3_Unit[1]",
+        "STE": "form1[0].P5[0].Part2_Line3_Unit[0]",
+        "FLR": "form1[0].P5[0].Part2_Line3_Unit[2]"
+      },
+      "pdf_unit_type_on_states": {
+        "APT": " APT ",
+        "STE": " STE ",
+        "FLR": " FLR "
+      },
+      "pdf_unit_number_field": "form1[0].P5[0].Part2_Line3_AptSteFlrNumber[0]",
+      "component": "unit"
+    },
+    {
+      "field_id": "p2.mailing_address.city",
+      "part": 2,
+      "label": {
+        "en": "Mailing address: City",
+        "es": "Dirección postal: Ciudad",
+        "pt": "Endereço de correspondência: Cidade"
+      },
+      "type": "text",
+      "required": true,
+      "item": "3",
+      "semantic": "address.mailing.city",
+      "pdf_field": "form1[0].P5[0].Part2_Line3_CityTown[0]",
+      "component": "city",
+      "max_length": 20
+    },
+    {
+      "field_id": "p2.mailing_address.state",
+      "part": 2,
+      "label": {
+        "en": "Mailing address: State",
+        "es": "Dirección postal: Estado",
+        "pt": "Endereço de correspondência: Estado"
+      },
+      "type": "text",
+      "required": true,
+      "item": "3",
+      "semantic": "address.mailing.state",
+      "pdf_field": "form1[0].P5[0].Part2_Line3_State[0]",
+      "component": "state"
+    },
+    {
+      "field_id": "p2.mailing_address.postal_code",
+      "part": 2,
+      "label": {
+        "en": "Mailing address: ZIP code",
+        "es": "Dirección postal: Código postal",
+        "pt": "Endereço de correspondência: CEP"
+      },
+      "type": "text",
+      "required": true,
+      "item": "3",
+      "semantic": "address.mailing.postal_code",
+      "pdf_field": "form1[0].P5[0].Part2_Line3_ZipCode[0]",
+      "component": "postal_code",
+      "max_length": 5,
+      "digits_only": true
+    },
+    {
+      "field_id": "p2.mailing_address.in_care_of",
+      "part": 2,
+      "label": {
+        "en": "Mailing address: In care of name",
+        "es": "Dirección postal: A nombre de",
+        "pt": "Endereço de correspondência: Aos cuidados de"
+      },
+      "type": "text",
+      "required": false,
+      "item": "3",
+      "semantic": "address.mailing.in_care_of",
+      "pdf_field": "form1[0].P5[0].Part2_Line3_InCareofName[0]",
+      "component": "in_care_of",
+      "max_length": 34
+    },
+    {
+      "field_id": "p2.mailing_address.country",
+      "part": 2,
+      "label": {
+        "en": "Mailing address: Country",
+        "es": "Dirección postal: País",
+        "pt": "Endereço de correspondência: País"
+      },
+      "type": "text",
+      "required": false,
+      "item": "3",
+      "semantic": "address.mailing.country",
+      "pdf_field": "form1[0].P5[0].Part2_Line3_Country[0]",
+      "pdf_default_text": "USA",
+      "pdf_default_anchor_field_id": "p2.mailing_address.street",
+      "component": "country",
+      "pdf_visible": {
+        "chars": 37,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "3."
+      }
+    },
+    {
+      "field_id": "p2.mailing_is_physical",
+      "part": 2,
+      "label": {
+        "en": "Mailing address is the physical address",
+        "es": "La dirección postal es la dirección física",
+        "pt": "O endereço de correspondência é o endereço físico"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "4",
+      "semantic": "address.mailing.is_physical",
+      "spoken_label": {
+        "en": "your mailing address being where you live",
+        "es": "que su dirección postal sea donde vive",
+        "pt": "seu endereço de correspondência ser onde você mora"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.physical_address.street",
+      "part": 2,
+      "label": {
+        "en": "Physical address: Street address",
+        "es": "Dirección física: Calle y número",
+        "pt": "Endereço físico: Rua e número"
+      },
+      "type": "text",
+      "required": "if:p2.mailing_is_physical==\"no\"",
+      "item": "4",
+      "semantic": "address.physical.street",
+      "pdf_field": "form1[0].P5[0].Part2_Line4_StreetNumberName[0]",
+      "component": "street",
+      "max_length": 34
+    },
+    {
+      "field_id": "p2.physical_address.unit",
+      "part": 2,
+      "label": {
+        "en": "Physical address: Apartment, suite, or floor",
+        "es": "Dirección física: Apartamento, suite o piso",
+        "pt": "Endereço físico: Apartamento, sala ou andar"
+      },
+      "type": "text",
+      "required": false,
+      "item": "4",
+      "semantic": "address.physical.unit",
+      "pdf_unit_type_fields": {
+        "APT": "form1[0].P5[0].Part2_Line4_Unit[1]",
+        "STE": "form1[0].P5[0].Part2_Line4_Unit[0]",
+        "FLR": "form1[0].P5[0].Part2_Line4_Unit[2]"
+      },
+      "pdf_unit_type_on_states": {
+        "APT": " APT ",
+        "STE": " STE ",
+        "FLR": " FLR "
+      },
+      "pdf_unit_number_field": "form1[0].P5[0].Part2_Line4_AptSteFlrNumber[0]",
+      "component": "unit"
+    },
+    {
+      "field_id": "p2.physical_address.city",
+      "part": 2,
+      "label": {
+        "en": "Physical address: City",
+        "es": "Dirección física: Ciudad",
+        "pt": "Endereço físico: Cidade"
+      },
+      "type": "text",
+      "required": "if:p2.mailing_is_physical==\"no\"",
+      "item": "4",
+      "semantic": "address.physical.city",
+      "pdf_field": "form1[0].P5[0].Part2_Line4_CityTown[0]",
+      "component": "city",
+      "max_length": 20
+    },
+    {
+      "field_id": "p2.physical_address.state",
+      "part": 2,
+      "label": {
+        "en": "Physical address: State",
+        "es": "Dirección física: Estado",
+        "pt": "Endereço físico: Estado"
+      },
+      "type": "text",
+      "required": "if:p2.mailing_is_physical==\"no\"",
+      "item": "4",
+      "semantic": "address.physical.state",
+      "pdf_field": "form1[0].P5[0].Part2_Line4_State[0]",
+      "component": "state"
+    },
+    {
+      "field_id": "p2.physical_address.postal_code",
+      "part": 2,
+      "label": {
+        "en": "Physical address: ZIP code",
+        "es": "Dirección física: Código postal",
+        "pt": "Endereço físico: CEP"
+      },
+      "type": "text",
+      "required": "if:p2.mailing_is_physical==\"no\"",
+      "item": "4",
+      "semantic": "address.physical.postal_code",
+      "pdf_field": "form1[0].P5[0].Part2_Line4_ZipCode[0]",
+      "component": "postal_code",
+      "max_length": 5,
+      "digits_only": true
+    },
+    {
+      "field_id": "p2.physical_address.country",
+      "part": 2,
+      "label": {
+        "en": "Physical address: Country",
+        "es": "Dirección física: País",
+        "pt": "Endereço físico: País"
+      },
+      "type": "text",
+      "required": false,
+      "item": "4",
+      "semantic": "address.physical.country",
+      "pdf_field": "form1[0].P5[0].Part2_Line4_Country[0]",
+      "pdf_default_text": "USA",
+      "pdf_default_anchor_field_id": "p2.physical_address.street",
+      "component": "country",
+      "pdf_visible": {
+        "chars": 37,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "4."
+      }
+    },
+    {
+      "field_id": "p2.has_a_number",
+      "part": 2,
+      "label": {
+        "en": "Has an A-Number",
+        "es": "Tiene un número A",
+        "pt": "Tem um Número A"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "5",
+      "semantic": "id.a_number.has",
+      "gate_for": "p2.a_number",
+      "spoken_label": {
+        "en": "having an A-Number",
+        "es": "tener un número A",
+        "pt": "ter um Número A"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.a_number",
+      "part": 2,
+      "label": {
+        "en": "A-Number",
+        "es": "Número A",
+        "pt": "Número A"
+      },
+      "type": "text",
+      "required": "if:p2.has_a_number==\"yes\"",
+      "item": "5",
+      "semantic": "id.a_number",
+      "pdf_field": "form1[0].P5[0].#area[0].Part2_Line5_AlienNumber[0]",
+      "pdf_extra_fields": [
+        "form1[0].#subform[13].Global_ANumber[0].Part2_Line5_AlienNumber[0]"
+      ],
+      "pdf_empty_text": "N/A",
+      "sensitive": true,
+      "max_length": 9,
+      "digits_only": true,
+      "accepted_digit_counts": [
+        8,
+        9
+      ]
+    },
+    {
+      "field_id": "p2.birth_country",
+      "part": 2,
+      "label": {
+        "en": "Country of birth",
+        "es": "País de nacimiento",
+        "pt": "País de nascimento"
+      },
+      "type": "text",
+      "required": true,
+      "item": "6",
+      "semantic": "person.birth.country",
+      "pdf_field": "form1[0].P5[0].Part2_Line6_CountryOfBirth[0]",
+      "pdf_visible": {
+        "chars": 37,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "6."
+      }
+    },
+    {
+      "field_id": "p2.citizenship1",
+      "part": 2,
+      "label": {
+        "en": "Country of citizenship or nationality",
+        "es": "País de ciudadanía o nacionalidad",
+        "pt": "País de cidadania ou nacionalidade"
+      },
+      "type": "text",
+      "required": true,
+      "item": "7",
+      "semantic": "person.citizenship[1]",
+      "pdf_field": "form1[0].P5[0].Part2_Line7_CountryOfCitizenshiporNationality[0]",
+      "pdf_visible": {
+        "chars": 37,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "7."
+      }
+    },
+    {
+      "field_id": "p2.sex",
+      "part": 2,
+      "label": {
+        "en": "Sex",
+        "es": "Sexo",
+        "pt": "Sexo"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "8",
+      "semantic": "person.sex",
+      "pdf_field": "form1[0].P5[0].Part2_Line8_Gender[1]",
+      "pdf_on_state": "M",
+      "pdf_options": {
+        "male": "form1[0].P5[0].Part2_Line8_Gender[1]",
+        "female": "form1[0].P5[0].Part2_Line8_Gender[0]"
+      },
+      "pdf_option_on_states": {
+        "male": "M",
+        "female": "F"
+      },
+      "options": [
+        "male",
+        "female"
+      ],
+      "option_labels": {
+        "male": {
+          "en": "Male",
+          "es": "Hombre",
+          "pt": "Masculino"
+        },
+        "female": {
+          "en": "Female",
+          "es": "Mujer",
+          "pt": "Feminino"
+        }
+      }
+    },
+    {
+      "field_id": "p2.date_of_birth",
+      "part": 2,
+      "label": {
+        "en": "Date of birth",
+        "es": "Fecha de nacimiento",
+        "pt": "Data de nascimento"
+      },
+      "type": "date",
+      "required": true,
+      "item": "9",
+      "semantic": "person.dob",
+      "pdf_field": "form1[0].P5[0].Part2_Line9_DateOfBirth[0]",
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01",
+        "max": "today"
+      }
+    },
+    {
+      "field_id": "p2.has_ssn",
+      "part": 2,
+      "label": {
+        "en": "Has a Social Security number",
+        "es": "Tiene un número de Seguro Social",
+        "pt": "Tem um número de Seguro Social"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "10",
+      "semantic": "id.ssn.has",
+      "gate_for": "p2.ssn",
+      "spoken_label": {
+        "en": "having a Social Security number",
+        "es": "tener un número de Seguro Social",
+        "pt": "ter um número de Seguro Social"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.ssn",
+      "part": 2,
+      "label": {
+        "en": "Social Security number",
+        "es": "Número de Seguro Social",
+        "pt": "Número de Seguro Social"
+      },
+      "type": "text",
+      "required": "if:p2.has_ssn==\"yes\"",
+      "item": "10",
+      "semantic": "id.ssn",
+      "pdf_field": "form1[0].P5[0].#area[1].Part2_Line10_SSN[0]",
+      "pdf_empty_text": "N/A",
+      "sensitive": true,
+      "max_length": 9,
+      "digits_only": true
+    },
+    {
+      "field_id": "p2.has_uscis_account",
+      "part": 2,
+      "label": {
+        "en": "Has a USCIS online account number",
+        "es": "Tiene un número de cuenta en línea de USCIS",
+        "pt": "Tem um número de conta online do USCIS"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "11",
+      "semantic": "id.uscis_account.has",
+      "gate_for": "p2.uscis_account_number",
+      "spoken_label": {
+        "en": "having a USCIS online account number",
+        "es": "tener un número de cuenta en línea de USCIS",
+        "pt": "ter um número de conta on-line do USCIS"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.uscis_account_number",
+      "part": 2,
+      "label": {
+        "en": "USCIS online account number",
+        "es": "Número de cuenta en línea de USCIS",
+        "pt": "Número de conta online do USCIS"
+      },
+      "type": "text",
+      "required": "if:p2.has_uscis_account==\"yes\"",
+      "item": "11",
+      "semantic": "id.uscis_account",
+      "pdf_field": "form1[0].P5[0].Part2_Line11_USCISOnlineAcctNumber[0]",
+      "pdf_empty_text": "N/A",
+      "sensitive": true,
+      "max_length": 12,
+      "digits_only": true
+    },
+    {
+      "field_id": "p2.class_of_admission",
+      "part": 2,
+      "label": {
+        "en": "Class of admission",
+        "es": "Clase de admisión",
+        "pt": "Classe de admissão"
+      },
+      "type": "text",
+      "required": true,
+      "item": "12",
+      "semantic": "immigration.class_of_admission",
+      "pdf_field": "form1[0].P5[0].Part2_Line12_ClassofAdmission[0]",
+      "pdf_visible": {
+        "chars": 31,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "12."
+      }
+    },
+    {
+      "field_id": "p2.has_i94",
+      "part": 2,
+      "label": {
+        "en": "Has a Form I-94 number",
+        "es": "Tiene un número de Formulario I-94",
+        "pt": "Tem um número de Formulário I-94"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "13",
+      "semantic": "id.i94.has",
+      "gate_for": "p2.i94_number",
+      "spoken_label": {
+        "en": "having a Form I-94 number",
+        "es": "tener un número de Formulario I-94",
+        "pt": "ter um número de Formulário I-94"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p2.i94_number",
+      "part": 2,
+      "label": {
+        "en": "Form I-94 number",
+        "es": "Número de Formulario I-94",
+        "pt": "Número do Formulário I-94"
+      },
+      "type": "text",
+      "required": "if:p2.has_i94==\"yes\"",
+      "item": "13",
+      "semantic": "id.i94.number",
+      "pdf_field": "form1[0].P5[0].Part2_Line13_I94RecordNo[0]",
+      "pdf_empty_text": "N/A",
+      "sensitive": true,
+      "pdf_visible": {
+        "chars": 45,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "5",
+        "part": "2",
+        "item": "13."
+      }
+    },
+    {
+      "field_id": "p2.i94_expiry",
+      "part": 2,
+      "label": {
+        "en": "Date your authorized stay on the I-94 expires or expired",
+        "es": "Fecha en que vence o venció su estadía autorizada en el I-94",
+        "pt": "Data em que vence ou venceu a sua estadia autorizada no I-94"
+      },
+      "type": "text",
+      "required": "if:p2.has_i94==\"yes\"",
+      "item": "14",
+      "semantic": "id.i94.admit_until",
+      "pdf_field": "form1[0].P6[0].Part2_Line14_I94ExpDate[0]",
+      "pdf_empty_text": "N/A",
+      "pdf_visible": {
+        "chars": 21,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "6",
+        "part": "2",
+        "item": "14."
+      }
+    },
+    {
+      "field_id": "p3.ethnicity",
+      "part": 3,
+      "label": {
+        "en": "Ethnicity",
+        "es": "Etnia",
+        "pt": "Etnia"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "1",
+      "semantic": "person.ethnicity",
+      "pdf_field": "form1[0].P7[0].P3_Line1_Ethnicity[1]",
+      "pdf_on_state": "H",
+      "pdf_options": {
+        "hispanic": "form1[0].P7[0].P3_Line1_Ethnicity[1]",
+        "not_hispanic": "form1[0].P7[0].P3_Line1_Ethnicity[0]"
+      },
+      "pdf_option_on_states": {
+        "hispanic": "H",
+        "not_hispanic": "NH"
+      },
+      "options": [
+        "hispanic",
+        "not_hispanic"
+      ],
+      "option_labels": {
+        "hispanic": {
+          "en": "Hispanic or Latino",
+          "es": "Hispano o latino",
+          "pt": "Hispânico ou latino"
+        },
+        "not_hispanic": {
+          "en": "Not Hispanic or Latino",
+          "es": "No hispano ni latino",
+          "pt": "Não hispânico nem latino"
+        }
+      }
+    },
+    {
+      "field_id": "p3.race_american_indian",
+      "part": 3,
+      "label": {
+        "en": "Race: American Indian or Alaska Native",
+        "es": "Raza: Indígena americano o nativo de Alaska",
+        "pt": "Raça: Indígena americano ou nativo do Alasca"
+      },
+      "type": "yes_no_explanation",
+      "required": false,
+      "item": "2",
+      "semantic": "person.race.american_indian",
+      "pdf_field": "form1[0].P7[0].P3_Line2_Race_American[0]",
+      "pdf_on_state": "I",
+      "component": "race_american_indian",
+      "check_value": "yes"
+    },
+    {
+      "field_id": "p3.race_asian",
+      "part": 3,
+      "label": {
+        "en": "Race: Asian",
+        "es": "Raza: Asiático",
+        "pt": "Raça: Asiático"
+      },
+      "type": "yes_no_explanation",
+      "required": false,
+      "item": "2",
+      "semantic": "person.race.asian",
+      "pdf_field": "form1[0].P7[0].P3_Line2_Race_Asian[0]",
+      "pdf_on_state": "A",
+      "component": "race_asian",
+      "check_value": "yes"
+    },
+    {
+      "field_id": "p3.race_black",
+      "part": 3,
+      "label": {
+        "en": "Race: Black or African American",
+        "es": "Raza: Negro o afroamericano",
+        "pt": "Raça: Negro ou afro-americano"
+      },
+      "type": "yes_no_explanation",
+      "required": false,
+      "item": "2",
+      "semantic": "person.race.black",
+      "pdf_field": "form1[0].P7[0].P3_Line2_Race_Black[0]",
+      "pdf_on_state": "B",
+      "component": "race_black",
+      "check_value": "yes"
+    },
+    {
+      "field_id": "p3.race_pacific_islander",
+      "part": 3,
+      "label": {
+        "en": "Race: Native Hawaiian or Other Pacific Islander",
+        "es": "Raza: Nativo de Hawái u otra isla del Pacífico",
+        "pt": "Raça: Nativo do Havaí ou de outra ilha do Pacífico"
+      },
+      "type": "yes_no_explanation",
+      "required": false,
+      "item": "2",
+      "semantic": "person.race.pacific_islander",
+      "pdf_field": "form1[0].P7[0].P3_Line2_Race_Hawaiian[0]",
+      "pdf_on_state": "H",
+      "component": "race_pacific_islander",
+      "check_value": "yes"
+    },
+    {
+      "field_id": "p3.race_white",
+      "part": 3,
+      "label": {
+        "en": "Race: White",
+        "es": "Raza: Blanco",
+        "pt": "Raça: Branco"
+      },
+      "type": "yes_no_explanation",
+      "required": false,
+      "item": "2",
+      "semantic": "person.race.white",
+      "pdf_field": "form1[0].P7[0].P3_Line2_Race_White[0]",
+      "pdf_on_state": "W",
+      "component": "race_white",
+      "check_value": "yes"
+    },
+    {
+      "field_id": "p3.height_feet",
+      "part": 3,
+      "label": {
+        "en": "Height: feet",
+        "es": "Estatura: pies",
+        "pt": "Altura: pés"
+      },
+      "type": "number",
+      "required": true,
+      "item": "3",
+      "semantic": "person.height.feet",
+      "pdf_field": "form1[0].P7[0].P3_Line3_HeightFeet[0]",
+      "component": "height_feet"
+    },
+    {
+      "field_id": "p3.height_inches",
+      "part": 3,
+      "label": {
+        "en": "Height: inches",
+        "es": "Estatura: pulgadas",
+        "pt": "Altura: polegadas"
+      },
+      "type": "number",
+      "required": true,
+      "item": "3",
+      "semantic": "person.height.inches",
+      "pdf_field": "form1[0].P7[0].P3_Line3_HeightInches[0]",
+      "component": "height_inches"
+    },
+    {
+      "field_id": "p3.weight_pounds",
+      "part": 3,
+      "label": {
+        "en": "Weight in pounds",
+        "es": "Peso en libras",
+        "pt": "Peso em libras"
+      },
+      "type": "number",
+      "required": true,
+      "item": "4",
+      "semantic": "person.weight.pounds",
+      "pdf_digit_fields": [
+        "form1[0].P7[0].P3_Line4_Pound1[0]",
+        "form1[0].P7[0].P3_Line4_Pound2[0]",
+        "form1[0].P7[0].P3_Line4_Pound3[0]"
+      ],
+      "component": "weight_pounds"
+    },
+    {
+      "field_id": "p3.eye_color",
+      "part": 3,
+      "label": {
+        "en": "Eye color",
+        "es": "Color de ojos",
+        "pt": "Cor dos olhos"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "5",
+      "semantic": "person.eye_color",
+      "pdf_field": "form1[0].P7[0].P3_Line5_EyeColor[0]",
+      "pdf_on_state": "BRN",
+      "pdf_options": {
+        "brown": "form1[0].P7[0].P3_Line5_EyeColor[0]",
+        "gray": "form1[0].P7[0].P3_Line5_EyeColor[1]",
+        "maroon": "form1[0].P7[0].P3_Line5_EyeColor[2]",
+        "other": "form1[0].P7[0].P3_Line5_EyeColor[3]",
+        "pink": "form1[0].P7[0].P3_Line5_EyeColor[4]",
+        "hazel": "form1[0].P7[0].P3_Line5_EyeColor[5]",
+        "green": "form1[0].P7[0].P3_Line5_EyeColor[6]",
+        "blue": "form1[0].P7[0].P3_Line5_EyeColor[7]",
+        "black": "form1[0].P7[0].P3_Line5_EyeColor[8]"
+      },
+      "pdf_option_on_states": {
+        "brown": "BRN",
+        "gray": "GRY",
+        "maroon": "MRN",
+        "other": "OTH",
+        "pink": "PNK",
+        "hazel": "HZL",
+        "green": "GRN",
+        "blue": "BLU",
+        "black": "BLK"
+      },
+      "component": "eye_color",
+      "options": [
+        "brown",
+        "blue",
+        "green",
+        "hazel",
+        "gray",
+        "black",
+        "pink",
+        "maroon",
+        "other"
+      ],
+      "option_labels": {
+        "brown": {
+          "en": "Brown",
+          "es": "Café",
+          "pt": "Castanho"
+        },
+        "blue": {
+          "en": "Blue",
+          "es": "Azul",
+          "pt": "Azul"
+        },
+        "green": {
+          "en": "Green",
+          "es": "Verde",
+          "pt": "Verde"
+        },
+        "hazel": {
+          "en": "Hazel",
+          "es": "Avellana",
+          "pt": "Avelã"
+        },
+        "gray": {
+          "en": "Gray",
+          "es": "Gris",
+          "pt": "Cinza"
+        },
+        "black": {
+          "en": "Black",
+          "es": "Negro",
+          "pt": "Preto"
+        },
+        "pink": {
+          "en": "Pink",
+          "es": "Rosa",
+          "pt": "Rosa"
+        },
+        "maroon": {
+          "en": "Maroon",
+          "es": "Granate",
+          "pt": "Bordô"
+        },
+        "other": {
+          "en": "Unknown or other",
+          "es": "Desconocido u otro",
+          "pt": "Desconhecido ou outro"
+        }
+      }
+    },
+    {
+      "field_id": "p3.hair_color",
+      "part": 3,
+      "label": {
+        "en": "Hair color",
+        "es": "Color de cabello",
+        "pt": "Cor do cabelo"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "6",
+      "semantic": "person.hair_color",
+      "pdf_field": "form1[0].P7[0].P3_Line6_HairColor[8]",
+      "pdf_on_state": "BLK",
+      "pdf_options": {
+        "bald": "form1[0].P7[0].P3_Line6_HairColor[0]",
+        "blond": "form1[0].P7[0].P3_Line6_HairColor[1]",
+        "gray": "form1[0].P7[0].P3_Line6_HairColor[2]",
+        "sandy": "form1[0].P7[0].P3_Line6_HairColor[3]",
+        "other": "form1[0].P7[0].P3_Line6_HairColor[4]",
+        "white": "form1[0].P7[0].P3_Line6_HairColor[5]",
+        "red": "form1[0].P7[0].P3_Line6_HairColor[6]",
+        "brown": "form1[0].P7[0].P3_Line6_HairColor[7]",
+        "black": "form1[0].P7[0].P3_Line6_HairColor[8]"
+      },
+      "pdf_option_on_states": {
+        "bald": "BLD",
+        "blond": "BND",
+        "gray": "GRY",
+        "sandy": "SDY",
+        "other": "OTH",
+        "white": "WHT",
+        "red": "RED",
+        "brown": "BRN",
+        "black": "BLK"
+      },
+      "component": "hair_color",
+      "options": [
+        "bald",
+        "sandy",
+        "red",
+        "white",
+        "gray",
+        "blond",
+        "brown",
+        "black",
+        "other"
+      ],
+      "option_labels": {
+        "bald": {
+          "en": "Bald (no hair)",
+          "es": "Calvo (sin cabello)",
+          "pt": "Careca (sem cabelo)"
+        },
+        "sandy": {
+          "en": "Sandy",
+          "es": "Rubio oscuro",
+          "pt": "Loiro escuro"
+        },
+        "red": {
+          "en": "Red",
+          "es": "Rojo",
+          "pt": "Ruivo"
+        },
+        "white": {
+          "en": "White",
+          "es": "Blanco",
+          "pt": "Branco"
+        },
+        "gray": {
+          "en": "Gray",
+          "es": "Gris",
+          "pt": "Cinza"
+        },
+        "blond": {
+          "en": "Blond",
+          "es": "Rubio",
+          "pt": "Loiro"
+        },
+        "brown": {
+          "en": "Brown",
+          "es": "Café",
+          "pt": "Castanho"
+        },
+        "black": {
+          "en": "Black",
+          "es": "Negro",
+          "pt": "Preto"
+        },
+        "other": {
+          "en": "Unknown or other",
+          "es": "Desconocido u otro",
+          "pt": "Desconhecido ou outro"
+        }
+      }
+    },
+    {
+      "field_id": "p7.trip_planned",
+      "part": 7,
+      "label": {
+        "en": "A trip is planned",
+        "es": "Tiene un viaje planeado",
+        "pt": "Tem uma viagem planejada"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "1",
+      "semantic": "travel.trip_planned",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p7.departure_date",
+      "part": 7,
+      "label": {
+        "en": "Date of intended departure",
+        "es": "Fecha prevista de salida",
+        "pt": "Data prevista de partida"
+      },
+      "type": "date",
+      "required": "if:p7.trip_planned==\"yes\"",
+      "item": "1",
+      "semantic": "travel.departure_date",
+      "pdf_field": "form1[0].#subform[9].P7_Line1_DateOfDeparture[0]",
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01"
+      }
+    },
+    {
+      "field_id": "p7.departure_note",
+      "part": 7,
+      "label": {
+        "en": "When you plan to leave, in your words",
+        "es": "Cuándo piensa salir, en sus palabras",
+        "pt": "Quando você pretende partir, nas suas palavras"
+      },
+      "type": "text",
+      "required": "if:p7.trip_planned==\"no\"",
+      "item": "1",
+      "semantic": "travel.departure_note",
+      "pdf_field": "form1[0].#subform[9].P7_Line1_DateOfDeparture[0]",
+      "pdf_visible": {
+        "chars": 21,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "10",
+        "part": "7",
+        "item": "1."
+      }
+    },
+    {
+      "field_id": "p7.purpose",
+      "part": 7,
+      "label": {
+        "en": "Purpose of the trip",
+        "es": "Propósito del viaje",
+        "pt": "Propósito da viagem"
+      },
+      "type": "text",
+      "required": true,
+      "item": "2",
+      "semantic": "travel.purpose",
+      "pdf_field": "form1[0].#subform[9].P7_Line2_Purpose[0]",
+      "pdf_visible": {
+        "chars": 84,
+        "lines": 6
+      },
+      "pdf_continued": {
+        "page": "10",
+        "part": "7",
+        "item": "2."
+      }
+    },
+    {
+      "field_id": "p7.countries",
+      "part": 7,
+      "label": {
+        "en": "Countries you intend to visit",
+        "es": "Países que piensa visitar",
+        "pt": "Países que você pretende visitar"
+      },
+      "type": "text",
+      "required": true,
+      "item": "3",
+      "semantic": "travel.countries",
+      "pdf_field": "form1[0].#subform[9].P7_Line3_ListCountries[0]",
+      "pdf_visible": {
+        "chars": 84,
+        "lines": 6
+      },
+      "pdf_continued": {
+        "page": "10",
+        "part": "7",
+        "item": "3."
+      }
+    },
+    {
+      "field_id": "p7.trips",
+      "part": 7,
+      "label": {
+        "en": "How many trips you intend to use this document for",
+        "es": "Cuántos viajes piensa hacer con este documento",
+        "pt": "Quantas viagens você pretende fazer com este documento"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "4",
+      "semantic": "travel.trip_count",
+      "pdf_field": "form1[0].#subform[9].P7_Line4_CB[0]",
+      "pdf_on_state": "O",
+      "pdf_options": {
+        "one_trip": "form1[0].#subform[9].P7_Line4_CB[0]",
+        "more_trips": "form1[0].#subform[9].P7_Line4_CB[1]"
+      },
+      "pdf_option_on_states": {
+        "one_trip": "O",
+        "more_trips": "M"
+      },
+      "options": [
+        "one_trip",
+        "more_trips"
+      ],
+      "option_labels": {
+        "one_trip": {
+          "en": "One trip",
+          "es": "Un viaje",
+          "pt": "Uma viagem"
+        },
+        "more_trips": {
+          "en": "More than one trip",
+          "es": "Más de un viaje",
+          "pt": "Mais de uma viagem"
+        }
+      }
+    },
+    {
+      "field_id": "p7.length_days",
+      "part": 7,
+      "label": {
+        "en": "Expected length of the trip in days",
+        "es": "Duración prevista del viaje en días",
+        "pt": "Duração prevista da viagem em dias"
+      },
+      "type": "text",
+      "required": true,
+      "item": "5",
+      "semantic": "travel.length_days",
+      "pdf_field": "form1[0].#subform[9].P7_Line5_ExpectedLengthTrip[0]",
+      "pdf_visible": {
+        "chars": 5,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "10",
+        "part": "7",
+        "item": "5."
+      }
+    },
+    {
+      "field_id": "p10.reads_english",
+      "part": 10,
+      "label": {
+        "en": "Can read and understand English",
+        "es": "Puede leer y entender inglés",
+        "pt": "Pode ler e entender inglês"
+      },
+      "type": "choice",
+      "required": true,
+      "item": "1",
+      "semantic": "language.reads_english",
+      "spoken_label": {
+        "en": "reading and understanding English",
+        "es": "leer y entender inglés",
+        "pt": "ler e entender inglês"
+      },
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p10.daytime_phone",
+      "part": 10,
+      "label": {
+        "en": "Your contact: daytime phone",
+        "es": "Su contacto: teléfono de día",
+        "pt": "Seu contato: telefone durante o dia"
+      },
+      "type": "text",
+      "required": true,
+      "item": "1",
+      "semantic": "contact.phone.daytime",
+      "pdf_field": "form1[0].#subform[10].Part10_Line1_DayPhone[0]",
+      "component": "daytime_phone",
+      "max_length": 10,
+      "digits_only": true
+    },
+    {
+      "field_id": "p10.mobile_phone",
+      "part": 10,
+      "label": {
+        "en": "Your contact: mobile phone",
+        "es": "Su contacto: teléfono móvil",
+        "pt": "Seu contato: celular"
+      },
+      "type": "text",
+      "required": false,
+      "item": "2",
+      "semantic": "contact.phone.mobile",
+      "pdf_field": "form1[0].#subform[10].Part10_Line2_MobilePhone[0]",
+      "pdf_empty_text": "N/A",
+      "component": "mobile_phone",
+      "max_length": 10,
+      "digits_only": true
+    },
+    {
+      "field_id": "p10.email",
+      "part": 10,
+      "label": {
+        "en": "Your contact: email",
+        "es": "Su contacto: correo electrónico",
+        "pt": "Seu contato: e-mail"
+      },
+      "type": "text",
+      "required": false,
+      "item": "3",
+      "semantic": "contact.email",
+      "pdf_field": "form1[0].#subform[10].Part10_Line3_Email[0]",
+      "pdf_empty_text": "N/A",
+      "component": "email",
+      "pdf_visible": {
+        "chars": 37,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "11",
+        "part": "10",
+        "item": "3."
+      }
+    },
+    {
+      "field_id": "p11.interpreter_language",
+      "part": 11,
+      "label": {
+        "en": "Language the interpreter used",
+        "es": "Idioma que usó el intérprete",
+        "pt": "Idioma que o intérprete usou"
+      },
+      "type": "text",
+      "required": "if:p10.reads_english==\"no\"",
+      "item": "6",
+      "semantic": "interpreter.language",
+      "pdf_field": "form1[0].#subform[11].P11_Language[0]",
+      "max_length": 18
+    },
+    {
+      "field_id": "p11.interpreter.given_name",
+      "part": 11,
+      "label": {
+        "en": "Interpreter: first name",
+        "es": "Intérprete: nombre",
+        "pt": "Intérprete: nome"
+      },
+      "type": "text",
+      "required": "if:p10.reads_english==\"no\"",
+      "item": "1",
+      "semantic": "interpreter.name.given",
+      "pdf_field": "form1[0].#subform[11].Part11_Line1_InterpreterGivenName[0]",
+      "component": "first_name",
+      "pdf_visible": {
+        "chars": 40,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "12",
+        "part": "11",
+        "item": "1."
+      }
+    },
+    {
+      "field_id": "p11.interpreter.family_name",
+      "part": 11,
+      "label": {
+        "en": "Interpreter: last name",
+        "es": "Intérprete: apellido",
+        "pt": "Intérprete: sobrenome"
+      },
+      "type": "text",
+      "required": "if:p10.reads_english==\"no\"",
+      "item": "1",
+      "semantic": "interpreter.name.family",
+      "pdf_field": "form1[0].#subform[11].Part11_Line1_InterpreterFamilyName[0]",
+      "component": "last_name",
+      "pdf_visible": {
+        "chars": 42,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "12",
+        "part": "11",
+        "item": "1."
+      }
+    },
+    {
+      "field_id": "p11.interpreter_has_business",
+      "part": 11,
+      "label": {
+        "en": "The interpreter works for a business or organization",
+        "es": "El intérprete trabaja para una empresa u organización",
+        "pt": "O intérprete trabalha para uma empresa ou organização"
+      },
+      "type": "choice",
+      "required": "if:p10.reads_english==\"no\"",
+      "item": "2",
+      "semantic": "interpreter.business.has",
+      "options": [
+        "yes",
+        "no"
+      ],
+      "option_labels": {
+        "yes": {
+          "en": "Yes",
+          "es": "Sí",
+          "pt": "Sim"
+        },
+        "no": {
+          "en": "No",
+          "es": "No",
+          "pt": "Não"
+        }
+      }
+    },
+    {
+      "field_id": "p11.interpreter_business",
+      "part": 11,
+      "label": {
+        "en": "Interpreter's business or organization name",
+        "es": "Nombre de la empresa u organización del intérprete",
+        "pt": "Nome da empresa ou organização do intérprete"
+      },
+      "type": "text",
+      "required": "if:p11.interpreter_has_business==\"yes\"",
+      "item": "2",
+      "semantic": "interpreter.business",
+      "pdf_field": "form1[0].#subform[11].Part11_Line2_NameofBusinessorOrgName[0]",
+      "pdf_empty_text": "N/A",
+      "max_length": 34
+    },
+    {
+      "field_id": "p11.interpreter.daytime_phone",
+      "part": 11,
+      "label": {
+        "en": "Interpreter: daytime phone",
+        "es": "Intérprete: teléfono de día",
+        "pt": "Intérprete: telefone durante o dia"
+      },
+      "type": "text",
+      "required": "if:p10.reads_english==\"no\"",
+      "item": "3",
+      "semantic": "interpreter.contact.phone.daytime",
+      "pdf_field": "form1[0].#subform[11].Part11_Line3_DayPhone[0]",
+      "component": "daytime_phone",
+      "max_length": 10,
+      "digits_only": true
+    },
+    {
+      "field_id": "p11.interpreter.mobile_phone",
+      "part": 11,
+      "label": {
+        "en": "Interpreter: mobile phone",
+        "es": "Intérprete: teléfono móvil",
+        "pt": "Intérprete: celular"
+      },
+      "type": "text",
+      "required": false,
+      "item": "4",
+      "semantic": "interpreter.contact.phone.mobile",
+      "pdf_field": "form1[0].#subform[11].Part11_Line4_MobilePhone[0]",
+      "pdf_empty_text": "N/A",
+      "component": "mobile_phone",
+      "max_length": 10,
+      "digits_only": true
+    },
+    {
+      "field_id": "p11.interpreter.email",
+      "part": 11,
+      "label": {
+        "en": "Interpreter: email",
+        "es": "Intérprete: correo electrónico",
+        "pt": "Intérprete: e-mail"
+      },
+      "type": "text",
+      "required": false,
+      "item": "5",
+      "semantic": "interpreter.contact.email",
+      "pdf_field": "form1[0].#subform[11].Part11_Line5_Email[0]",
+      "component": "email",
+      "pdf_visible": {
+        "chars": 37,
+        "lines": 1
+      },
+      "pdf_continued": {
+        "page": "12",
+        "part": "11",
+        "item": "5."
+      }
+    },
+    {
+      "field_id": "p10.signature_date",
+      "part": 10,
+      "label": {
+        "en": "Date of signature",
+        "es": "Fecha de la firma",
+        "pt": "Data da assinatura"
+      },
+      "type": "date",
+      "required": false,
+      "item": "4",
+      "semantic": "signature.applicant.date",
+      "pdf_field": "form1[0].#subform[10].Part10_Line4_DateofSignature[0]",
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01"
+      }
+    },
+    {
+      "field_id": "p11.interpreter_signature_date",
+      "part": 11,
+      "label": {
+        "en": "Interpreter's date of signature",
+        "es": "Fecha de la firma del intérprete",
+        "pt": "Data da assinatura do intérprete"
+      },
+      "type": "date",
+      "required": false,
+      "item": "6",
+      "semantic": "signature.interpreter.date",
+      "pdf_field": "form1[0].#subform[11].Part11_Line6_DateofSignature[0]",
+      "validation": {
+        "format": "mm/dd/yyyy",
+        "min": "1900-01-01"
+      }
+    }
+  ],
+  "question_graph": [
+    {
+      "node_id": "q_p1_rtd_or_reentry",
+      "field_ids": [
+        "p1.screen_rtd_or_reentry"
+      ],
+      "ask": {
+        "en": "First, is this application for a refugee travel document or a reentry permit?",
+        "es": "Primero, ¿esta solicitud es para un documento de viaje de refugiado o un permiso de reingreso?",
+        "pt": "Primeiro, este pedido é para um documento de viagem de refugiado ou uma autorização de reentrada?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p1_ap_pending_i485",
+      "branches": [],
+      "opener": true,
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_not_built_yet",
+        "when": "answer == \"yes\""
+      }
+    },
+    {
+      "node_id": "q_p1_ap_pending_i485",
+      "field_ids": [
+        "p1.ap_pending_i485"
+      ],
+      "ask": {
+        "en": "This app prepares Form I-131 for one situation, Part 1, Item 5.A. In the form's words, you are inside the United States and applying for an Advance Parole Document \"to seek parole into the United States upon my return from abroad,\" based on a pending Form I-485, already filed or filed together with this form. Is that what you need? If it is for DACA, a first TPS application, an asylum application or any kind of parole, say no.",
+        "es": "Esta aplicación prepara el Formulario I-131 para una sola situación, la Parte 1, punto 5.A. En palabras del formulario, usted está dentro de Estados Unidos y solicita un documento de permiso adelantado (advance parole) para pedir que se le permita volver a entrar a Estados Unidos con parole a su regreso del extranjero, con base en un Formulario I-485 pendiente, ya presentado o presentado junto con este formulario. ¿Es eso lo que necesita? Si es por DACA, una primera solicitud de TPS, una solicitud de asilo o cualquier tipo de parole, diga que no.",
+        "pt": "Este aplicativo prepara o Formulário I-131 para uma só situação, a Parte 1, item 5.A. Nas palavras do formulário, você está dentro dos Estados Unidos e pede um documento de advance parole para pedir que seja permitido voltar a entrar nos Estados Unidos com parole ao retornar do exterior, com base em um Formulário I-485 pendente, já apresentado ou apresentado junto com este formulário. É isso que você precisa? Se for por DACA, um primeiro pedido de TPS, um pedido de asilo ou qualquer tipo de parole, diga não."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p1_refugee_status",
+      "branches": [],
+      "keeps_qualifier": true,
+      "opener": true,
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_application_type",
+        "when": "answer != \"yes\""
+      }
+    },
+    {
+      "node_id": "q_p1_refugee_status",
+      "field_ids": [
+        "p1.refugee_status"
+      ],
+      "ask": {
+        "en": "Do you hold status as a refugee, were you paroled as a refugee, or are you a permanent resident as a direct result of being a refugee?",
+        "es": "¿Tiene estatus de refugiado, fue admitido con parole como refugiado, o es residente permanente como resultado directo de haber sido refugiado?",
+        "pt": "Você tem status de refugiado, foi admitido com parole como refugiado, ou é residente permanente como resultado direto de ter sido refugiado?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p1_inside_us",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_refugee_question_yes",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p1_inside_us",
+      "field_ids": [
+        "p1.inside_us"
+      ],
+      "ask": {
+        "en": "Are you inside the United States right now?",
+        "es": "¿Está usted dentro de Estados Unidos en este momento?",
+        "pt": "Você está dentro dos Estados Unidos neste momento?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p1_filing_with_i485",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_already_outside",
+        "when": "answer != \"yes\""
+      }
+    },
+    {
+      "node_id": "q_p1_filing_with_i485",
+      "field_ids": [
+        "p1.filing_with_i485"
+      ],
+      "ask": {
+        "en": "Are you sending this I-131 in the same package as your I-485, or did you send your I-485 before?",
+        "es": "¿Va a enviar este Formulario I-131 en el mismo paquete que su Formulario I-485, o mandó su Formulario I-485 antes?",
+        "pt": "Você vai enviar este I-131 no mesmo pacote que o seu I-485, ou mandou o seu I-485 antes?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p1_i485_receipt",
+      "branches": [
+        {
+          "when": "answer == \"same_package\"",
+          "node": "q_p4_proceedings_ever",
+          "skips": [
+            "p1.i485_receipt"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p1_i485_receipt",
+      "field_ids": [
+        "p1.i485_receipt"
+      ],
+      "ask": {
+        "en": "What is the receipt number on your I-485 receipt notice, the Form I-797C? It is three letters, like IOE or MSC, and then ten digits.",
+        "es": "¿Cuál es el número de recibo de su notificación del Formulario I-485, el Formulario I-797C? Son tres letras, como IOE o MSC, y luego diez dígitos.",
+        "pt": "Qual é o número de recibo da sua notificação do I-485, o Formulário I-797C? São três letras, como IOE ou MSC, e depois dez dígitos."
+      },
+      "answer_type": "text",
+      "default_next": "q_p4_proceedings_ever",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p4_proceedings_ever",
+      "field_ids": [
+        "p4.proceedings_ever"
+      ],
+      "ask": {
+        "en": "Have you ever been in exclusion, deportation, removal, or rescission proceedings, meaning a case in immigration court?",
+        "es": "¿Alguna vez ha estado en un proceso de exclusión, deportación, remoción o rescisión, es decir, un caso en la corte de inmigración?",
+        "pt": "Você já esteve em um processo de exclusão, deportação, remoção ou rescisão, ou seja, um caso no tribunal de imigração?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_overstay",
+      "branches": [],
+      "opener": true,
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_proceedings_ever",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_overstay",
+      "field_ids": [
+        "p4.screen_overstay"
+      ],
+      "ask": {
+        "en": "Have you ever stayed in the United States past the date on your Form I-94, or after your status ended?",
+        "es": "¿Alguna vez se quedó en Estados Unidos después de la fecha de su Formulario I-94, o después de que terminó su estatus?",
+        "pt": "Você já ficou nos Estados Unidos depois da data do seu Formulário I-94, ou depois que o seu status terminou?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_no_inspection",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_unlawful_presence_overstay",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_no_inspection",
+      "field_ids": [
+        "p4.screen_no_inspection"
+      ],
+      "ask": {
+        "en": "Have you ever entered the United States without being inspected by an immigration officer, for example by crossing the border away from a port of entry?",
+        "es": "¿Alguna vez entró a Estados Unidos sin ser inspeccionado por un oficial de inmigración, por ejemplo cruzando la frontera fuera de un puerto de entrada?",
+        "pt": "Você já entrou nos Estados Unidos sem ser inspecionado por um oficial de imigração, por exemplo atravessando a fronteira fora de um porto de entrada?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_status_gap",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_unlawful_presence_no_inspection",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_status_gap",
+      "field_ids": [
+        "p4.screen_status_gap"
+      ],
+      "ask": {
+        "en": "Apart from that, was there ever a time you were in the United States without a lawful immigration status, before you filed your Form I-485?",
+        "es": "Aparte de eso, ¿hubo algún momento en que estuvo en Estados Unidos sin un estatus migratorio legal, antes de presentar su Formulario I-485?",
+        "pt": "Além disso, houve algum momento em que você esteve nos Estados Unidos sem um status de imigração legal, antes de apresentar o seu Formulário I-485?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_prior_removal",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_unlawful_presence_status_gap",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_prior_removal",
+      "field_ids": [
+        "p4.screen_prior_removal"
+      ],
+      "ask": {
+        "en": "Have you ever been denied entry to the United States, deported or removed, or left under voluntary departure?",
+        "es": "¿Alguna vez le negaron la entrada a Estados Unidos, tuvo una deportación o remoción, o salió con salida voluntaria?",
+        "pt": "Alguma vez você teve a entrada negada nos Estados Unidos, foi deportado ou removido, ou saiu com partida voluntária?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_false_identity",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_prior_entry_or_reentry_issue",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_false_identity",
+      "field_ids": [
+        "p4.screen_false_identity"
+      ],
+      "ask": {
+        "en": "Have you ever given a border officer a different name or date of birth?",
+        "es": "¿Alguna vez le dio a un oficial de frontera otro nombre u otra fecha de nacimiento?",
+        "pt": "Você já deu a um oficial de fronteira outro nome ou outra data de nascimento?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_criminal",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_prior_entry_or_reentry_issue",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_criminal",
+      "field_ids": [
+        "p4.screen_criminal"
+      ],
+      "ask": {
+        "en": "Have you ever been arrested, cited, charged or convicted for anything, in any country? A minor traffic ticket on its own doesn't count.",
+        "es": "¿Alguna vez ha tenido un arresto, una citación, una acusación o una condena, por cualquier cosa y en cualquier país? Una multa de tránsito menor por sí sola no cuenta.",
+        "pt": "Você já foi preso, citado, acusado ou condenado por qualquer coisa, em qualquer país? Uma multa de trânsito leve sozinha não conta."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_j_visa",
+      "branches": [],
+      "keeps_qualifier": true,
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_criminal_history",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_j_visa",
+      "field_ids": [
+        "p4.screen_j_visa"
+      ],
+      "ask": {
+        "en": "Have you ever been in the United States as a J-1 exchange visitor or a J-2 dependent?",
+        "es": "¿Alguna vez estuvo en Estados Unidos como visitante de intercambio J-1 o como dependiente J-2?",
+        "pt": "Você já esteve nos Estados Unidos como visitante de intercâmbio J-1 ou como dependente J-2?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_victim_based",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_j1_212e",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_victim_based",
+      "field_ids": [
+        "p4.screen_victim_based"
+      ],
+      "ask": {
+        "en": "Is your green card application based on VAWA, or on T or U status?",
+        "es": "¿Su solicitud de residencia se basa en VAWA, o en un estatus T o U?",
+        "pt": "O seu pedido de residência é baseado em VAWA, ou em status T ou U?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_parole",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_victim_based",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_parole",
+      "field_ids": [
+        "p4.screen_parole"
+      ],
+      "ask": {
+        "en": "Are you in the United States on parole right now, or was your last entry into the United States on parole?",
+        "es": "¿Está usted en Estados Unidos con parole en este momento, o la última vez que entró a Estados Unidos fue con parole?",
+        "pt": "Você está nos Estados Unidos com parole neste momento, ou a sua última entrada nos Estados Unidos foi com parole?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_asylum",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_parole_paths",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_asylum",
+      "field_ids": [
+        "p4.screen_asylum"
+      ],
+      "ask": {
+        "en": "Have you been granted asylum, or do you have an asylum application, Form I-589, waiting for a decision?",
+        "es": "¿Le otorgaron asilo, o tiene una solicitud de asilo, el Formulario I-589, que todavía espera una decisión?",
+        "pt": "Você recebeu asilo, ou tem um pedido de asilo, o Formulário I-589, que ainda espera uma decisão?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_daca_tps",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_asylum",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_daca_tps",
+      "field_ids": [
+        "p4.screen_daca_tps"
+      ],
+      "ask": {
+        "en": "Do you have DACA or TPS, or a TPS application waiting for a decision?",
+        "es": "¿Tiene DACA o TPS, o una solicitud de TPS que todavía espera una decisión?",
+        "pt": "Você tem DACA ou TPS, ou um pedido de TPS que ainda espera uma decisão?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_pending_i539",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_daca_or_tps",
+        "when": "answer != \"no\""
+      }
+    },
+    {
+      "node_id": "q_p4_pending_i539",
+      "field_ids": [
+        "p4.screen_pending_i539"
+      ],
+      "ask": {
+        "en": "Do you have a Form I-539, a request to extend or change your status, still waiting for a decision?",
+        "es": "¿Tiene un Formulario I-539, una solicitud para extender o cambiar su estatus, que todavía espera una decisión?",
+        "pt": "Você tem um Formulário I-539, um pedido para prorrogar ou mudar o seu status, que ainda espera uma decisão?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_had_reentry_or_rtd",
+      "branches": []
+    },
+    {
+      "node_id": "q_p4_had_reentry_or_rtd",
+      "field_ids": [
+        "p4.had_reentry_or_rtd"
+      ],
+      "ask": {
+        "en": "Have you ever been issued a reentry permit or a refugee travel document?",
+        "es": "¿Alguna vez le dieron un permiso de reingreso o un documento de viaje de refugiado?",
+        "pt": "Você já recebeu uma autorização de reentrada ou um documento de viagem de refugiado?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_reentry_or_rtd_issued",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p4_had_advance_parole",
+          "skips": [
+            "p4.reentry_or_rtd_issued",
+            "p4.reentry_or_rtd_disposition"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p4_reentry_or_rtd_issued",
+      "field_ids": [
+        "p4.reentry_or_rtd_issued"
+      ],
+      "ask": {
+        "en": "When was the last one issued to you? Month, day and year.",
+        "es": "¿Cuándo le dieron el último? Mes, día y año.",
+        "pt": "Quando foi emitido o último? Mês, dia e ano."
+      },
+      "answer_type": "date",
+      "default_next": "q_p4_reentry_or_rtd_disposition",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p4_reentry_or_rtd_disposition",
+      "field_ids": [
+        "p4.reentry_or_rtd_disposition"
+      ],
+      "ask": {
+        "en": "And what happened to it? For example, attached to this application, lost, stolen, damaged, or still with you.",
+        "es": "¿Y qué pasó con él? Por ejemplo, adjunto a esta solicitud, perdido, robado, dañado, o todavía lo tiene.",
+        "pt": "E o que aconteceu com ele? Por exemplo, anexado a este pedido, perdido, roubado, danificado, ou ainda está com você."
+      },
+      "answer_type": "text",
+      "default_next": "q_p4_had_advance_parole",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p4_had_advance_parole",
+      "field_ids": [
+        "p4.had_advance_parole"
+      ],
+      "ask": {
+        "en": "Have you ever been issued an advance parole document before?",
+        "es": "¿Alguna vez le dieron un documento de permiso adelantado?",
+        "pt": "Você já recebeu um documento de advance parole antes?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p4_advance_parole_issued",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p4_replacement",
+          "skips": [
+            "p4.advance_parole_issued",
+            "p4.advance_parole_disposition"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p4_advance_parole_issued",
+      "field_ids": [
+        "p4.advance_parole_issued"
+      ],
+      "ask": {
+        "en": "When was the last one issued? Month, day and year.",
+        "es": "¿Cuándo le dieron el último? Mes, día y año.",
+        "pt": "Quando foi emitido o último? Mês, dia e ano."
+      },
+      "answer_type": "date",
+      "default_next": "q_p4_advance_parole_disposition",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p4_advance_parole_disposition",
+      "field_ids": [
+        "p4.advance_parole_disposition"
+      ],
+      "ask": {
+        "en": "And what happened to it? For example, used and returned, lost, expired, or still with you.",
+        "es": "¿Y qué pasó con él? Por ejemplo, usado y devuelto, perdido, vencido, o todavía lo tiene.",
+        "pt": "E o que aconteceu com ele? Por exemplo, usado e devolvido, perdido, vencido, ou ainda está com você."
+      },
+      "answer_type": "text",
+      "default_next": "q_p4_replacement",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p4_replacement",
+      "field_ids": [
+        "p4.replacement"
+      ],
+      "ask": {
+        "en": "Is this a new request, or a replacement for a travel document you already got that was lost, stolen, damaged or has a mistake?",
+        "es": "¿Es una solicitud nueva, o el reemplazo de un documento de viaje que ya recibió y que se perdió, se lo robaron, se dañó o tiene un error?",
+        "pt": "É um pedido novo, ou a substituição de um documento de viagem que você já recebeu e que foi perdido, roubado, danificado ou tem um erro?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_full_name",
+      "branches": [],
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_replacement",
+        "when": "answer == \"replacement\""
+      }
+    },
+    {
+      "node_id": "q_p2_full_name",
+      "field_ids": [
+        "p2.given_name",
+        "p2.middle_name",
+        "p2.family_name"
+      ],
+      "ask": {
+        "en": "Now Part 2, which is about you. I fill this form to match your passport and your other USCIS papers, so give me your name exactly as it is printed there. If you have two surnames or a hyphenated surname, both belong in the family name. What is your full legal name?",
+        "es": "Ahora la Parte 2, que es sobre usted. Lleno este formulario para que coincida con su pasaporte y sus otros documentos de USCIS, así que dígame su nombre tal como está impreso ahí. Vamos por partes: primero la casilla Nombre de pila (Given Name), y los apellidos se los pido después. ¿Cuál es su nombre de pila, o sus nombres si tiene más de uno, exactamente como aparece en su pasaporte?",
+        "pt": "Agora a Parte 2, que é sobre você. Eu preencho este formulário para combinar com o seu passaporte e os seus outros documentos do USCIS, então me diga o seu nome exatamente como está impresso lá. Vamos por partes: primeiro o campo Prenome (Given Name), e os sobrenomes eu pergunto depois. Qual é o seu prenome, ou os seus prenomes se tiver mais de um, exatamente como aparece no seu passaporte?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_other_names_gate",
+      "branches": [
+        {
+          "when": "missing:p2.family_name",
+          "node": "q_p2_family_name"
+        },
+        {
+          "when": "missing:p2.middle_name",
+          "node": "q_p2_middle_name_check"
+        }
+      ],
+      "composite": "name",
+      "split_name_locales": [
+        "es",
+        "pt"
+      ],
+      "opener": true
+    },
+    {
+      "node_id": "q_p2_family_name",
+      "field_ids": [
+        "p2.family_name"
+      ],
+      "ask": {
+        "en": "If you have two surnames or a hyphenated surname, both go in this box. What is your family name, your last name, exactly as it appears on your passport?",
+        "es": "Ahora la casilla Apellidos (Family Name). Si tiene dos apellidos, los dos van aquí, tal como aparecen en su pasaporte. ¿Cuáles son sus apellidos?",
+        "pt": "Agora o campo Sobrenome (Family Name). Se você tem dois sobrenomes, os dois vão aqui, como aparecem no seu passaporte. Quais são os seus sobrenomes?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_other_names_gate",
+      "branches": [
+        {
+          "when": "missing:p2.middle_name",
+          "node": "q_p2_middle_name_check"
+        }
+      ]
+    },
+    {
+      "node_id": "q_p2_middle_name_check",
+      "field_ids": [
+        "p2.has_middle_name"
+      ],
+      "ask": {
+        "en": "Do you have a legal middle name?",
+        "es": "¿Tiene un segundo nombre legal?",
+        "pt": "Você tem um nome do meio legal?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_middle_name",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p2_other_names_gate",
+          "confirms_empty": [
+            "p2.middle_name"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p2_middle_name",
+      "field_ids": [
+        "p2.middle_name"
+      ],
+      "ask": {
+        "en": "What is your legal middle name?",
+        "es": "¿Cuál es su segundo nombre legal?",
+        "pt": "Qual é o seu nome do meio legal?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_other_names_gate",
+      "branches": []
+    },
+    {
+      "node_id": "q_p2_other_names_gate",
+      "field_ids": [
+        "p2.has_other_names"
+      ],
+      "ask": {
+        "en": "Have you ever used any other names, like a maiden name, an alias or a nickname? USCIS wants every one of them.",
+        "es": "¿Ha usado alguna vez otros nombres, como el apellido de soltera, un alias o un apodo? USCIS quiere todos.",
+        "pt": "Você já usou outros nomes, como o sobrenome de solteira, um apelido ou um nome alternativo? O USCIS quer todos eles."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_other_name1",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p2_mailing_address",
+          "skips": [
+            "p2.other_name1.given_name",
+            "p2.other_name1.middle_name",
+            "p2.other_name1.family_name",
+            "p2.other_name1.date_of_birth",
+            "p2.has_other_name2",
+            "p2.other_name2.given_name",
+            "p2.other_name2.middle_name",
+            "p2.other_name2.family_name",
+            "p2.other_name2.date_of_birth",
+            "p2.has_other_name3",
+            "p2.other_name3.given_name",
+            "p2.other_name3.middle_name",
+            "p2.other_name3.family_name",
+            "p2.other_name3.date_of_birth",
+            "p2.has_other_name4",
+            "p2.other_name4.given_name",
+            "p2.other_name4.middle_name",
+            "p2.other_name4.family_name",
+            "p2.other_name4.date_of_birth"
+          ]
+        }
+      ],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_other_name1",
+      "field_ids": [
+        "p2.other_name1.given_name",
+        "p2.other_name1.middle_name",
+        "p2.other_name1.family_name"
+      ],
+      "ask": {
+        "en": "What was that other name? First, middle if any, and last.",
+        "es": "¿Cuál era ese otro nombre? Nombre, segundo nombre si tiene, y apellido.",
+        "pt": "Qual era esse outro nome? Nome, nome do meio se tiver, e sobrenome."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_other_name1_dob",
+      "branches": [],
+      "composite": "name",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_other_name1_dob",
+      "field_ids": [
+        "p2.other_name1.date_of_birth"
+      ],
+      "ask": {
+        "en": "What date of birth did you use with that name? Usually it is your own.",
+        "es": "¿Qué fecha de nacimiento usó con ese nombre? Por lo general es la suya.",
+        "pt": "Que data de nascimento você usou com esse nome? Normalmente é a sua."
+      },
+      "answer_type": "date",
+      "default_next": "q_p2_other_names_more1",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_other_names_more1",
+      "field_ids": [
+        "p2.has_other_name2"
+      ],
+      "ask": {
+        "en": "Have you used any other name besides that one?",
+        "es": "¿Ha usado algún otro nombre además de ese?",
+        "pt": "Você usou algum outro nome além desse?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_other_name2",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p2_mailing_address",
+          "skips": [
+            "p2.has_other_name2",
+            "p2.other_name2.given_name",
+            "p2.other_name2.middle_name",
+            "p2.other_name2.family_name",
+            "p2.other_name2.date_of_birth",
+            "p2.has_other_name3",
+            "p2.other_name3.given_name",
+            "p2.other_name3.middle_name",
+            "p2.other_name3.family_name",
+            "p2.other_name3.date_of_birth",
+            "p2.has_other_name4",
+            "p2.other_name4.given_name",
+            "p2.other_name4.middle_name",
+            "p2.other_name4.family_name",
+            "p2.other_name4.date_of_birth"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p2_other_name2",
+      "field_ids": [
+        "p2.other_name2.given_name",
+        "p2.other_name2.middle_name",
+        "p2.other_name2.family_name"
+      ],
+      "ask": {
+        "en": "What was the next other name? First, middle if any, and last.",
+        "es": "¿Cuál era el siguiente otro nombre? Nombre, segundo nombre si tiene, y apellido.",
+        "pt": "Qual era o próximo outro nome? Nome, nome do meio se tiver, e sobrenome."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_other_name2_dob",
+      "branches": [],
+      "composite": "name",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_other_name2_dob",
+      "field_ids": [
+        "p2.other_name2.date_of_birth"
+      ],
+      "ask": {
+        "en": "What date of birth did you use with that name? Usually it is your own.",
+        "es": "¿Qué fecha de nacimiento usó con ese nombre? Por lo general es la suya.",
+        "pt": "Que data de nascimento você usou com esse nome? Normalmente é a sua."
+      },
+      "answer_type": "date",
+      "default_next": "q_p2_other_names_more2",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_other_names_more2",
+      "field_ids": [
+        "p2.has_other_name3"
+      ],
+      "ask": {
+        "en": "Have you used any other name besides that one?",
+        "es": "¿Ha usado algún otro nombre además de ese?",
+        "pt": "Você usou algum outro nome além desse?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_other_name3",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p2_mailing_address",
+          "skips": [
+            "p2.has_other_name3",
+            "p2.other_name3.given_name",
+            "p2.other_name3.middle_name",
+            "p2.other_name3.family_name",
+            "p2.other_name3.date_of_birth",
+            "p2.has_other_name4",
+            "p2.other_name4.given_name",
+            "p2.other_name4.middle_name",
+            "p2.other_name4.family_name",
+            "p2.other_name4.date_of_birth"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p2_other_name3",
+      "field_ids": [
+        "p2.other_name3.given_name",
+        "p2.other_name3.middle_name",
+        "p2.other_name3.family_name"
+      ],
+      "ask": {
+        "en": "What was the next other name? First, middle if any, and last.",
+        "es": "¿Cuál era el siguiente otro nombre? Nombre, segundo nombre si tiene, y apellido.",
+        "pt": "Qual era o próximo outro nome? Nome, nome do meio se tiver, e sobrenome."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_other_name3_dob",
+      "branches": [],
+      "composite": "name",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_other_name3_dob",
+      "field_ids": [
+        "p2.other_name3.date_of_birth"
+      ],
+      "ask": {
+        "en": "What date of birth did you use with that name? Usually it is your own.",
+        "es": "¿Qué fecha de nacimiento usó con ese nombre? Por lo general es la suya.",
+        "pt": "Que data de nascimento você usou com esse nome? Normalmente é a sua."
+      },
+      "answer_type": "date",
+      "default_next": "q_p2_other_names_more3",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_other_names_more3",
+      "field_ids": [
+        "p2.has_other_name4"
+      ],
+      "ask": {
+        "en": "Have you used any other name besides that one?",
+        "es": "¿Ha usado algún otro nombre además de ese?",
+        "pt": "Você usou algum outro nome além desse?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_other_name4",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p2_mailing_address",
+          "skips": [
+            "p2.has_other_name4",
+            "p2.other_name4.given_name",
+            "p2.other_name4.middle_name",
+            "p2.other_name4.family_name",
+            "p2.other_name4.date_of_birth"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p2_other_name4",
+      "field_ids": [
+        "p2.other_name4.given_name",
+        "p2.other_name4.middle_name",
+        "p2.other_name4.family_name"
+      ],
+      "ask": {
+        "en": "What was the next other name? First, middle if any, and last.",
+        "es": "¿Cuál era el siguiente otro nombre? Nombre, segundo nombre si tiene, y apellido.",
+        "pt": "Qual era o próximo outro nome? Nome, nome do meio se tiver, e sobrenome."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_other_name4_dob",
+      "branches": [],
+      "composite": "name",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_other_name4_dob",
+      "field_ids": [
+        "p2.other_name4.date_of_birth"
+      ],
+      "ask": {
+        "en": "What date of birth did you use with that name? Usually it is your own.",
+        "es": "¿Qué fecha de nacimiento usó con ese nombre? Por lo general es la suya.",
+        "pt": "Que data de nascimento você usou com esse nome? Normalmente é a sua."
+      },
+      "answer_type": "date",
+      "default_next": "q_p2_mailing_address",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_mailing_address",
+      "field_ids": [
+        "p2.mailing_address.street",
+        "p2.mailing_address.unit",
+        "p2.mailing_address.city",
+        "p2.mailing_address.state",
+        "p2.mailing_address.postal_code",
+        "p2.mailing_address.in_care_of",
+        "p2.mailing_address.country"
+      ],
+      "ask": {
+        "en": "Where should USCIS mail your travel document and notices? It has to be an address in the United States. Street address, apartment or suite if any, city, state and ZIP. If the mail goes to someone else's name, tell me that name too.",
+        "es": "¿A dónde debe USCIS enviarle su documento de viaje y sus notificaciones? Tiene que ser una dirección en Estados Unidos. Calle y número, apartamento o suite si tiene, ciudad, estado y código postal. Si el correo va a nombre de otra persona, dígame también ese nombre.",
+        "pt": "Para onde o USCIS deve enviar o seu documento de viagem e as notificações? Tem que ser um endereço nos Estados Unidos. Rua e número, apartamento ou sala se tiver, cidade, estado e CEP. Se a correspondência vai em nome de outra pessoa, me diga esse nome também."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_mailing_is_physical",
+      "branches": [
+        {
+          "when": "missing:p2.mailing_address.street",
+          "node": "q_p2_mailing_address_street"
+        },
+        {
+          "when": "missing:p2.mailing_address.city",
+          "node": "q_p2_mailing_address_city"
+        },
+        {
+          "when": "missing:p2.mailing_address.state",
+          "node": "q_p2_mailing_address_state"
+        },
+        {
+          "when": "missing:p2.mailing_address.postal_code",
+          "node": "q_p2_mailing_address_postal_code"
+        }
+      ],
+      "composite": "address",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_mailing_address_street",
+      "field_ids": [
+        "p2.mailing_address.street"
+      ],
+      "ask": {
+        "en": "What is the street address?",
+        "es": "¿Cuál es la calle y el número?",
+        "pt": "Qual é a rua e o número?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_mailing_is_physical",
+      "branches": [
+        {
+          "when": "missing:p2.mailing_address.city",
+          "node": "q_p2_mailing_address_city"
+        },
+        {
+          "when": "missing:p2.mailing_address.state",
+          "node": "q_p2_mailing_address_state"
+        },
+        {
+          "when": "missing:p2.mailing_address.postal_code",
+          "node": "q_p2_mailing_address_postal_code"
+        }
+      ],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p2.mailing_address.unit",
+        "p2.mailing_address.city",
+        "p2.mailing_address.state",
+        "p2.mailing_address.postal_code",
+        "p2.mailing_address.in_care_of",
+        "p2.mailing_address.country"
+      ]
+    },
+    {
+      "node_id": "q_p2_mailing_address_city",
+      "field_ids": [
+        "p2.mailing_address.city"
+      ],
+      "ask": {
+        "en": "What city is that in?",
+        "es": "¿En qué ciudad está?",
+        "pt": "Em que cidade fica?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_mailing_is_physical",
+      "branches": [
+        {
+          "when": "missing:p2.mailing_address.state",
+          "node": "q_p2_mailing_address_state"
+        },
+        {
+          "when": "missing:p2.mailing_address.postal_code",
+          "node": "q_p2_mailing_address_postal_code"
+        }
+      ],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p2.mailing_address.street",
+        "p2.mailing_address.unit",
+        "p2.mailing_address.state",
+        "p2.mailing_address.postal_code",
+        "p2.mailing_address.in_care_of",
+        "p2.mailing_address.country"
+      ]
+    },
+    {
+      "node_id": "q_p2_mailing_address_state",
+      "field_ids": [
+        "p2.mailing_address.state"
+      ],
+      "ask": {
+        "en": "Which state?",
+        "es": "¿En qué estado?",
+        "pt": "Em que estado?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_mailing_is_physical",
+      "branches": [
+        {
+          "when": "missing:p2.mailing_address.postal_code",
+          "node": "q_p2_mailing_address_postal_code"
+        }
+      ],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p2.mailing_address.street",
+        "p2.mailing_address.unit",
+        "p2.mailing_address.city",
+        "p2.mailing_address.postal_code",
+        "p2.mailing_address.in_care_of",
+        "p2.mailing_address.country"
+      ]
+    },
+    {
+      "node_id": "q_p2_mailing_address_postal_code",
+      "field_ids": [
+        "p2.mailing_address.postal_code"
+      ],
+      "ask": {
+        "en": "What is the ZIP code?",
+        "es": "¿Cuál es el código postal?",
+        "pt": "Qual é o CEP?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_mailing_is_physical",
+      "branches": [],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p2.mailing_address.street",
+        "p2.mailing_address.unit",
+        "p2.mailing_address.city",
+        "p2.mailing_address.state",
+        "p2.mailing_address.in_care_of",
+        "p2.mailing_address.country"
+      ]
+    },
+    {
+      "node_id": "q_p2_mailing_is_physical",
+      "field_ids": [
+        "p2.mailing_is_physical"
+      ],
+      "ask": {
+        "en": "Is that also where you live, your physical address?",
+        "es": "¿Esa es también la dirección donde vive, su dirección física?",
+        "pt": "Esse é também o endereço onde você mora, o seu endereço físico?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_physical_address",
+      "branches": [
+        {
+          "when": "answer == \"yes\"",
+          "node": "q_p2_a_number_gate",
+          "skips": [
+            "p2.physical_address.street",
+            "p2.physical_address.unit",
+            "p2.physical_address.city",
+            "p2.physical_address.state",
+            "p2.physical_address.postal_code",
+            "p2.physical_address.country"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p2_physical_address",
+      "field_ids": [
+        "p2.physical_address.street",
+        "p2.physical_address.unit",
+        "p2.physical_address.city",
+        "p2.physical_address.state",
+        "p2.physical_address.postal_code",
+        "p2.physical_address.country"
+      ],
+      "ask": {
+        "en": "Then where do you live? Street address, apartment or suite if any, city, state and ZIP.",
+        "es": "Entonces, ¿dónde vive? Calle y número, apartamento o suite si tiene, ciudad, estado y código postal.",
+        "pt": "Então onde você mora? Rua e número, apartamento ou sala se tiver, cidade, estado e CEP."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_a_number_gate",
+      "branches": [
+        {
+          "when": "missing:p2.physical_address.street",
+          "node": "q_p2_physical_address_street"
+        },
+        {
+          "when": "missing:p2.physical_address.city",
+          "node": "q_p2_physical_address_city"
+        },
+        {
+          "when": "missing:p2.physical_address.state",
+          "node": "q_p2_physical_address_state"
+        },
+        {
+          "when": "missing:p2.physical_address.postal_code",
+          "node": "q_p2_physical_address_postal_code"
+        }
+      ],
+      "composite": "address",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_physical_address_street",
+      "field_ids": [
+        "p2.physical_address.street"
+      ],
+      "ask": {
+        "en": "What is the street address?",
+        "es": "¿Cuál es la calle y el número?",
+        "pt": "Qual é a rua e o número?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_a_number_gate",
+      "branches": [
+        {
+          "when": "missing:p2.physical_address.city",
+          "node": "q_p2_physical_address_city"
+        },
+        {
+          "when": "missing:p2.physical_address.state",
+          "node": "q_p2_physical_address_state"
+        },
+        {
+          "when": "missing:p2.physical_address.postal_code",
+          "node": "q_p2_physical_address_postal_code"
+        }
+      ],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p2.physical_address.unit",
+        "p2.physical_address.city",
+        "p2.physical_address.state",
+        "p2.physical_address.postal_code",
+        "p2.physical_address.country"
+      ]
+    },
+    {
+      "node_id": "q_p2_physical_address_city",
+      "field_ids": [
+        "p2.physical_address.city"
+      ],
+      "ask": {
+        "en": "What city is that in?",
+        "es": "¿En qué ciudad está?",
+        "pt": "Em que cidade fica?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_a_number_gate",
+      "branches": [
+        {
+          "when": "missing:p2.physical_address.state",
+          "node": "q_p2_physical_address_state"
+        },
+        {
+          "when": "missing:p2.physical_address.postal_code",
+          "node": "q_p2_physical_address_postal_code"
+        }
+      ],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p2.physical_address.street",
+        "p2.physical_address.unit",
+        "p2.physical_address.state",
+        "p2.physical_address.postal_code",
+        "p2.physical_address.country"
+      ]
+    },
+    {
+      "node_id": "q_p2_physical_address_state",
+      "field_ids": [
+        "p2.physical_address.state"
+      ],
+      "ask": {
+        "en": "Which state?",
+        "es": "¿En qué estado?",
+        "pt": "Em que estado?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_a_number_gate",
+      "branches": [
+        {
+          "when": "missing:p2.physical_address.postal_code",
+          "node": "q_p2_physical_address_postal_code"
+        }
+      ],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p2.physical_address.street",
+        "p2.physical_address.unit",
+        "p2.physical_address.city",
+        "p2.physical_address.postal_code",
+        "p2.physical_address.country"
+      ]
+    },
+    {
+      "node_id": "q_p2_physical_address_postal_code",
+      "field_ids": [
+        "p2.physical_address.postal_code"
+      ],
+      "ask": {
+        "en": "What is the ZIP code?",
+        "es": "¿Cuál es el código postal?",
+        "pt": "Qual é o CEP?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_a_number_gate",
+      "branches": [],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p2.physical_address.street",
+        "p2.physical_address.unit",
+        "p2.physical_address.city",
+        "p2.physical_address.state",
+        "p2.physical_address.country"
+      ]
+    },
+    {
+      "node_id": "q_p2_a_number_gate",
+      "field_ids": [
+        "p2.has_a_number"
+      ],
+      "ask": {
+        "en": "Do you have an A-Number, the USCIS number printed on your I-485 receipt notice and your other USCIS notices?",
+        "es": "¿Tiene un número A, el número de USCIS impreso en la notificación de recibo de su I-485 y en sus otras notificaciones de USCIS?",
+        "pt": "Você tem um Número A, o número do USCIS impresso na notificação de recebimento do seu I-485 e nas suas outras notificações do USCIS?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_a_number",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p2_birth_country",
+          "confirms_empty": [
+            "p2.a_number"
+          ],
+          "skips": [
+            "p2.a_number"
+          ]
+        }
+      ]
+    },
+    {
+      "node_id": "q_p2_a_number",
+      "field_ids": [
+        "p2.a_number"
+      ],
+      "ask": {
+        "en": "What is your A-Number, the nine digits after the A, or eight on older ones?",
+        "es": "¿Cuál es su número A, los nueve dígitos después de la A, u ocho en los más antiguos?",
+        "pt": "Qual é o seu Número A, os nove dígitos depois do A, ou oito nos mais antigos?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_birth_country",
+      "branches": []
+    },
+    {
+      "node_id": "q_p2_birth_country",
+      "field_ids": [
+        "p2.birth_country"
+      ],
+      "ask": {
+        "en": "What country were you born in? Use the country's name today, even if it had a different name then.",
+        "es": "¿En qué país nació? Use el nombre que el país tiene hoy, aunque entonces tuviera otro nombre.",
+        "pt": "Em que país você nasceu? Use o nome que o país tem hoje, mesmo que na época tivesse outro nome."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_citizenship1",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_citizenship1",
+      "field_ids": [
+        "p2.citizenship1"
+      ],
+      "ask": {
+        "en": "What country are you a citizen or national of?",
+        "es": "¿De qué país es ciudadano o nacional?",
+        "pt": "De que país você é cidadão ou nacional?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_sex",
+      "branches": []
+    },
+    {
+      "node_id": "q_p2_sex",
+      "field_ids": [
+        "p2.sex"
+      ],
+      "ask": {
+        "en": "What is your sex, Male or Female? The form wants what your birth certificate says.",
+        "es": "¿Cuál es su sexo, hombre o mujer? El formulario quiere lo que dice su acta de nacimiento.",
+        "pt": "Qual é o seu sexo, masculino ou feminino? O formulário quer o que diz a sua certidão de nascimento."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_date_of_birth",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_date_of_birth",
+      "field_ids": [
+        "p2.date_of_birth"
+      ],
+      "ask": {
+        "en": "What is your date of birth? You can say it like April 12, 1987.",
+        "es": "¿Cuál es su fecha de nacimiento? Puede decirla como 12 de abril de 1987.",
+        "pt": "Qual é a sua data de nascimento? Você pode dizer assim: 12 de abril de 1987."
+      },
+      "answer_type": "date",
+      "default_next": "q_p2_ssn_gate",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_ssn_gate",
+      "field_ids": [
+        "p2.has_ssn"
+      ],
+      "ask": {
+        "en": "Do you have a Social Security number? If you were never issued one, say no.",
+        "es": "¿Tiene un número de Seguro Social? Si nunca le dieron uno, diga que no.",
+        "pt": "Você tem um número de Seguro Social? Se nunca recebeu um, diga não."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_ssn",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p2_uscis_account_gate",
+          "confirms_empty": [
+            "p2.ssn"
+          ],
+          "skips": [
+            "p2.ssn"
+          ]
+        }
+      ],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_ssn",
+      "field_ids": [
+        "p2.ssn"
+      ],
+      "ask": {
+        "en": "What is your Social Security number?",
+        "es": "¿Cuál es su número de Seguro Social?",
+        "pt": "Qual é o seu número de Seguro Social?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_uscis_account_gate",
+      "branches": []
+    },
+    {
+      "node_id": "q_p2_uscis_account_gate",
+      "field_ids": [
+        "p2.has_uscis_account"
+      ],
+      "ask": {
+        "en": "Do you have a USCIS online account number? You only have one if a receipt number of yours starts with IOE; it is fine to say no.",
+        "es": "¿Tiene un número de cuenta en línea de USCIS? Solo lo tiene si alguno de sus números de recibo empieza con IOE; está bien decir que no.",
+        "pt": "Você tem um número de conta online do USCIS? Você só tem um se algum dos seus números de recibo começa com IOE; tudo bem dizer não."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_uscis_account",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p2_class_of_admission",
+          "confirms_empty": [
+            "p2.uscis_account_number"
+          ],
+          "skips": [
+            "p2.uscis_account_number"
+          ]
+        }
+      ],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_uscis_account",
+      "field_ids": [
+        "p2.uscis_account_number"
+      ],
+      "ask": {
+        "en": "What is your USCIS online account number? It is twelve digits, in your USCIS online account profile, or at the top of the Account Access Notice USCIS mailed you. If you don't have it handy, say I don't know, and I'll leave the box for you to fill in.",
+        "es": "¿Cuál es su número de cuenta en línea de USCIS? Son doce dígitos y aparecen en el perfil de su cuenta en línea de USCIS, o arriba en el Aviso de Acceso a la Cuenta (Account Access Notice) que USCIS le envió por correo. Si no lo tiene a mano, diga no sé, y dejo la casilla para que usted la llene.",
+        "pt": "Qual é o seu número de conta online do USCIS? São doze dígitos e aparecem no perfil da sua conta online do USCIS, ou no alto do Aviso de Acesso à Conta (Account Access Notice) que o USCIS mandou pelo correio. Se não estiver com ele à mão, diga não sei, e eu deixo o campo para você preencher."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_class_of_admission",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_class_of_admission",
+      "field_ids": [
+        "p2.class_of_admission"
+      ],
+      "ask": {
+        "en": "What is the class of admission on your Form I-94, the code after COA, like B2, F1 or H4? If you never had an I-94, say none.",
+        "es": "¿Cuál es la clase de admisión en su Formulario I-94, el código después de COA, como B2, F1 o H4? Si nunca tuvo un I-94, diga ninguna.",
+        "pt": "Qual é a classe de admissão no seu Formulário I-94, o código depois de COA, como B2, F1 ou H4? Se você nunca teve um I-94, diga nenhuma."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_i94_gate",
+      "branches": [],
+      "keeps_qualifier": true,
+      "policy_trigger": {
+        "capability": "determine_eligibility",
+        "outcome": "ESCALATE",
+        "reason_code": "i131_parole_class_of_admission",
+        "when": "answer in [\"PAR\", \"DT\", \"UHP\", \"OAR\", \"CHP\", \"HHP\", \"NHP\", \"VHP\", \"WHP\", \"CC\", \"CH\", \"CM\", \"CP\", \"DA\", \"OP\", \"PR\", \"HF\", \"MIL\", \"RCU\", \"HFRP\"]"
+      }
+    },
+    {
+      "node_id": "q_p2_i94_gate",
+      "field_ids": [
+        "p2.has_i94"
+      ],
+      "ask": {
+        "en": "Do you have a Form I-94 arrival record number? It is the 11-character number on your most recent I-94, or on the CBP website. If you never had one, say no.",
+        "es": "¿Tiene un número de registro de llegada del Formulario I-94? Es el número de 11 caracteres en su I-94 más reciente, o en el sitio web de CBP. Si nunca tuvo uno, diga que no.",
+        "pt": "Você tem um número de registro de chegada do Formulário I-94? É o número de 11 caracteres no seu I-94 mais recente, ou no site do CBP. Se nunca teve um, diga não."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p2_i94_number",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p3_ethnicity",
+          "confirms_empty": [
+            "p2.i94_number",
+            "p2.i94_expiry"
+          ],
+          "skips": [
+            "p2.i94_number",
+            "p2.i94_expiry"
+          ]
+        }
+      ],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_i94_number",
+      "field_ids": [
+        "p2.i94_number"
+      ],
+      "ask": {
+        "en": "What is your I-94 number? Eleven characters.",
+        "es": "¿Cuál es su número de I-94? Son once caracteres.",
+        "pt": "Qual é o seu número do I-94? São onze caracteres."
+      },
+      "answer_type": "text",
+      "default_next": "q_p2_i94_expiry",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p2_i94_expiry",
+      "field_ids": [
+        "p2.i94_expiry"
+      ],
+      "ask": {
+        "en": "What date does that I-94 say your authorized stay ends, the Admit Until date? Month, day and year, or D/S if that is what it says.",
+        "es": "¿Qué fecha dice ese I-94 que termina su estadía autorizada, la fecha Admitido hasta (Admit Until)? Mes, día y año, o D/S si eso es lo que dice.",
+        "pt": "Que data esse I-94 diz que termina a sua estadia autorizada, a data Admitido até (Admit Until)? Mês, dia e ano, ou D/S se for isso que diz."
+      },
+      "answer_type": "text",
+      "default_next": "q_p3_ethnicity",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p3_ethnicity",
+      "field_ids": [
+        "p3.ethnicity"
+      ],
+      "ask": {
+        "en": "Part 3 is what you look like, which USCIS uses for background checks. To start, what is your ethnicity: Hispanic or Latino, or Not Hispanic or Latino?",
+        "es": "La Parte 3 es su apariencia, que USCIS usa para las verificaciones de antecedentes. Para empezar, ¿cuál es su origen étnico: hispano o latino, o no hispano ni latino?",
+        "pt": "A Parte 3 é a sua aparência, que o USCIS usa para as verificações de antecedentes. Para começar, qual é a sua etnia: hispânico ou latino, ou não hispânico nem latino?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p3_race",
+      "branches": [],
+      "opener": true
+    },
+    {
+      "node_id": "q_p3_race",
+      "field_ids": [
+        "p3.race_american_indian",
+        "p3.race_asian",
+        "p3.race_black",
+        "p3.race_pacific_islander",
+        "p3.race_white"
+      ],
+      "ask": {
+        "en": "Which of these describe your race? You can pick more than one: American Indian or Alaska Native, Asian, Black or African American, Native Hawaiian or Other Pacific Islander, or White.",
+        "es": "¿Cuáles de estas opciones describen su raza? Puede elegir más de una: indígena americano o nativo de Alaska, asiático, negro o afroamericano, nativo de Hawái u otra isla del Pacífico, o blanco.",
+        "pt": "Quais destas opções descrevem a sua raça? Você pode escolher mais de uma: indígena americano ou nativo do Alasca, asiático, negro ou afro-americano, nativo do Havaí ou de outra ilha do Pacífico, ou branco."
+      },
+      "answer_type": "yes_no_explanation",
+      "default_next": "q_p3_height_weight",
+      "branches": [],
+      "composite": "multi_select",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p3_height_weight",
+      "field_ids": [
+        "p3.height_feet",
+        "p3.height_inches",
+        "p3.weight_pounds"
+      ],
+      "ask": {
+        "en": "How tall are you, and how much do you weigh? Feet and inches, and pounds. If you think in meters and kilos, say that and I will convert.",
+        "es": "¿Cuánto mide y cuánto pesa? Pies y pulgadas, y libras. Si piensa en metros y kilos, dígalo así y yo lo convierto.",
+        "pt": "Qual é a sua altura e o seu peso? Pés e polegadas, e libras. Se você pensa em metros e quilos, diga assim que eu converto."
+      },
+      "answer_type": "number",
+      "default_next": "q_p3_eye_hair",
+      "branches": [
+        {
+          "when": "missing:p3.height_feet",
+          "node": "q_p3_height_weight_height_feet"
+        },
+        {
+          "when": "missing:p3.height_inches",
+          "node": "q_p3_height_weight_height_inches"
+        },
+        {
+          "when": "missing:p3.weight_pounds",
+          "node": "q_p3_height_weight_weight_pounds"
+        }
+      ],
+      "composite": "height_weight",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p3_height_weight_height_feet",
+      "field_ids": [
+        "p3.height_feet"
+      ],
+      "ask": {
+        "en": "How tall are you, in feet and inches?",
+        "es": "¿Cuánto mide, en pies y pulgadas?",
+        "pt": "Qual é a sua altura, em pés e polegadas?"
+      },
+      "answer_type": "number",
+      "default_next": "q_p3_eye_hair",
+      "branches": [
+        {
+          "when": "missing:p3.height_inches",
+          "node": "q_p3_height_weight_height_inches"
+        },
+        {
+          "when": "missing:p3.weight_pounds",
+          "node": "q_p3_height_weight_weight_pounds"
+        }
+      ]
+    },
+    {
+      "node_id": "q_p3_height_weight_height_inches",
+      "field_ids": [
+        "p3.height_inches"
+      ],
+      "ask": {
+        "en": "And how many inches on top of that?",
+        "es": "¿Y cuántas pulgadas además de eso?",
+        "pt": "E quantas polegadas além disso?"
+      },
+      "answer_type": "number",
+      "default_next": "q_p3_eye_hair",
+      "branches": [
+        {
+          "when": "missing:p3.weight_pounds",
+          "node": "q_p3_height_weight_weight_pounds"
+        }
+      ]
+    },
+    {
+      "node_id": "q_p3_height_weight_weight_pounds",
+      "field_ids": [
+        "p3.weight_pounds"
+      ],
+      "ask": {
+        "en": "How much do you weigh, in pounds?",
+        "es": "¿Cuánto pesa, en libras?",
+        "pt": "Quanto você pesa, em libras?"
+      },
+      "answer_type": "number",
+      "default_next": "q_p3_eye_hair",
+      "branches": []
+    },
+    {
+      "node_id": "q_p3_eye_hair",
+      "field_ids": [
+        "p3.eye_color",
+        "p3.hair_color"
+      ],
+      "ask": {
+        "en": "What color are your eyes, and what color is your hair?",
+        "es": "¿De qué color son sus ojos y de qué color es su cabello?",
+        "pt": "Qual é a cor dos seus olhos e qual é a cor do seu cabelo?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p7_trip_planned",
+      "branches": [
+        {
+          "when": "missing:p3.eye_color",
+          "node": "q_p3_eye_hair_eye_color"
+        },
+        {
+          "when": "missing:p3.hair_color",
+          "node": "q_p3_eye_hair_hair_color"
+        }
+      ],
+      "composite": "eye_hair"
+    },
+    {
+      "node_id": "q_p3_eye_hair_eye_color",
+      "field_ids": [
+        "p3.eye_color"
+      ],
+      "ask": {
+        "en": "What color are your eyes? Black, Blue, Brown, Gray, Green, Hazel, Maroon, Pink, or Unknown or other.",
+        "es": "¿De qué color son sus ojos? Negro, azul, café, gris, verde, avellana, granate, rosa, o desconocido u otro.",
+        "pt": "Qual é a cor dos seus olhos? Preto, azul, castanho, cinza, verde, avelã, bordô, rosa, ou desconhecido ou outro."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p7_trip_planned",
+      "branches": [
+        {
+          "when": "missing:p3.hair_color",
+          "node": "q_p3_eye_hair_hair_color"
+        }
+      ],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p3_eye_hair_hair_color",
+      "field_ids": [
+        "p3.hair_color"
+      ],
+      "ask": {
+        "en": "What color is your hair? Bald, Black, Blond, Brown, Gray, Red, Sandy, White, or Unknown or other.",
+        "es": "¿De qué color es su cabello? Calvo, negro, rubio, castaño, gris, rojo, rubio oscuro, blanco, o desconocido u otro.",
+        "pt": "Qual é a cor do seu cabelo? Careca, preto, loiro, castanho, grisalho, ruivo, loiro escuro, branco, ou desconhecido ou outro."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p7_trip_planned",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p7_trip_planned",
+      "field_ids": [
+        "p7.trip_planned"
+      ],
+      "ask": {
+        "en": "Part 7 is about the trip. Do you have a trip planned right now? It is fine if you don't; many people ask for advance parole before they have one.",
+        "es": "La Parte 7 es sobre el viaje. ¿Tiene un viaje planeado ahora? Está bien si no; muchas personas piden el permiso adelantado antes de tener uno.",
+        "pt": "A Parte 7 é sobre a viagem. Você tem uma viagem planejada agora? Tudo bem se não tiver; muitas pessoas pedem o advance parole antes de ter uma."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p7_departure_date",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p7_departure_note",
+          "skips": [
+            "p7.departure_date"
+          ]
+        }
+      ],
+      "keeps_qualifier": true,
+      "opener": true
+    },
+    {
+      "node_id": "q_p7_departure_date",
+      "field_ids": [
+        "p7.departure_date"
+      ],
+      "ask": {
+        "en": "What date do you plan to leave? Month, day and year.",
+        "es": "¿En qué fecha piensa salir? Mes, día y año.",
+        "pt": "Em que data você pretende partir? Mês, dia e ano."
+      },
+      "answer_type": "date",
+      "default_next": "q_p7_purpose",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p7_departure_note",
+      "field_ids": [
+        "p7.departure_note"
+      ],
+      "ask": {
+        "en": "The form asks when you intend to leave. Since you have no trip planned, what should it say? Tell me in your own words.",
+        "es": "El formulario pregunta cuándo piensa salir. Como no tiene un viaje planeado, ¿qué debe decir? Dígamelo en sus propias palabras.",
+        "pt": "O formulário pergunta quando você pretende partir. Como você não tem uma viagem planejada, o que ele deve dizer? Me diga nas suas próprias palavras."
+      },
+      "answer_type": "text",
+      "default_next": "q_p7_purpose",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p7_purpose",
+      "field_ids": [
+        "p7.purpose"
+      ],
+      "ask": {
+        "en": "What is the purpose of the trip, in your own words? If you don't have a specific trip yet, say what you would travel for.",
+        "es": "¿Cuál es el propósito del viaje, en sus propias palabras? Si todavía no tiene un viaje específico, diga para qué viajaría.",
+        "pt": "Qual é o propósito da viagem, nas suas próprias palavras? Se ainda não tem uma viagem específica, diga para que você viajaria."
+      },
+      "answer_type": "text",
+      "default_next": "q_p7_countries",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p7_countries",
+      "field_ids": [
+        "p7.countries"
+      ],
+      "ask": {
+        "en": "Which countries do you intend to visit? If you don't know yet, say that in your own words.",
+        "es": "¿Qué países piensa visitar? Si todavía no lo sabe, dígalo en sus propias palabras.",
+        "pt": "Quais países você pretende visitar? Se ainda não sabe, diga isso nas suas próprias palavras."
+      },
+      "answer_type": "text",
+      "default_next": "q_p7_trips",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p7_trips",
+      "field_ids": [
+        "p7.trips"
+      ],
+      "ask": {
+        "en": "Do you intend to use this document for one trip, or more than one?",
+        "es": "¿Piensa usar este documento para un viaje, o para más de uno?",
+        "pt": "Você pretende usar este documento para uma viagem, ou para mais de uma?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p7_length",
+      "branches": []
+    },
+    {
+      "node_id": "q_p7_length",
+      "field_ids": [
+        "p7.length_days"
+      ],
+      "ask": {
+        "en": "How many days do you expect the trip to last? If you don't know yet, say that in your own words.",
+        "es": "¿Cuántos días espera que dure el viaje? Si todavía no lo sabe, dígalo en sus propias palabras.",
+        "pt": "Quantos dias você espera que a viagem dure? Se ainda não sabe, diga isso nas suas próprias palavras."
+      },
+      "answer_type": "text",
+      "default_next": "q_p10_reads_english",
+      "branches": [],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p10_reads_english",
+      "field_ids": [
+        "p10.reads_english"
+      ],
+      "ask": {
+        "en": "Can you read and understand English, and did you read and understand every question on this application yourself?",
+        "es": "¿Puede leer y entender inglés, y leyó y entendió por su cuenta cada pregunta de esta solicitud?",
+        "pt": "Você consegue ler e entender inglês, e leu e entendeu cada pergunta deste pedido por conta própria?"
+      },
+      "answer_type": "choice",
+      "default_next": "q_p10_contact",
+      "branches": [
+        {
+          "when": "answer == \"yes\"",
+          "node": "q_p10_contact",
+          "skips": [
+            "p11.interpreter_language",
+            "p11.interpreter.given_name",
+            "p11.interpreter.middle_name",
+            "p11.interpreter.family_name",
+            "p11.interpreter_has_business",
+            "p11.interpreter_business",
+            "p11.interpreter.daytime_phone",
+            "p11.interpreter.mobile_phone",
+            "p11.interpreter.email",
+            "p11.interpreter_signature_date"
+          ]
+        }
+      ],
+      "opener": true
+    },
+    {
+      "node_id": "q_p10_contact",
+      "field_ids": [
+        "p10.daytime_phone",
+        "p10.mobile_phone",
+        "p10.email"
+      ],
+      "ask": {
+        "en": "How can USCIS reach you? A daytime phone number, a mobile number if it is different, and your email.",
+        "es": "¿Cómo puede USCIS comunicarse con usted? Un teléfono de día, un celular si es distinto, y su correo electrónico.",
+        "pt": "Como o USCIS pode falar com você? Um telefone durante o dia, um celular se for diferente, e o seu e-mail."
+      },
+      "answer_type": "text",
+      "default_next": "q_p11_interpreter_language",
+      "branches": [
+        {
+          "when": "missing:p10.daytime_phone",
+          "node": "q_p10_contact_daytime_phone"
+        }
+      ],
+      "composite": "contact",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p10_contact_daytime_phone",
+      "field_ids": [
+        "p10.daytime_phone"
+      ],
+      "ask": {
+        "en": "What is the daytime phone number?",
+        "es": "¿Cuál es el número de teléfono de día?",
+        "pt": "Qual é o número de telefone durante o dia?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p11_interpreter_language",
+      "branches": [],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p10.mobile_phone",
+        "p10.email"
+      ]
+    },
+    {
+      "node_id": "q_p11_interpreter_language",
+      "field_ids": [
+        "p11.interpreter_language"
+      ],
+      "ask": {
+        "en": "What language did the interpreter use with you?",
+        "es": "¿Qué idioma usó el intérprete con usted?",
+        "pt": "Que idioma o intérprete usou com você?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p11_interpreter_name",
+      "branches": [],
+      "opener": true
+    },
+    {
+      "node_id": "q_p11_interpreter_name",
+      "field_ids": [
+        "p11.interpreter.given_name",
+        "p11.interpreter.family_name"
+      ],
+      "ask": {
+        "en": "What is the full name of your interpreter, first and last?",
+        "es": "¿Cuál es el nombre completo de su intérprete, nombre y apellido?",
+        "pt": "Qual é o nome completo do seu intérprete, nome e sobrenome?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p11_interpreter_business_gate",
+      "branches": [],
+      "composite": "name"
+    },
+    {
+      "node_id": "q_p11_interpreter_business_gate",
+      "field_ids": [
+        "p11.interpreter_has_business"
+      ],
+      "ask": {
+        "en": "Does the interpreter work for a business or an organization? The form asks for its name if there is one.",
+        "es": "¿El intérprete trabaja para una empresa o una organización? El formulario pide el nombre si lo hay.",
+        "pt": "O intérprete trabalha para uma empresa ou uma organização? O formulário pede o nome, se houver."
+      },
+      "answer_type": "choice",
+      "default_next": "q_p11_interpreter_business",
+      "branches": [
+        {
+          "when": "answer == \"no\"",
+          "node": "q_p11_interpreter_contact",
+          "confirms_empty": [
+            "p11.interpreter_business"
+          ]
+        }
+      ],
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p11_interpreter_business",
+      "field_ids": [
+        "p11.interpreter_business"
+      ],
+      "ask": {
+        "en": "What is the name of that business or organization?",
+        "es": "¿Cuál es el nombre de esa empresa u organización?",
+        "pt": "Qual é o nome dessa empresa ou organização?"
+      },
+      "answer_type": "text",
+      "default_next": "q_p11_interpreter_contact",
+      "branches": []
+    },
+    {
+      "node_id": "q_p11_interpreter_contact",
+      "field_ids": [
+        "p11.interpreter.daytime_phone",
+        "p11.interpreter.mobile_phone",
+        "p11.interpreter.email"
+      ],
+      "ask": {
+        "en": "How can USCIS reach the interpreter? A daytime phone, a mobile if any, and an email if any.",
+        "es": "¿Cómo puede USCIS comunicarse con el intérprete? Un teléfono de día, un celular si tiene, y un correo electrónico si tiene.",
+        "pt": "Como o USCIS pode falar com o intérprete? Um telefone durante o dia, um celular se tiver, e um e-mail se tiver."
+      },
+      "answer_type": "text",
+      "branches": [
+        {
+          "when": "missing:p11.interpreter.daytime_phone",
+          "node": "q_p11_interpreter_contact_daytime_phone"
+        }
+      ],
+      "composite": "contact",
+      "keeps_qualifier": true
+    },
+    {
+      "node_id": "q_p11_interpreter_contact_daytime_phone",
+      "field_ids": [
+        "p11.interpreter.daytime_phone"
+      ],
+      "ask": {
+        "en": "What is the daytime phone number?",
+        "es": "¿Cuál es el número de teléfono de día?",
+        "pt": "Qual é o número de telefone durante o dia?"
+      },
+      "answer_type": "text",
+      "branches": [],
+      "echo": {
+        "en": "I have {known}.",
+        "es": "Tengo {known}.",
+        "pt": "Tenho {known}."
+      },
+      "echo_field_ids": [
+        "p11.interpreter.mobile_phone",
+        "p11.interpreter.email"
+      ]
+    }
+  ],
+  "sessions": [
+    {
+      "session_id": "s1",
+      "part": 1,
+      "minutes": 1,
+      "title": {
+        "en": "Your travel document",
+        "es": "Su documento de viaje",
+        "pt": "Seu documento de viagem"
+      }
+    },
+    {
+      "session_id": "s2",
+      "part": 4,
+      "minutes": 2,
+      "title": {
+        "en": "A few checks before you travel",
+        "es": "Unas preguntas antes de viajar",
+        "pt": "Algumas perguntas antes de viajar"
+      }
+    },
+    {
+      "session_id": "s3",
+      "part": 2,
+      "minutes": 6,
+      "title": {
+        "en": "About you",
+        "es": "Sobre usted",
+        "pt": "Sobre você"
+      },
+      "summary": {
+        "en": "the part about you",
+        "es": "la sección sobre usted",
+        "pt": "a seção sobre você"
+      }
+    },
+    {
+      "session_id": "s4",
+      "part": 3,
+      "minutes": 2,
+      "title": {
+        "en": "What you look like",
+        "es": "Cómo es usted",
+        "pt": "Como você é"
+      }
+    },
+    {
+      "session_id": "s5",
+      "part": 7,
+      "minutes": 2,
+      "title": {
+        "en": "Your trip",
+        "es": "Su viaje",
+        "pt": "Sua viagem"
+      }
+    },
+    {
+      "session_id": "s6",
+      "part": 10,
+      "minutes": 1,
+      "title": {
+        "en": "How to reach you",
+        "es": "Cómo contactarle",
+        "pt": "Como falar com você"
+      }
+    },
+    {
+      "session_id": "s7",
+      "part": 11,
+      "minutes": 3,
+      "title": {
+        "en": "Your interpreter",
+        "es": "Su intérprete",
+        "pt": "Seu intérprete"
+      }
+    }
+  ],
+  "overflow_blocks": [
+    {
+      "page": "form1[0].#subform[13].Part13_Line3_PageNumber[0]",
+      "part": "form1[0].#subform[13].Part13_Line3_PartNumber[0]",
+      "item": "form1[0].#subform[13].Part13_Line3_ItemNumber[0]",
+      "text": "form1[0].#subform[13].Part13_Line3_AdditionalInfo[0]",
+      "text_visible": {
+        "chars": 84,
+        "lines": 3
+      },
+      "text_box": {
+        "font": "CourierNewPS-BoldMT",
+        "height": 54.0,
+        "size": 10.0,
+        "width": 516.0
+      }
+    },
+    {
+      "page": "form1[0].#subform[13].Part13_Line4_PageNumber[0]",
+      "part": "form1[0].#subform[13].Part13_Line4_PartNumber[0]",
+      "item": "form1[0].#subform[13].Part13_Line4_ItemNumber[0]",
+      "text": "form1[0].#subform[13].Part13_Line4_AdditionalInfo[0]",
+      "text_visible": {
+        "chars": 84,
+        "lines": 3
+      },
+      "text_box": {
+        "font": "CourierNewPS-BoldMT",
+        "height": 54.0,
+        "size": 10.0,
+        "width": 516.1
+      }
+    },
+    {
+      "page": "form1[0].#subform[13].Part13_Line5_PageNumber[0]",
+      "part": "form1[0].#subform[13].Part13_Line5_PartNumber[0]",
+      "item": "form1[0].#subform[13].Part13_Line5_ItemNumber[0]",
+      "text": "form1[0].#subform[13].Part13_Line5_AdditionalInfo[0]",
+      "text_visible": {
+        "chars": 84,
+        "lines": 3
+      },
+      "text_box": {
+        "font": "CourierNewPS-BoldMT",
+        "height": 54.0,
+        "size": 10.0,
+        "width": 515.75
+      }
+    },
+    {
+      "page": "form1[0].#subform[13].Part13_Line6_PageNumber[0]",
+      "part": "form1[0].#subform[13].Part13_Line6_PartNumber[0]",
+      "item": "form1[0].#subform[13].Part13_Line6_ItemNumber[0]",
+      "text": "form1[0].#subform[13].Part13_Line6_AdditionalInfo[0]",
+      "text_visible": {
+        "chars": 84,
+        "lines": 3
+      },
+      "text_box": {
+        "font": "CourierNewPS-BoldMT",
+        "height": 54.0,
+        "size": 10.0,
+        "width": 515.75
+      }
+    },
+    {
+      "page": "form1[0].#subform[13].Part13_Line7_PageNumber[0]",
+      "part": "form1[0].#subform[13].Part13_Line7_PartNumber[0]",
+      "item": "form1[0].#subform[13].Part13_Line7_ItemNumber[0]",
+      "text": "form1[0].#subform[13].Part13_Line7_AdditionalInfo[0]",
+      "text_visible": {
+        "chars": 84,
+        "lines": 3
+      },
+      "text_box": {
+        "font": "CourierNewPS-BoldMT",
+        "height": 54.0,
+        "size": 10.0,
+        "width": 515.75
+      }
+    }
+  ],
+  "policies": [
+    {
+      "schema_version": 1,
+      "capability": "determine_eligibility",
+      "matrix": [
+        {
+          "state": "TX",
+          "form": "I-131",
+          "outcome": "ESCALATE"
+        },
+        {
+          "state": "*",
+          "form": "I-131",
+          "outcome": "ESCALATE"
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "capability": "populate_field",
+      "matrix": [
+        {
+          "state": "TX",
+          "form": "I-131",
+          "outcome": "ALLOW"
+        },
+        {
+          "state": "*",
+          "form": "I-131",
+          "outcome": "ALLOW"
+        }
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "warning_id": "i131_pending_i539",
+      "when": {
+        "field": "p4.screen_pending_i539",
+        "any_of": [
+          "yes",
+          "unsure"
+        ]
+      },
+      "text": {
+        "en": "USCIS says it generally considers a pending Form I-539 abandoned if you leave the United States before it decides, with some exceptions, and that advance parole doesn't prevent that. You can keep going with this form.",
+        "es": "USCIS indica que, por lo general, considera abandonado un Formulario I-539 pendiente si usted sale de Estados Unidos antes de que se decida, con algunas excepciones, y que el permiso adelantado no lo evita. Puede seguir con este formulario.",
+        "pt": "O USCIS diz que, em geral, considera abandonado um Formulário I-539 pendente se você sair dos Estados Unidos antes da decisão, com algumas exceções, e que o advance parole não evita isso. Você pode continuar com este formulário."
+      },
+      "links": [
+        {
+          "title": {
+            "en": "Travel documents (USCIS)",
+            "es": "Documentos de viaje (USCIS, en inglés)",
+            "pt": "Documentos de viagem (USCIS, em inglês)"
+          },
+          "en": "https://www.uscis.gov/green-card/green-card-processes-and-procedures/travel-documents"
+        }
+      ]
+    },
+    {
+      "warning_id": "i131_urgent_travel",
+      "when": {
+        "field": "p7.departure_date",
+        "within_days": 45
+      },
+      "text": {
+        "en": "Your trip is less than 45 days away. USCIS encourages asking for faster processing at least 45 days before you leave, and for travel in less than 15 days it may issue an emergency travel document. The USCIS emergency travel page explains how to ask.",
+        "es": "Su viaje es dentro de menos de 45 días. USCIS recomienda pedir un trámite más rápido al menos 45 días antes de salir, y para un viaje en menos de 15 días puede emitir un documento de viaje de emergencia. La página de USCIS sobre viajes de emergencia explica cómo pedirlo.",
+        "pt": "A sua viagem é daqui a menos de 45 dias. O USCIS recomenda pedir um processamento mais rápido pelo menos 45 dias antes de partir, e para uma viagem em menos de 15 dias pode emitir um documento de viagem de emergência. A página do USCIS sobre viagens de emergência explica como pedir."
+      },
+      "links": [
+        {
+          "title": {
+            "en": "Emergency travel (USCIS)",
+            "es": "Viajes de emergencia (USCIS, en inglés)",
+            "pt": "Viagens de emergência (USCIS, em inglês)"
+          },
+          "en": "https://www.uscis.gov/green-card/green-card-processes-and-procedures/travel-documents/emergency-travel"
+        }
+      ]
+    },
+    {
+      "warning_id": "i131_minor_under_14",
+      "when": {
+        "field": "p2.date_of_birth",
+        "age_under_years": 14
+      },
+      "text": {
+        "en": "The person this form is for is under 14, so a parent or legal guardian may sign it for them (Form I-131 Instructions, page 16). You can keep going.",
+        "es": "La persona para quien es este formulario tiene menos de 14 años, así que su padre, su madre o su tutor legal puede firmarlo por ella (Instrucciones del Formulario I-131, página 16). Puede seguir.",
+        "pt": "A pessoa para quem é este formulário tem menos de 14 anos, então o pai, a mãe ou o tutor legal pode assiná-lo por ela (Instruções do Formulário I-131, página 16). Você pode continuar."
+      },
+      "links": [
+        {
+          "title": {
+            "en": "Form I-131 Instructions (USCIS)",
+            "es": "Instrucciones del Formulario I-131 (USCIS, en inglés)",
+            "pt": "Instruções do Formulário I-131 (USCIS, em inglês)"
+          },
+          "en": "https://www.uscis.gov/sites/default/files/document/forms/i-131instr.pdf"
+        }
+      ]
+    },
+    {
+      "warning_id": "i131_long_absence",
+      "when": {
+        "field": "p7.length_days",
+        "number_at_least": 365
+      },
+      "text": {
+        "en": "A trip of a year or more is a long time away while your Form I-485 is pending. USCIS can revoke an advance parole document at any time, even while you're outside the United States (Form I-131 Instructions, page 2). You can keep going; an immigration attorney can help you plan a long trip.",
+        "es": "Un viaje de un año o más es mucho tiempo fuera mientras su Formulario I-485 está pendiente. USCIS puede revocar un documento de permiso adelantado en cualquier momento, incluso mientras usted está fuera de Estados Unidos (Instrucciones del Formulario I-131, página 2). Puede seguir; un abogado de inmigración puede ayudarle a planear un viaje largo.",
+        "pt": "Uma viagem de um ano ou mais é muito tempo fora enquanto o seu Formulário I-485 está pendente. O USCIS pode revogar um documento de advance parole a qualquer momento, inclusive enquanto você está fora dos Estados Unidos (Instruções do Formulário I-131, página 2). Você pode continuar; um advogado de imigração pode ajudar você a planejar uma viagem longa."
+      },
+      "links": [
+        {
+          "title": {
+            "en": "Travel documents (USCIS)",
+            "es": "Documentos de viaje (USCIS, en inglés)",
+            "pt": "Documentos de viagem (USCIS, em inglês)"
+          },
+          "en": "https://www.uscis.gov/green-card/green-card-processes-and-procedures/travel-documents"
+        }
+      ]
+    }
+  ],
+  "fixed_texts": [
+    {
+      "pdf_field": "form1[0].P6[0].Par2_Line15_eMedicalParoleeID[0]",
+      "text": "N/A",
+      "source": "Form I-131 Instructions (01/20/25), page 19 (advance parole applicants complete Items 12 to 15), page 20 (Item 15, USPID, if any) and page 17 (How To Complete, item 3: N/A when a question does not apply)"
+    }
+  ],
+  "overflow_pointer": {
+    "part": "13",
+    "every_box": true
+  },
+  "lane_notes": [
+    {
+      "id": "parts_never_discussed",
+      "heading": "part_map",
+      "text": "Never discussed: the header's Form G-28 box; Part 2 Items 16 to 27 (someone filing for another person); Part 4 Items 5 to 9 (replacements and pickup abroad); Part 5 (reentry permit only); Part 6 (refugee travel document only); Parts 8 and 9 (parole paths, which stop the case); and Part 12, the preparer, which stays blank. Part 2 Item 15 prints the same for everyone this form serves, and the client fills Part 13 itself with any answer too long for its box. The signatures and their dates in Parts 10 and 11 are never asked."
+    },
+    {
+      "id": "never_asks_list",
+      "heading": "never_asks",
+      "text": "Nothing on this form asks for a job, an employment history, an address history, a spouse, a child or a school, so no such question is ever asked."
+    },
+    {
+      "id": "stop_reply_ends",
+      "heading": "stop_answers",
+      "text": "This form has no note lines. After a stop answer the phone shows the attorney screen and the lane asks nothing more: the reply says once, in one plain sentence and without consequences, that her answers mean an immigration attorney should look at her case before she travels, and it ends there, with no question. Two stops are not an attorney matter and name no attorney: on i131_replacement the reply says once that the app doesn't prepare a replacement travel document yet, and on i131_not_built_yet that the app doesn't prepare a refugee travel document or a reentry permit yet. No reply ever says or implies that travel is safe."
+    },
+    {
+      "id": "i94_shape_and_lookup",
+      "heading": "gates",
+      "applies_to": [
+        "q_p2_i94_gate",
+        "q_p2_i94_number"
+      ],
+      "text": "The I-94 number is the 11 character number on her most recent I-94, letters allowed. When she has one but not at hand and it is deferred, the reply may name the CBP I-94 website once as where to look it up later, and nothing more."
+    },
+    {
+      "id": "i94_expiry_ds",
+      "heading": "value_specifics",
+      "applies_to": [
+        "q_p2_i94_expiry"
+      ],
+      "text": "p2.i94_expiry is a text field, not a date field: file the Admit Until date as MM/DD/YYYY, or the letters D/S exactly as written when that is what her I-94 says. D/S is never turned into a date, and no date is asked for after it."
+    },
+    {
+      "id": "class_of_admission_code",
+      "heading": "value_specifics",
+      "applies_to": [
+        "q_p2_class_of_admission"
+      ],
+      "text": "p2.class_of_admission is filed as the code printed after COA on her I-94, as printed (B2, F1, PAR, DT), never as her own words for it. When her words name parole but give no code (\"I came in on parole\"), the reply asks once for the code after COA on her I-94."
+    },
+    {
+      "id": "height_weight_metric",
+      "heading": "value_specifics",
+      "applies_to": [
+        "q_p3_height_weight",
+        "q_p3_height_weight_height_feet",
+        "q_p3_height_weight_height_inches",
+        "q_p3_height_weight_weight_pounds"
+      ],
+      "text": "Height is filed as feet and inches and weight as pounds, whole numbers. When she gives meters, centimeters or kilos, convert the way the client does: total inches are centimeters divided by 2.54 (or meters times 39.3701), rounded to the nearest inch, then filed as feet and the inches left over; pounds are kilos times 2.20462, rounded to the nearest pound. Read the converted values back with what she said."
+    },
+    {
+      "id": "warnings_card_speaks",
+      "heading": "risk_triggers",
+      "text": "The warnings listed here are cards the client shows when her answer meets their condition. Say nothing about them: the card speaks, and the interview carries on."
+    },
+    {
+      "id": "opening_documents",
+      "heading": "opening_documents",
+      "text": "The documents that hold her answers: an official photo ID such as her work permit (EAD), driver's license, passport ID page or green card; any USCIS document that shows her current status, such as a Form I-797; her most recent I-94; and her Form I-485 receipt notice (Form I-797C) when the I-485 was sent before this form."
+    }
+  ]
+}

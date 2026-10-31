@@ -23,6 +23,7 @@ from __future__ import annotations
 INTERVIEWER_CALL_TYPES: frozenset[str] = frozenset({
     "n400_interviewer_turn",
     "i765_interviewer_turn",
+    "form_interviewer_turn",
 })
 
 
@@ -64,3 +65,33 @@ def unknown_form_for_lane(call_type: str | None, form_code) -> str | None:
     if expected is None or form_code is None or same_form(expected, form_code):
         return None
     return expected
+
+
+# The generic lane (I-765 lead, 2026-10-29): one call type for every form
+# after the I-765, with the form chosen by form_code. The prompt is the lane
+# text, which names no form, followed by that form's FORM BLOCK, generated
+# from the app's form definition (qa/form_blocks/). The value is the app that
+# owns the call type, which is also the prefix its blocks live under, so a
+# block is served to that app only. The I-765 itself stays on
+# i765_interviewer_turn until a parity run moves it.
+FORM_BLOCK_CALL_TYPES: dict[str, str] = {
+    "form_interviewer_turn": "i765",
+}
+
+
+def form_block_slug(call_type: str | None, form_code) -> str | None:
+    """`I-131`, `i131` and `I131` are one block: i765/form-block-i131."""
+    app = FORM_BLOCK_CALL_TYPES.get(call_type or "")
+    if app is None or not isinstance(form_code, str) or not _norm_form(form_code):
+        return None
+    return f"{app}/form-block-{_norm_form(form_code).lower()}"
+
+
+def form_block_text(call_type: str | None, form_code, remote_configs: dict) -> str | None:
+    """The block for this form, or None when none is published. None is a
+    refusal, never a lane without a form: the lane text alone would
+    interview against no fields and no stops."""
+    slug = form_block_slug(call_type, form_code)
+    cfg = (remote_configs or {}).get(slug) if slug else None
+    text = (cfg or {}).get("block")
+    return text if isinstance(text, str) and text.strip() else None

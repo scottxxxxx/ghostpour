@@ -1,5 +1,5 @@
 {
-  "version": 44,
+  "version": 45,
   "server_only": true,
   "models": [
     {
@@ -342,6 +342,12 @@
       "call_types": {
         "i765_interviewer_turn": {
           "label": "I-765 interviewer turn",
+          "models": {
+            "default": "anthropic/claude-sonnet-5"
+          }
+        },
+        "form_interviewer_turn": {
+          "label": "Interviewer turn, any form after the I-765 (form_code picks the block)",
           "models": {
             "default": "anthropic/claude-sonnet-5"
           }
