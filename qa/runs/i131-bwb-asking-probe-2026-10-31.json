@@ -1,0 +1,79 @@
+[
+  {
+    "id": "v1-0",
+    "asking": {
+      "node_id": "q_p1_rtd_or_reentry",
+      "field_ids": [
+        "p1.screen_rtd_or_reentry"
+      ]
+    },
+    "facts": [],
+    "reply": "Are you using anyone as an interpreter to read the Instructions and questions on this application to you in a language in which you are fluent?"
+  },
+  {
+    "id": "v1-1",
+    "asking": {
+      "node_id": "q_before_we_begin_interpreter",
+      "field_ids": []
+    },
+    "facts": [],
+    "reply": "Are you using anyone as an interpreter to read the Instructions and questions on this application to you in a language in which you are fluent?"
+  },
+  {
+    "id": "v1-2",
+    "asking": {
+      "node_id": "q_before_we_begin_interpreter",
+      "field_ids": []
+    },
+    "facts": [],
+    "reply": "Are you using anyone as an interpreter to read the instructions and questions on this application to you in a language in which you are fluent?"
+  },
+  {
+    "id": "v1-3",
+    "asking": {
+      "node_id": "q_p1_interpreter_before_we_begin",
+      "field_ids": []
+    },
+    "facts": [],
+    "reply": "Are you using anyone as an interpreter to read the instructions and questions on this application to you in a language in which you are fluent?"
+  },
+  {
+    "id": "v1-4",
+    "asking": {
+      "node_id": "q_p1_bwb_interpreter",
+      "field_ids": []
+    },
+    "facts": [],
+    "reply": "Are you using anyone as an interpreter to read the Instructions and questions on this application to you in a language in which you are fluent?"
+  },
+  {
+    "id": "v2-0",
+    "asking": null,
+    "facts": [],
+    "reply": "Let's start. Are you using anyone as an interpreter to read the Instructions and questions on this application to you in a language in which you are fluent?"
+  },
+  {
+    "id": "v2-1",
+    "asking": null,
+    "facts": [],
+    "reply": "Are you using anyone as an interpreter to read the Instructions and questions on this application to you in a language in which you are fluent?"
+  },
+  {
+    "id": "v2-2",
+    "asking": null,
+    "facts": [],
+    "reply": "Are you using anyone as an interpreter to read the Instructions and questions on this application to you in a language in which you are fluent?"
+  },
+  {
+    "id": "v2-3",
+    "asking": null,
+    "facts": [],
+    "reply": "Let's start. Are you using anyone as an interpreter to read the instructions and questions on this application to you in a language you're fluent in?"
+  },
+  {
+    "id": "v2-4",
+    "asking": null,
+    "facts": [],
+    "reply": "Let's start. Are you using anyone as an interpreter to read the Instructions and questions on this application to you in a language in which you are fluent?"
+  }
+]

@@ -115,6 +115,18 @@ def test_the_lane_config_requires_opening_questions_and_names_no_form():
     assert " - " not in sp
 
 
+def test_an_opening_question_turn_names_no_node():
+    # I-131 wire proof 2026-10-31 (i765-helper 0b6469e): the opening asked the
+    # interpreter question but tagged the standing node, so the engine would
+    # have read "yes, my cousin interprets" as a yes on the stop screen
+    # (InterviewEngine laneAskedUnmappedQuestion needs asking null). The rule
+    # sits where the opening is defined, not only in the asking paragraph.
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    opening = sp.index("The opening turn's intent is control.")
+    assert sp.index("While a BEFORE WE BEGIN question is the one asked, asking is null") == opening + len(
+        "The opening turn's intent is control. ")
+
+
 def test_the_dial_routes_the_lane_to_sonnet():
     routing = json.loads((ROOT / "config" / "remote" / "model-routing.json").read_text())
     assert routing["apps"]["i765"]["call_types"][CALL]["models"]["default"] == "anthropic/claude-sonnet-5"
