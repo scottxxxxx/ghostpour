@@ -127,6 +127,22 @@ def test_an_opening_question_turn_names_no_node():
         "The opening turn's intent is control. ")
 
 
+def test_a_hedge_on_a_field_without_unsure_reasks_with_clarification_null():
+    # I-765 parity batch 1, 2026-10-31: on the c9 gate (no unsure option) the
+    # generic lane put a clarification on a hedge re-ask 5 of 6 times, live 0
+    # of 6. The engine re-parsed her words when a clarification came back with
+    # nothing minted and read "no sé" as no (fixed client side, i765-helper
+    # 5c8f419); the lane matches live anyway. It follows the unsure sentence
+    # it is the other half of. Live itself is mixed on these hedges (SSN,
+    # filed before); generic null against live mixed is intended (lead's
+    # ruling). A value heard but unreadable keeps its clarification: Feb 31
+    # held 3 of 3 on v2 and v3.
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    unsure = "on a field that offers unsure, a hedge is not low confidence, it is unsure. "
+    assert sp.index("On a field that does not offer unsure, a hedge is not low confidence either: it is "
+                    "dont_know, its one re-ask of the same node carries clarification null") == sp.index(unsure) + len(unsure)
+
+
 # Every copy of the unsure rule (2026-10-31 parity sabotage, qa/runs/
 # i131-parity-sabotage-2026-10-31): cutting the paragraph alone left plain
 # hedges filing unsure 9 of 9, because these restatements carry it; cutting
