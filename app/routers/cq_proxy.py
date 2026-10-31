@@ -771,6 +771,34 @@ async def unassign_origin_project(
         body, request=request)
 
 
+@router.post("/origins/{user_id}/{origin_type}/{origin_id}/replace-term")
+async def replace_origin_term(
+    request: Request,
+    user_id: str,
+    origin_type: str,
+    origin_id: str,
+    user: UserRecord = Depends(get_current_user),
+    body: dict | None = Body(default=None),
+):
+    """Proxy: rewrite one misheard word across one origin's stored facts
+    (CQ #499, SS "fix a misheard word once", Scott 2026-10-29).
+
+    Body is {"from", "to", "match_case"} and is NOT typed here. `from` is a
+    Python keyword, so a schema would need an alias, and a missing one drops
+    the key on this hop with both ends looking correct (the to_name shape).
+    CQ reads an absent `match_case` as false, so a dropped one would quietly
+    turn a case sensitive fix insensitive. CQ's 422 {code, message} and its
+    whole echo (matches, patches_changed, entities_skipped with reasons, and
+    the rest) pass through unchanged because SS compares that echo against
+    its own count."""
+    if user.id != user_id:
+        raise HTTPException(status_code=403, detail="Cannot modify another user's origins")
+    return await _cq_proxy(
+        "POST",
+        f"/v1/origins/{_subj(request, user_id)}/{origin_type}/{origin_id}/replace-term",
+        body, request=request)
+
+
 # --- Ledger triage (2026-08-07, SS Turn 4) ---
 #
 # SS's ledger flow ends in Done, Still live, or Let it go. `complete` is
