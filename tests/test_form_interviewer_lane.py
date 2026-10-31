@@ -127,6 +127,27 @@ def test_an_opening_question_turn_names_no_node():
         "The opening turn's intent is control. ")
 
 
+# Every copy of the unsure rule (2026-10-31 parity sabotage, qa/runs/
+# i131-parity-sabotage-2026-10-31): cutting the paragraph alone left plain
+# hedges filing unsure 9 of 9, because these restatements carry it; cutting
+# all of them broke 6 of 9. So any one can go without a visible regression,
+# and the last one going must fail here, not in front of a user.
+UNSURE_COPIES = (
+    "This rule applies ONLY to a field whose options segment includes unsure.",
+    "the hedge is the answer: mint unsure and do not ask again.",
+    "A field whose options include unsure is never deferred: doubt there is unsure.",
+    "on a field that offers unsure, a hedge is not low confidence, it is unsure",
+    "a field that offers unsure never gets a deferred entry",
+    "(an unsure filed on a field that offers it is an answer)",
+)
+
+
+@pytest.mark.parametrize("copy", UNSURE_COPIES)
+def test_every_copy_of_the_unsure_rule_is_still_served(copy):
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    assert sp.count(copy) == 1, copy
+
+
 def test_the_dial_routes_the_lane_to_sonnet():
     routing = json.loads((ROOT / "config" / "remote" / "model-routing.json").read_text())
     assert routing["apps"]["i765"]["call_types"][CALL]["models"]["default"] == "anthropic/claude-sonnet-5"

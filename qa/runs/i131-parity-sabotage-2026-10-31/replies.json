@@ -1,0 +1,1194 @@
+[
+ {
+  "run": "sab",
+  "bundle": "b1",
+  "arm": "sab",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "I don't think so"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b1",
+  "arm": "sab",
+  "case": "crim-es-clar",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "help_explain"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Una multa de tránsito menor por sí sola no cuenta. Entonces, ¿alguna vez ha tenido un arresto, una citación, una acusación o una condena, por cualquier cosa y en cualquier país?",
+    "en": "A minor traffic ticket on its own doesn't count. So, have you ever been arrested, cited, charged or convicted for anything, in any country?"
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b1",
+  "arm": "sab",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "creo que no"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas significan que un abogado de inmigración debería revisar su caso antes de que usted viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b1",
+  "arm": "sab",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.9,
+      "utterance": "acho que não"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Suas respostas significam que um advogado de imigração deveria analisar o seu caso antes de você viajar.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b2",
+  "arm": "sab",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "I don't think so"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b2",
+  "arm": "sab",
+  "case": "crim-es-clar",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "help_explain"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "La pregunta dice que una multa de tránsito menor por sí sola no cuenta. ¿Alguna vez ha tenido un arresto, una citación, una acusación o una condena, por cualquier cosa y en cualquier país?",
+    "en": "The question says a minor traffic ticket on its own does not count. Have you ever been arrested, cited, charged or convicted for anything, in any country?"
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b2",
+  "arm": "sab",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "creo que no"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas significan que un abogado de inmigración debería revisar su caso antes de que usted viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b2",
+  "arm": "sab",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "ai_extracted",
+      "confidence": 0.85,
+      "utterance": "acho que não"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Suas respostas significam que um advogado de imigração deveria analisar o seu caso antes de você viajar.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b3",
+  "arm": "v2",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "I don't think so"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b3",
+  "arm": "v2",
+  "case": "crim-es-clar",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "no sé"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas significan que un abogado de inmigración debería revisar su caso antes de que viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b3",
+  "arm": "v2",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "creo que no"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas significan que un abogado de inmigración debería revisar su caso antes de que viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b3",
+  "arm": "v2",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "acho que não"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Suas respostas significam que um advogado de imigração deveria analisar o seu caso antes de você viajar.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b4",
+  "arm": "v2",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "I don't think so"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b4",
+  "arm": "v2",
+  "case": "crim-es-clar",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "no sé"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas significan que un abogado de inmigración debería revisar su caso antes de que viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b4",
+  "arm": "v2",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "creo que no"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas significan que un abogado de inmigración debería revisar su caso antes de que viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b4",
+  "arm": "v2",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "acho que não"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Suas respostas significam que um advogado de imigração deveria analisar o seu caso antes de você viajar.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b5",
+  "arm": "sab",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "I don't think so"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b5",
+  "arm": "sab",
+  "case": "crim-es-clar",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "help_explain"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Una multa de tránsito menor por sí sola no cuenta. ¿Alguna vez ha tenido un arresto, una citación, una acusación o una condena, por cualquier cosa y en cualquier país?",
+    "en": "A minor traffic ticket on its own doesn't count. Have you ever been arrested, cited, charged or convicted for anything, in any country?"
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b5",
+  "arm": "sab",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "creo que no"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas significan que un abogado de inmigración debería revisar su caso antes de que viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b5",
+  "arm": "sab",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.85,
+      "utterance": "acho que não"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Suas respostas significam que um advogado de imigração deveria analisar o seu caso antes de você viajar.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b6",
+  "arm": "v2",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "I don't think so"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b6",
+  "arm": "v2",
+  "case": "crim-es-clar",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "no sé"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas indican que un abogado de inmigración debería revisar su caso antes de que viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b6",
+  "arm": "v2",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "creo que no"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas indican que un abogado de inmigración debería revisar su caso antes de que viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab",
+  "bundle": "b6",
+  "arm": "v2",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.95,
+      "utterance": "acho que não"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Suas respostas indicam que um advogado de imigração deve analisar o seu caso antes de você viajar.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c1",
+  "arm": "sab_all",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.8,
+      "utterance": "I don't think so"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c1",
+  "arm": "sab_all",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.8,
+      "utterance": "creo que no"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Sus respuestas significan que un abogado de inmigración debería revisar su caso antes de que viaje.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c1",
+  "arm": "sab_all",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "answer"
+   },
+   "facts": [
+    {
+     "field_id": "p4.screen_criminal",
+     "value": "unsure",
+     "value_type": "string",
+     "provenance": {
+      "source": "user_stated",
+      "confidence": 0.8,
+      "utterance": "acho que não"
+     }
+    }
+   ],
+   "deferred": [],
+   "clarification": null,
+   "conflict": null,
+   "escalation": null,
+   "complete": true,
+   "asking": null,
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Suas respostas significam que um advogado de imigração deveria analisar o seu caso antes de você viajar.",
+    "en": "Your answers mean an immigration attorney should look at your case before you travel."
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c2",
+  "arm": "sab_all",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": {
+    "field_id": "p4.screen_criminal",
+    "question": {
+     "en": "Just so I record it right: other than a minor traffic ticket on its own, have you ever been arrested, cited, charged or convicted in any country, or are you not sure?"
+    }
+   },
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "Just so I record it right: other than a minor traffic ticket on its own, have you ever been arrested, cited, charged or convicted in any country, or are you not sure?"
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c2",
+  "arm": "sab_all",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": {
+    "field_id": "p4.screen_criminal",
+    "question": {
+     "es": "Para anotarlo bien: aparte de una multa de tránsito menor por sí sola, ¿alguna vez ha tenido un arresto, una citación, una acusación o una condena en cualquier país, o no tiene certeza?",
+     "en": "Just so I record it right: other than a minor traffic ticket on its own, have you ever been arrested, cited, charged or convicted in any country, or are you not sure?"
+    }
+   },
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Para anotarlo bien: aparte de una multa de tránsito menor por sí sola, ¿alguna vez ha tenido un arresto, una citación, una acusación o una condena en cualquier país, o no tiene certeza?",
+    "en": "Just so I record it right: other than a minor traffic ticket on its own, have you ever been arrested, cited, charged or convicted in any country, or are you not sure?"
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c2",
+  "arm": "sab_all",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": {
+    "field_id": "p4.screen_criminal",
+    "question": {
+     "pt": "Só para anotar certo: fora uma multa de trânsito leve sozinha, você já foi preso, citado, acusado ou condenado em qualquer país, ou não tem certeza?",
+     "en": "Just so I record it right: other than a minor traffic ticket on its own, have you ever been arrested, cited, charged or convicted in any country, or are you not sure?"
+    }
+   },
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Só para anotar certo: fora uma multa de trânsito leve sozinha, você já foi preso, citado, acusado ou condenado em qualquer país, ou não tem certeza?",
+    "en": "Just so I record it right: other than a minor traffic ticket on its own, have you ever been arrested, cited, charged or convicted in any country, or are you not sure?"
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c3",
+  "arm": "sab_all",
+  "case": "crim-en",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": {
+    "field_id": "p4.screen_criminal",
+    "question": {
+     "en": "To record it right, is your answer no, or are you not sure about ever being arrested, cited, charged or convicted, in any country?"
+    }
+   },
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "en": "To record it right, is your answer no, or are you not sure about ever being arrested, cited, charged or convicted, in any country?"
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c3",
+  "arm": "sab_all",
+  "case": "crim-es",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": {
+    "field_id": "p4.screen_criminal",
+    "question": {
+     "es": "Para anotarlo bien, ¿su respuesta es no, o no tiene certeza de si alguna vez ha tenido un arresto, una citación, una acusación o una condena, en cualquier país?",
+     "en": "To record it right, is your answer no, or are you not sure about ever being arrested, cited, charged or convicted, in any country?"
+    }
+   },
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "es": "Para anotarlo bien, ¿su respuesta es no, o no tiene certeza de si alguna vez ha tenido un arresto, una citación, una acusación o una condena, en cualquier país?",
+    "en": "To record it right, is your answer no, or are you not sure about ever being arrested, cited, charged or convicted, in any country?"
+   }
+  }
+ },
+ {
+  "run": "sab2",
+  "bundle": "c3",
+  "arm": "sab_all",
+  "case": "crim-pt",
+  "reply": {
+   "schema_version": 1,
+   "turn_id": "t_014",
+   "intent": {
+    "type": "partial_answer"
+   },
+   "facts": [],
+   "deferred": [],
+   "clarification": {
+    "field_id": "p4.screen_criminal",
+    "question": {
+     "pt": "Para registrar direito, sua resposta é não, ou você não tem certeza se já foi preso, citado, acusado ou condenado, em qualquer país?",
+     "en": "To record it right, is your answer no, or are you not sure about ever being arrested, cited, charged or convicted, in any country?"
+    }
+   },
+   "conflict": null,
+   "escalation": null,
+   "complete": false,
+   "asking": {
+    "node_id": "q_p4_criminal",
+    "field_ids": [
+     "p4.screen_criminal"
+    ]
+   },
+   "section_checkpoint": null,
+   "interview_over": false,
+   "reply": {
+    "pt": "Para registrar direito, sua resposta é não, ou você não tem certeza se já foi preso, citado, acusado ou condenado, em qualquer país?",
+    "en": "To record it right, is your answer no, or are you not sure about ever being arrested, cited, charged or convicted, in any country?"
+   }
+  }
+ }
+]
