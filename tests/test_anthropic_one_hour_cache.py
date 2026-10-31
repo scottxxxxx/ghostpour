@@ -31,7 +31,10 @@ def test_every_other_lane_keeps_five_minutes():
         (block,) = _build_system_blocks(_req(ct))
         assert block["cache_control"] == FIVE_MIN, ct
     # The I-765 lane joined 2026-10-09: same contract, same large cold prompt.
-    assert _ONE_HOUR_CACHE_CALL_TYPES == {"n400_interviewer_turn", "i765_interviewer_turn"}
+    # The generic form lane joined 2026-10-31 for the same reason.
+    assert _ONE_HOUR_CACHE_CALL_TYPES == {
+        "n400_interviewer_turn", "i765_interviewer_turn", "form_interviewer_turn",
+    }
 
 
 def test_a_request_with_no_metadata_does_not_crash():
