@@ -563,6 +563,9 @@ async def capture(
     """
     Send query+response to Context Quilt for learning. Fire-and-forget (async).
 
+    Returns CQ's 200 body as a dict, or None on any failure. Only the
+    word-correction capture awaits it; see capture_transcript.
+
     This runs in the background after the LLM response is returned to the user.
     Never blocks the response.
 
@@ -663,8 +666,16 @@ async def capture(
         )
         resp.raise_for_status()
         logger.info("cq_capture_ok", extra={"type": interaction_type})
+        # Returned for the one caller that waits (a word-correction capture
+        # echoes CQ's `replaced`); every other caller fires and forgets.
+        try:
+            out = resp.json()
+        except Exception:
+            return None
+        return out if isinstance(out, dict) else None
     except Exception as e:
         logger.warning("cq_capture_error", extra={"error": str(e)})
+        return None
 
 
 async def notify_tier_change(
