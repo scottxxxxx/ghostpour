@@ -302,6 +302,13 @@ def _subj(request: Request, user_id: str) -> str:
     return subject_for(getattr(request.state, "app_id", None), user_id)
 
 
+# X-CZ-Recovery value SS sends with a corrected transcript, and how long GP
+# waits for CQ on it. 10s is CQ's suggestion for an unmeasured path (their
+# replace scans the whole stream); SS's client allows far longer.
+WORD_CORRECTION = "word-correction"
+WORD_CORRECTION_WAIT_S = 10.0
+
+
 @router.post("/capture-transcript")
 async def capture_transcript(
     body: TranscriptCaptureRequest,
@@ -393,8 +400,9 @@ async def capture_transcript(
         people_enabled=_people_state != "disabled",
     )
 
+    capture_task = None
     if verdict.verdict in ("capture", "capture_with_cta"):
-        asyncio.create_task(cq.capture(
+        capture_task = asyncio.create_task(cq.capture(
             app_id=getattr(request.state, "app_id", None),
             user_id=user.id,
             interaction_type="meeting_transcript",
@@ -438,7 +446,29 @@ async def capture_transcript(
     # cta_strings in feature_definitions.context_quilt.
 
     await db.commit()
-    return {"status": "queued"}
+
+    if capture_task is None:
+        # The gate skipped CQ (People disabled and no free quota; no tier
+        # lands here today). This said "queued" until 2026-10-31, which was
+        # not true; the client reads only the status code.
+        return {"status": "skipped"}
+    if recovery_source != WORD_CORRECTION:
+        return {"status": "queued"}
+    # Word correction (SS + CQ #499, 2026-10-31): the one capture that
+    # waits, because CQ's `replaced` is the only echo telling the client
+    # its corrected transcript replaced the old one (rule 4). Waited AFTER
+    # the commit so a slow CQ never holds the SQLite write. On timeout the
+    # task keeps running, since CQ finishes the write when the caller
+    # leaves, so the answer is "queued" with no `replaced`: unknown, never
+    # zero. `replaced` is copied only when CQ sent it; absent stays absent.
+    done, _ = await asyncio.wait({capture_task}, timeout=WORD_CORRECTION_WAIT_S)
+    result = capture_task.result() if done else None
+    if result is None:
+        return {"status": "queued"}
+    out: dict = {"status": "captured"}
+    if "replaced" in result:
+        out["replaced"] = result["replaced"]
+    return out
 
 
 # --- Quilt management ---
