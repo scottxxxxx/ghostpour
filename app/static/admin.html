@@ -30,6 +30,17 @@
     --red: #f85149;
     --orange: #d29922;
     --purple: #bc8cff;
+    /* Aliases for names the panels reach for but nobody ever defined. An
+       undefined custom property makes the declaration invalid at computed
+       value time, so background:var(--bg-card) painted NOTHING and the app
+       filter dropdown showed the page through it (live page at 1120 px,
+       2026-10-31). Mapped onto the tokens above rather than fixing ~12 usage
+       sites spread across panels other people are editing. */
+    --bg-card: var(--surface);
+    --bg-alt: var(--surface);
+    --card-bg: var(--surface);
+    --warn: var(--orange);
+    --mono: 'SF Mono', Menlo, monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -65,13 +76,18 @@
 
   /* Dashboard */
   #dashboard { display: none; }
-  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  /* Wraps so the filter controls drop below the title instead of overflowing
+     the body when the window is narrow (2026-10-31). */
+  .header-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 24px; }
   .header-row .meta { font-size: 12px; color: var(--text-dim); }
-  .refresh-btn {
+  /* .btn is the generic form of the same button; the Subscriptions panel
+     used class="btn" with no rule behind it, so it rendered as a browser
+     default button (2026-10-31). */
+  .refresh-btn, .btn {
     background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
     padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
   }
-  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .refresh-btn:hover, .btn:hover { border-color: var(--accent); color: var(--accent); }
 
   /* Cards */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
@@ -89,15 +105,24 @@
   .card .value.purple { color: var(--purple); }
 
   /* Tables */
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 28px; }
+  /* overflow-x:auto, not hidden: the 22-column user table was clipped at the
+     card edge with no way to reach the Detail column (1120 px, 2026-10-31).
+     A non-visible overflow-x still clips the y axis, so the rounded corners
+     keep hiding the row hover fill exactly as before. */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; margin-bottom: 28px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; padding: 10px 14px; color: var(--text-dim); font-weight: 500; border-bottom: 1px solid var(--border); font-size: 12px; }
   td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: rgba(88,166,255,0.04); }
   .mono { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
+  /* One .badge rule. It was declared twice at equal specificity (here and
+     under the campaign form fields); the later one won every conflicting
+     property, so these are the values that were actually rendering, merged
+     into the first site and the second removed (2026-10-31). */
   .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em;
   }
   .badge.admin { background: rgba(188,140,255,0.15); color: var(--purple); }
   .badge.subscriber { background: rgba(63,185,80,0.15); color: var(--green); }
@@ -106,13 +131,22 @@
   .badge.rate_limited { background: rgba(210,153,34,0.15); color: var(--orange); }
 
   /* Tabs */
-  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  /* Eighteen tabs run to about 1,800 px. Without wrap the strip overflowed
+     the body at 1120 px: Model Routing and Live Log broke onto two lines
+     inside their own pills and Telemetry was clipped off the right edge
+     (live page, 2026-10-31). Wrap over horizontal scroll because macOS
+     overlay scrollbars are invisible until touched, so a scrolled strip
+     would hide the last tabs with no hint they exist; two rows show all of
+     them. nowrap on the pill keeps the break between tabs, never inside one. */
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; }
   .tab {
     padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
     background: transparent; border: 1px solid transparent; color: var(--text-dim);
+    white-space: nowrap;
   }
   .tab.active { background: var(--surface); border-color: var(--border); color: var(--text); }
   .tab:hover { color: var(--text); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .section { display: none; }
   .section.active { display: block; }
@@ -190,10 +224,6 @@
   .cf textarea.cf-json {
     font-family: 'SF Mono', Menlo, monospace; font-size: 12px; min-height: 130px;
     resize: vertical; tab-size: 2;
-  }
-  .badge {
-    display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.04em; padding: 2px 7px; border-radius: 10px;
   }
 
   /* Tier cards */
@@ -290,26 +320,30 @@
     <span id="cert-pin-banner-meta" style="margin-left:8px;color:rgba(255,255,255,0.65);font-size:11px;"></span>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('overview')">Overview</div>
-    <div class="tab" onclick="switchTab('models')">Models</div>
-    <div class="tab" onclick="switchTab('users')">Users</div>
-    <div class="tab" onclick="switchTab('tiers')">Tiers</div>
-    <div class="tab" onclick="switchTab('entitlements')">Entitlements</div>
-    <div class="tab" data-tab="latency" onclick="switchTab('latency')">Performance</div>
-    <div class="tab" onclick="switchTab('providers')">Providers</div>
-    <div class="tab" onclick="switchTab('errors')">Errors</div>
-    <div class="tab" onclick="switchTab('email')">Email</div>
-    <div class="tab" onclick="switchTab('alerts')">Alerts</div>
-    <div class="tab" onclick="switchTab('configs')">Configs</div>
-    <div class="tab" onclick="switchTab('campaigns')">Campaigns</div>
-    <div class="tab" onclick="switchTab('acquisition')">Acquisition</div>
-    <div class="tab" onclick="switchTab('subscriptions')">Subscriptions</div>
-    <div class="tab" onclick="switchTab('transcripts')">Transcripts</div>
-    <div class="tab" onclick="switchTab('routing')">Model Routing</div>
-    <div class="tab" onclick="switchTab('livelog')">Live Log</div>
-    <div class="tab" onclick="switchTab('telemetry')">Telemetry</div>
+  <!-- Tabs. role/tabindex/aria-selected make the strip reachable by
+       keyboard (2026-10-31); wireTabKeyboard() at the end of the script
+       handles the keys and keeps aria-selected in step with .active, so
+       switchTab() is untouched. Label text is load-bearing: switchTab
+       matches the active tab by the first four letters of its label. -->
+  <div class="tabs" role="tablist" aria-label="Dashboard sections">
+    <div class="tab active" role="tab" tabindex="0" aria-selected="true" onclick="switchTab('overview')">Overview</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('models')">Models</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('users')">Users</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('tiers')">Tiers</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('entitlements')">Entitlements</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" data-tab="latency" onclick="switchTab('latency')">Performance</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('providers')">Providers</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('errors')">Errors</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('email')">Email</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('alerts')">Alerts</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('configs')">Configs</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('campaigns')">Campaigns</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('acquisition')">Acquisition</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('subscriptions')">Subscriptions</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('transcripts')">Transcripts</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('routing')">Model Routing</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('livelog')">Live Log</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('telemetry')">Telemetry</div>
   </div>
 
   <!-- Overview -->
@@ -1227,14 +1261,23 @@ function login() {
   // Use the original fetch directly so the wrapped 403 handler
   // doesn't trigger handleAdminAuthFailure during the login attempt
   // itself (we want to surface the error inline on the auth screen).
-  _origFetch(`${BASE}/webhooks/admin/dashboard?days=7`, {headers: {'X-Admin-Key': adminKey}})
+  // The key check is GET /admin/apps, because loadAppFilter() needs that
+  // body anyway and one response serves both. Until 2026-10-31 the check
+  // was dashboard?days=7, the same payload refresh() was about to fetch
+  // again, and refresh() itself ran twice per load (once from here, once
+  // from applyAppFilter() as the filter list was first populated). One
+  // page load measured 22 requests to /webhooks/admin: dashboard three
+  // times, users?days=7 (431 KB, 2 to 3 s) twice. Now: apps once, then
+  // exactly one refresh(). tests/test_admin_load_path.py runs this
+  // sequence in node and counts.
+  _origFetch(`${BASE}/webhooks/admin/apps`, {headers: {'X-Admin-Key': adminKey}})
     .then(r => { if (!r.ok) throw new Error('Invalid key'); return r.json(); })
-    .then(() => {
+    .then((apps) => {
       localStorage.setItem('cz_admin_key', adminKey);
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('auth-error').textContent = '';
-      loadAppFilter();
+      loadAppFilter(apps.apps || []);
       refresh();
     })
     .catch(() => { document.getElementById('auth-error').textContent = 'Invalid admin key'; });
@@ -1250,8 +1293,14 @@ let _activeTab = 'overview';
 // Per-tab loaders, shared by tab switches and the global Refresh so the
 // top-right button always refreshes the tab you're actually looking at
 // (Scott 2026-07-28: two Refresh buttons that did different things).
+// Models has no loader: refresh() paints its tables from the dashboard
+// payload. Until 2026-10-31 it mapped to loadRouting(), which fetched the
+// Model Routing tab's data and painted its hidden grid every time Models
+// opened. Routing is here so the global Refresh reloads it when it is the
+// tab on screen; its first load on open is the switchTab wrapper at the
+// end of the file, which only fetches while _routingData is empty.
 const _TAB_LOADERS = {
-  models: () => loadRouting(),
+  routing: () => loadRouting(),
   providers: () => loadProviders(),
   entitlements: () => loadEntitlements(),
   errors: () => loadErrors(),
@@ -1274,7 +1323,6 @@ function switchTab(name) {
     t.dataset.tab ? t.dataset.tab === name : t.textContent.toLowerCase().includes(name.slice(0,4))));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'models') loadRouting();
   if (name === 'providers') loadProviders();
   if (name === 'entitlements') loadEntitlements();
   if (name === 'errors') loadErrors();
@@ -2970,14 +3018,13 @@ function appQuery() {
 // the deliberate act.
 let _APPS = [];
 
-async function loadAppFilter() {
-  try {
-    const resp = await fetch(`${BASE}/webhooks/admin/apps`, {
-      headers: {'X-Admin-Key': adminKey},
-    });
-    if (!resp.ok) return;
-    _APPS = (await resp.json()).apps || [];
-  } catch (_) { return; }
+// Populates the filter from the /admin/apps body login() already fetched
+// as its key check (2026-10-31; this used to fetch /apps a second time).
+// Synchronous on purpose: login() calls refresh() right after, and
+// refresh() reads the #app value this sets, so there must be no await
+// between the two.
+function loadAppFilter(apps) {
+  _APPS = apps || [];
   const list = document.getElementById('app-filter-list');
   if (!list) return;
   list.innerHTML = _APPS.map(a => `
@@ -2985,7 +3032,10 @@ async function loadAppFilter() {
       <input type="checkbox" class="app-filter-cb" value="${a.id}" onchange="onAppFilterChange()">
       <span>${a.label}</span>
     </label>`).join('');
-  applyAppFilter();
+  // First population is not a filter change: login() runs the one
+  // refresh() itself. Passing true here is what made every load refresh
+  // twice.
+  applyAppFilter(false);
 }
 
 function toggleAppFilter(e) {
@@ -3018,7 +3068,10 @@ function onAppFilterChange() {
   applyAppFilter();
 }
 
-function applyAppFilter() {
+// `reload` is true when the user changed the selection (the checkbox
+// handlers above), false when loadAppFilter() is painting the list on
+// load and login() owns the refresh.
+function applyAppFilter(reload = true) {
   const picked = _checkedApps();
   const input = document.getElementById('app');
   if (input) input.value = picked.join(',');
@@ -3030,7 +3083,7 @@ function applyAppFilter() {
         : `${picked.length} apps`;
     btn.textContent = `${label} ▾`;
   }
-  refresh();
+  if (reload) refresh();
 }
 
 async function refresh() {
@@ -3146,14 +3199,16 @@ async function refresh() {
     renderUserAnalytics(users.users);
   });
 
-  panel('latency', () => {
-    // The Latency tab no longer reads dash.latency_percentiles (one list
-    // over the whole window, no time axis). It loads its own bucketed
-    // series from /admin/latency-trends, see loadLatency(). When it is the
-    // active tab the tab loader at the top of refresh() already ran it, so
-    // only a refresh from another tab goes through here.
-    if (_activeTab !== 'latency') loadLatency();
-  });
+  // The Performance tab no longer reads dash.latency_percentiles (one list
+  // over the whole window, no time axis). It loads its own bucketed series
+  // from /admin/latency-trends, then typesafe-health, in loadLatency(), and
+  // refresh() reaches that ONLY through the active tab's loader at the top:
+  // switchTab('latency') runs loadLatency() every time the tab opens, so a
+  // hidden tab needs nothing fetched for it here. Until 2026-10-31 this
+  // called loadLatency() for the hidden tab on every refresh, so the two
+  // load-time refreshes alone cost two latency-trends and two
+  // typesafe-health requests nobody was looking at (the live count on one
+  // load was four of each; this path explains two).
 
   // Allocation alerts
   const alerts = dash.allocation_alerts || [];
@@ -4126,9 +4181,15 @@ function renderTiers(tiers) {
   window.tierGenCaps = Object.fromEntries(
     Object.entries(tiers).map(([n, t]) => [n, t.generations_per_month]));
   const grid = document.getElementById('tier-grid');
-  const tierColors = { free: 'var(--text-dim)', subscriber: 'var(--green)', admin: 'var(--purple)' };
+  grid.innerHTML = Object.entries(tiers).map(([name, t]) => renderTierCard(name, t)).join('');
+}
 
-  grid.innerHTML = Object.entries(tiers).map(([name, t]) => {
+// One tier card's markup. Split out of renderTiers (audit of 2026-10-31)
+// so a cap save can repaint ITS card from a fresh /admin/tiers read without
+// rebuilding the whole grid; the data-tier attribute is how refreshTierCard
+// finds the card to replace. Body kept verbatim, hence the 4-space indent.
+function renderTierCard(name, t) {
+    const tierColors = { free: 'var(--text-dim)', subscriber: 'var(--green)', admin: 'var(--purple)' };
     const isCurrentTier = name === currentUserTier;
     const isSimulatedTier = simulationState && simulationState.tier === name;
     const color = tierColors[name] || 'var(--accent)';
@@ -4173,7 +4234,7 @@ function renderTiers(tiers) {
       `;
     }
 
-    return `<div class="tier-card" style="border-color:${borderColor}">
+    return `<div class="tier-card" data-tier="${name}" style="border-color:${borderColor}">
       <h4>
         <span style="color:${color}">${t.display_name}</span>
         ${isCurrentTier ? '<span class="badge subscriber">Real Tier</span>' : ''}
@@ -4316,7 +4377,44 @@ function renderTiers(tiers) {
         ${simButtons}
       </div>
     </div>`;
-  }).join('');
+}
+
+// Repaint ONE tier card from a fresh /admin/tiers read and put the save
+// confirmation back. WHY (audit of 2026-10-31): four of the seven cap saves
+// called refresh() after their PUT, which re-fetched the whole dashboard
+// (users alone is 431 KB) and rebuilt #tier-grid with innerHTML, so the
+// "Saved" line was wiped a beat after it was written and any half-typed
+// value in another card was lost; the other three saves skipped refresh()
+// entirely, so the card kept showing the pre-save value. This keeps the
+// echo (rule 4: check the echo, not the status) and touches one card.
+// `keepIds` are inputs whose typed value survives the repaint; used for a
+// locale-specific project chat cap, which /admin/tiers does not carry.
+async function refreshTierCard(tierName, statusId, keepIds) {
+  const status = document.getElementById(statusId);
+  const text = status.textContent, color = status.style.color;
+  const kept = (keepIds || []).map(id => {
+    const el = document.getElementById(id);
+    return el ? [id, el.value] : null;
+  }).filter(Boolean);
+  let t = null;
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/tiers`, {headers: {'X-Admin-Key': adminKey}});
+    if (resp.ok) t = ((await resp.json()).tiers || {})[tierName] || null;
+  } catch (e) { t = null; }
+  if (!t) {
+    status.textContent = text + ' (re-read of /admin/tiers failed; reload to confirm the card)';
+    return;
+  }
+  window.tierGenCaps = Object.assign(window.tierGenCaps || {}, {[tierName]: t.generations_per_month});
+  const grid = document.getElementById('tier-grid');
+  const old = grid && grid.querySelector(`.tier-card[data-tier="${tierName}"]`);
+  if (!old) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderTierCard(tierName, t);
+  old.replaceWith(tmp.firstElementChild);
+  kept.forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
+  const fresh = document.getElementById(statusId);
+  if (fresh) { fresh.textContent = text; fresh.style.color = color; }
 }
 
 async function showUserDetail(userId, email) {
@@ -4771,10 +4869,16 @@ async function loadErrors() {
   </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-dim)">No errors</td></tr>';
 }
 
-async function changeTier(userId, newTier, oldTier) {
+async function changeTier(userId, newTier, oldTier, sel) {
   if (newTier === oldTier) return;
+  // The select that fired this. The inline handler passes this.value, not
+  // the element, so find it by its own handler text; a 4th argument wins.
+  // Cancel used to call refresh() to put one select back (audit of
+  // 2026-10-31): a whole-dashboard re-fetch for a one-element reset.
+  sel = sel || document.querySelector(`select[onchange^="changeTier('${userId}'"]`);
+  const reset = () => { if (sel) sel.value = oldTier; };
   const ok = confirm(`Change tier from "${oldTier}" to "${newTier}"?`);
-  if (!ok) { refresh(); return; }
+  if (!ok) { reset(); return; }
 
   const resp = await fetch(`${BASE}/webhooks/admin/set-tier`, {
     method: 'POST',
@@ -4783,11 +4887,11 @@ async function changeTier(userId, newTier, oldTier) {
   });
 
   if (resp.ok) {
-    refresh();
+    refresh();   // the tier moved: users table, by-tier cards and badges all change
   } else {
-    const err = await resp.json();
+    const err = await resp.json().catch(() => ({}));
     alert('Failed: ' + (err.detail || 'Unknown error'));
-    refresh();
+    reset();
   }
 }
 
@@ -4832,304 +4936,193 @@ async function loadProjectChatCap(tierName) {
   }
 }
 
-async function saveProjectChatCap(tierName) {
+// --- Tier cap saves (one helper, seven thin wrappers; audit of 2026-10-31) ---
+//
+// Every per-tier dial on a tier card saves through saveTierField. Before
+// this, seven near-identical functions diverged in three ways: four called
+// refresh() after the PUT (wiping their own "Saved" line and every other
+// card's half-typed input while re-fetching the whole dashboard), three
+// never repainted at all, and the error text came in two formats. One
+// helper, one behaviour: validate, PUT, show the files_updated count, then
+// refreshTierCard() re-reads /admin/tiers and repaints only this card with
+// the confirmation left in place. No save here calls refresh().
+//
+//   parse(raw) returns {value} or {error: 'message for the status line'}.
+//   opts.url / opts.body override the endpoint (the project chat cap writes
+//   client-config.{locale}.json through its own route); opts.saving,
+//   opts.saved(n) and opts.unchanged keep each dial's own wording;
+//   opts.keep lists input ids whose typed value survives the repaint.
+async function saveTierField(tierName, feature, field, inputId, statusId, parse, opts) {
+  opts = opts || {};
+  const input = document.getElementById(inputId);
+  const status = document.getElementById(statusId);
+
+  const parsed = parse(input.value);
+  if (parsed.error) {
+    status.textContent = parsed.error;
+    status.style.color = 'var(--red)';
+    return;
+  }
+  const value = parsed.value;
+
+  status.textContent = opts.saving || `Saving ${field}…`;
+  status.style.color = 'var(--orange)';
+
+  const resp = await fetch(opts.url || `${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify(opts.body ? opts.body(value)
+                                   : {tier: tierName, feature: feature, field: field, value: value}),
+  });
+
+  if (!resp.ok) {
+    const raw = await resp.text().catch(() => '');
+    let detail = raw;
+    try { detail = JSON.parse(raw).detail || raw; } catch (e) {}
+    status.textContent = `Save failed (${resp.status}): ${detail || 'save failed'}`;
+    status.style.color = 'var(--red)';
+    return;
+  }
+
+  const data = await resp.json();
+  const n = (data.files_updated || []).length;
+  status.textContent = n > 0
+    ? (opts.saved ? opts.saved(n) : `Saved ${field}. Updated ${n} file(s).`)
+    : (opts.unchanged || `No change (${field}: value already matched).`);
+  status.style.color = 'var(--green)';
+  await refreshTierCard(tierName, statusId, opts.keep);
+}
+
+// Shared parsers. Empty input means "clear" for the dials that allow it.
+function parseIntMin(raw, min, emptyValue, msg) {
+  if (raw === '' || raw === null) {
+    return emptyValue === undefined ? {error: msg} : {value: emptyValue};
+  }
+  const v = parseInt(raw, 10);
+  if (isNaN(v) || v < min) return {error: msg};
+  return {value: v};
+}
+
+// Project Chat context cap: its own route, per locale. Writes
+// client-config.{locale}.json AND the legacy tiers.{locale}.json. For a
+// non-default locale the repaint keeps the typed value and the locale
+// select, because /admin/tiers serves the default locale's number only.
+function saveProjectChatCap(tierName) {
   const locale = document.getElementById('pcc-locale-' + tierName).value;
-  const input = document.getElementById('pcc-input-' + tierName);
-  const status = document.getElementById('pcc-status-' + tierName);
-
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = -1;
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < -1) {
-      status.textContent = 'Must be a non-negative integer (chars) or empty for unlimited.';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-
   const localeLabel = locale || 'default';
-  status.textContent = `Saving (${localeLabel})…`;
-  status.style.color = 'var(--orange)';
-
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/project-chat-cap`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, locale: locale, max_input_chars: value}),
-  });
-
-  if (resp.ok) {
-    const data = await resp.json();
-    const fileCount = (data.files_updated || []).length;
-    status.textContent = fileCount > 0
-      ? `Saved (${localeLabel}). Updated ${fileCount} file(s); server enforcement live.`
-      : `No change (${localeLabel}: value already matched).`;
-    status.style.color = 'var(--green)';
-    refresh();
-  } else {
-    const err = await resp.json().catch(() => ({}));
-    status.textContent = 'Error: ' + (err.detail || 'save failed');
-    status.style.color = 'var(--red)';
-  }
+  return saveTierField(tierName, 'project_chat', 'max_input_chars',
+    'pcc-input-' + tierName, 'pcc-status-' + tierName,
+    raw => parseIntMin(raw, -1, -1, 'Must be a non-negative integer (chars) or empty for unlimited.'),
+    {
+      url: `${BASE}/webhooks/admin/tunable/project-chat-cap`,
+      body: v => ({tier: tierName, locale: locale, max_input_chars: v}),
+      saving: `Saving (${localeLabel})…`,
+      saved: n => `Saved (${localeLabel}). Updated ${n} file(s); server enforcement live.`,
+      unchanged: `No change (${localeLabel}: value already matched).`,
+      keep: locale ? ['pcc-locale-' + tierName, 'pcc-input-' + tierName] : ['pcc-locale-' + tierName],
+    });
 }
 
-// --- Web search caps (hard + soft) ---
-//
-// One Save click writes ONE field across en/es/ja via the existing
-// /admin/tunable/tier-field endpoint. Soft cap can be cleared (empty
-// input) which sends `null` to remove the threshold; hard cap is always
-// numeric. Both surface as `tiers.{tier}.feature_definitions.search.{field}`
-// in tiers.{locale}.json.
-async function saveSearchCap(tierName, field) {
-  const idSuffix = field === 'searches_per_month' ? 'hard' : 'soft';
-  const input = document.getElementById(`src-${idSuffix}-${tierName}`);
-  const status = document.getElementById('src-status-' + tierName);
-
-  let value;
-  if (input.value === '' || input.value === null) {
-    if (field === 'searches_per_month') {
-      status.textContent = 'Hard cap is required (use 0 to disable search).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-    value = null;
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 0) {
-      status.textContent = 'Must be a non-negative integer (or empty for soft = none).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-
-  status.textContent = `Saving ${field}…`;
-  status.style.color = 'var(--orange)';
-
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'search', field: field, value: value}),
-  });
-
-  if (resp.ok) {
-    const data = await resp.json();
-    const fileCount = (data.files_updated || []).length;
-    status.textContent = fileCount > 0
-      ? `Saved ${field}. Updated ${fileCount} file(s).`
-      : `No change (${field}: value already matched).`;
-    status.style.color = 'var(--green)';
-    refresh();
-  } else {
-    const err = await resp.json().catch(() => ({}));
-    status.textContent = 'Error: ' + (err.detail || 'save failed');
-    status.style.color = 'var(--red)';
-  }
+// Web search caps (hard + soft). One Save click writes ONE field across
+// en/es/ja; soft cap clears to null, hard cap is always numeric. Both land
+// as tiers.{tier}.feature_definitions.search.{field} in tiers.{locale}.json.
+function saveSearchCap(tierName, field) {
+  const hard = field === 'searches_per_month';
+  return saveTierField(tierName, 'search', field,
+    `src-${hard ? 'hard' : 'soft'}-${tierName}`, 'src-status-' + tierName,
+    raw => hard
+      ? parseIntMin(raw, 0, undefined, raw === '' ? 'Hard cap is required (use 0 to disable search).'
+                                                  : 'Must be a non-negative integer.')
+      : parseIntMin(raw, 0, null, 'Must be a non-negative integer (or empty for soft = none).'),
+    {
+      saved: n => `Saved ${field}. Updated ${n} file(s).`,
+      unchanged: `No change (${field}: value already matched).`,
+    });
 }
 
-// --- File generation cap ---
-//
-// Same endpoint and lockstep-locale semantics as the search caps; the
-// value lands as tiers.{tier}.feature_definitions.generation
-// .generations_per_month and hot-reloads, so a save here changes
-// enforcement on the very next /v1/chat call. Empty input = null =
+// File generation cap: tiers.{tier}.feature_definitions.generation
+// .generations_per_month, hot on the very next /v1/chat call. Empty = null =
 // uncapped (the entitlement still gates who can generate at all).
-// --- Memory recall window (2026-08-21) ---
-// tiers.{tier}.feature_definitions.context_quilt.recall_max_age_days. Hot:
-// the next chat call sends it to CQ and the next /v1/tiers renders it into
-// the copy. Every save is logged server-side (tunable_tier_field_saved);
-// mirroring to the repo is still a PR.
-// --- Meeting share archive cap (2026-08-22) ---
-// tiers.{tier}.feature_definitions.share.max_archive_mb; empty = no cap,
-// Scott's default. Hot on the next share create. Every save is logged.
-async function saveShareCap(tierName) {
-  const input = document.getElementById(`share-cap-${tierName}`);
-  const status = document.getElementById('share-cap-status-' + tierName);
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = null;   // no cap
-  } else {
-    value = parseFloat(input.value);
-    if (isNaN(value) || value <= 0) {
-      status.textContent = 'Must be a positive number of MB (or empty for no cap).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-  status.textContent = 'Saving share cap…';
-  status.style.color = 'var(--orange)';
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'share', field: 'max_archive_mb', value: value}),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const n = (data.files_updated || []).length;
-    status.textContent = n > 0 ? `Saved. Updated ${n} locale file(s); live on the next share. Mirror it to the repo.` : 'No change (already at that value).';
-    status.style.color = 'var(--green)';
-  } else {
-    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
-    status.style.color = 'var(--red)';
-  }
+function saveGenerationCap(tierName) {
+  return saveTierField(tierName, 'generation', 'generations_per_month',
+    `gen-cap-${tierName}`, 'gen-cap-status-' + tierName,
+    raw => parseIntMin(raw, 0, null, 'Must be a non-negative integer (or empty for uncapped).'),
+    {
+      saving: 'Saving generation cap…',
+      saved: n => `Saved. Updated ${n} file(s); live on the next chat call.`,
+      unchanged: 'No change (value already matched).',
+    });
 }
 
-async function saveRecallWindow(tierName) {
-  const input = document.getElementById(`recall-window-${tierName}`);
-  const status = document.getElementById('recall-window-status-' + tierName);
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = null;   // unlimited
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 1) {
-      status.textContent = 'Must be a whole number of days, 1 or more (or empty for unlimited).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-  status.textContent = 'Saving recall window…';
-  status.style.color = 'var(--orange)';
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'context_quilt',
-                          field: 'recall_max_age_days', value: value}),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const n = (data.files_updated || []).length;
-    status.textContent = n > 0
-      ? `Saved. Updated ${n} locale file(s); live on the next recall and the next /v1/tiers. Now mirror it to the repo.`
-      : 'No change (already at that value).';
-    status.style.color = 'var(--green)';
-  } else {
-    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
-    status.style.color = 'var(--red)';
-  }
+// Memory recall window (2026-08-21): tiers.{tier}.feature_definitions
+// .context_quilt.recall_max_age_days. Hot: the next chat call sends it to CQ
+// and the next /v1/tiers renders it into the copy. Every save is logged
+// server-side (tunable_tier_field_saved); mirroring to the repo is still a PR.
+function saveRecallWindow(tierName) {
+  return saveTierField(tierName, 'context_quilt', 'recall_max_age_days',
+    `recall-window-${tierName}`, 'recall-window-status-' + tierName,
+    raw => parseIntMin(raw, 1, null, 'Must be a whole number of days, 1 or more (or empty for unlimited).'),
+    {
+      saving: 'Saving recall window…',
+      saved: n => `Saved. Updated ${n} locale file(s); live on the next recall and the next /v1/tiers. Now mirror it to the repo.`,
+      unchanged: 'No change (already at that value).',
+    });
 }
 
-// --- Project chat meeting window (split from the memory window 2026-10-15) ---
+// Project chat meeting window (split from the memory window 2026-10-15):
 // tiers.{tier}.feature_definitions.project_chat.meeting_window_days.
-async function saveProjectChatWindow(tierName) {
-  const input = document.getElementById(`pc-window-${tierName}`);
-  const status = document.getElementById('pc-window-status-' + tierName);
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = null;   // unlimited
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 1) {
-      status.textContent = 'Must be a whole number of days, 1 or more (or empty for unlimited).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-  status.textContent = 'Saving project chat window…';
-  status.style.color = 'var(--orange)';
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'project_chat',
-                          field: 'meeting_window_days', value: value}),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const n = (data.files_updated || []).length;
-    status.textContent = n > 0
-      ? `Saved. Updated ${n} locale file(s); live on the next project chat and the next /v1/tiers. Now mirror it to the repo.`
-      : 'No change (already at that value).';
-    status.style.color = 'var(--green)';
-  } else {
-    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
-    status.style.color = 'var(--red)';
-  }
+function saveProjectChatWindow(tierName) {
+  return saveTierField(tierName, 'project_chat', 'meeting_window_days',
+    `pc-window-${tierName}`, 'pc-window-status-' + tierName,
+    raw => parseIntMin(raw, 1, null, 'Must be a whole number of days, 1 or more (or empty for unlimited).'),
+    {
+      saving: 'Saving project chat window…',
+      saved: n => `Saved. Updated ${n} locale file(s); live on the next project chat and the next /v1/tiers. Now mirror it to the repo.`,
+      unchanged: 'No change (already at that value).',
+    });
 }
 
-async function saveGenerationCap(tierName) {
-  const input = document.getElementById(`gen-cap-${tierName}`);
-  const status = document.getElementById('gen-cap-status-' + tierName);
-
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = null;   // uncapped
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 0) {
-      status.textContent = 'Must be a non-negative integer (or empty for uncapped).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-
-  status.textContent = 'Saving generation cap…';
-  status.style.color = 'var(--orange)';
-
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'generation',
-                          field: 'generations_per_month', value: value}),
-  });
-
-  if (resp.ok) {
-    const data = await resp.json();
-    const fileCount = (data.files_updated || []).length;
-    status.textContent = fileCount > 0
-      ? `Saved. Updated ${fileCount} file(s); live on the next chat call.`
-      : 'No change (value already matched).';
-    status.style.color = 'var(--green)';
-    refresh();
-  } else {
-    const err = await resp.json().catch(() => ({}));
-    status.textContent = 'Error: ' + (err.detail || 'save failed');
-    status.style.color = 'var(--red)';
-  }
+// Meeting share archive cap (2026-08-22): tiers.{tier}.feature_definitions
+// .share.max_archive_mb; empty = no cap, Scott's default. Hot on the next
+// share create. Every save is logged.
+function saveShareCap(tierName) {
+  return saveTierField(tierName, 'share', 'max_archive_mb',
+    `share-cap-${tierName}`, 'share-cap-status-' + tierName,
+    raw => {
+      if (raw === '' || raw === null) return {value: null};
+      const v = parseFloat(raw);
+      if (isNaN(v) || v <= 0) return {error: 'Must be a positive number of MB (or empty for no cap).'};
+      return {value: v};
+    },
+    {
+      saving: 'Saving share cap…',
+      saved: n => `Saved. Updated ${n} locale file(s); live on the next share. Mirror it to the repo.`,
+      unchanged: 'No change (already at that value).',
+    });
 }
 
-// --- Image send config (per tier) ---
-//
-// GP dictates the downscale long-edge and JPEG quality SS applies on the
-// chat and generation send path, per subscription tier. Writes
-// tiers.{tier}.feature_definitions.images.{field} via the same tunable
-// endpoint (lockstep locales, hot reload); SS reads it at runtime, so a
-// save here retargets what the client sends without a client build.
-async function saveImageConfig(tierName, field) {
+// Image send config (per tier). GP dictates the downscale long-edge and JPEG
+// quality SS applies on the chat and generation send path. Writes
+// tiers.{tier}.feature_definitions.images.{field}; SS reads it at runtime,
+// so a save here retargets what the client sends without a client build.
+function saveImageConfig(tierName, field) {
   const isEdge = field === 'max_long_edge';
-  const input = document.getElementById(`${isEdge ? 'img-edge' : 'img-q'}-${tierName}`);
-  const status = document.getElementById('img-status-' + tierName);
-  const raw = input.value.trim();
-  if (raw === '') {
-    status.textContent = isEdge ? 'Long edge is required (px).' : 'Quality is required (0.0-1.0).';
-    status.style.color = 'var(--red)';
-    return;
-  }
-  let value = isEdge ? parseInt(raw, 10) : parseFloat(raw);
-  if (isNaN(value) || value < 0 || (!isEdge && value > 1)) {
-    status.textContent = isEdge ? 'Must be a positive integer (px).' : 'Must be between 0.0 and 1.0.';
-    status.style.color = 'var(--red)';
-    return;
-  }
-  status.textContent = 'Saving image config…';
-  status.style.color = 'var(--orange)';
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'images', field: field, value: value}),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const fileCount = (data.files_updated || []).length;
-    status.textContent = fileCount > 0
-      ? `Saved. Updated ${fileCount} file(s); SS picks it up on next config fetch.`
-      : 'No change (value already matched).';
-    status.style.color = 'var(--green)';
-    refresh();
-  } else {
-    const err = await resp.json().catch(() => ({}));
-    status.textContent = 'Error: ' + (err.detail || 'save failed');
-    status.style.color = 'var(--red)';
-  }
+  return saveTierField(tierName, 'images', field,
+    `${isEdge ? 'img-edge' : 'img-q'}-${tierName}`, 'img-status-' + tierName,
+    raw => {
+      const s = String(raw == null ? '' : raw).trim();
+      if (s === '') return {error: isEdge ? 'Long edge is required (px).' : 'Quality is required (0.0-1.0).'};
+      const v = isEdge ? parseInt(s, 10) : parseFloat(s);
+      if (isNaN(v) || v < 0 || (!isEdge && v > 1)) {
+        return {error: isEdge ? 'Must be a positive integer (px).' : 'Must be between 0.0 and 1.0.'};
+      }
+      return {value: v};
+    },
+    {
+      saving: 'Saving image config…',
+      saved: n => `Saved. Updated ${n} file(s); SS picks it up on next config fetch.`,
+      unchanged: 'No change (value already matched).',
+    });
 }
 
 // --- Remote Configs ---
@@ -6469,6 +6462,40 @@ switchTab = function(tab) {
   _origSwitchTab(tab);
   if (tab === 'routing') loadRouting();
 };
+
+// Keyboard support for the tab strip (2026-10-31). The tabs are <div onclick>,
+// so until now they took no focus and answered no key. One delegated listener
+// on the tablist: Enter or Space activates the focused tab through its own
+// onclick (so the existing switchTab path runs unchanged), ArrowLeft and
+// ArrowRight move focus with wrap-around, Home and End jump to the ends.
+// aria-selected follows the .active class through a MutationObserver rather
+// than inside switchTab(), because switchTab is owned by another region of
+// this file and is already wrapped once just above; this never has to touch
+// or re-wrap it, and it also covers programmatic switchTab() calls that no
+// click or key ever went through.
+function wireTabKeyboard() {
+  const strip = document.querySelector('.tabs[role="tablist"]');
+  if (!strip) return;
+  const tabs = () => Array.from(strip.querySelectorAll('[role="tab"]'));
+  const sync = () => tabs().forEach(t =>
+    t.setAttribute('aria-selected', t.classList.contains('active') ? 'true' : 'false'));
+  strip.addEventListener('keydown', (e) => {
+    const t = e.target.closest('[role="tab"]');
+    if (!t) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); return; }
+    const all = tabs();
+    const i = all.indexOf(t);
+    let next = null;
+    if (e.key === 'ArrowRight') next = all[(i + 1) % all.length];
+    else if (e.key === 'ArrowLeft') next = all[(i - 1 + all.length) % all.length];
+    else if (e.key === 'Home') next = all[0];
+    else if (e.key === 'End') next = all[all.length - 1];
+    if (next) { e.preventDefault(); next.focus(); }
+  });
+  new MutationObserver(sync).observe(strip, { attributes: true, attributeFilter: ['class'], subtree: true });
+  sync();
+}
+wireTabKeyboard();
 </script>
 </body>
 </html>
