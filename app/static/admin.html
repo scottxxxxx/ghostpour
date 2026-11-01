@@ -301,7 +301,13 @@
           <div id="app-filter-list"></div>
         </div>
       </div>
-      <select class="period-select" id="period" onchange="refresh()">
+      <!-- refresh(true): a period change marks every tab stale and fetches
+           only the tab on screen (audit and live page of 2026-10-31, one
+           period change fired 6 to 8 requests whatever tab was open). The
+           app filter below takes the same path through applyAppFilter().
+           Period, app and active tab are mirrored into location.hash so a
+           reload or a shared URL lands on the same view. -->
+      <select class="period-select" id="period" onchange="refresh(true)">
         <option value="1">Today</option>
         <option value="7" selected>Last 7 days</option>
         <option value="30">Last 30 days</option>
@@ -1020,7 +1026,7 @@
         <button class="refresh-btn" onclick="loadLiveLog()">Refresh</button>
       </div>
     </div>
-    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Last 50 API requests. Click a row to expand request/response details; expanded rows stay open across refreshes. Use the filter to search by path. Polling stops while another tab or window is in front.</p>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Last 50 API requests. Click a row to load its request and response (fetched once per row, then kept); expanded rows stay open across refreshes. Use the filter to search by path. Polling stops while another tab or window is in front.</p>
     <div id="livelog-entries" style="font-family:'SF Mono',Menlo,monospace;font-size:12px"></div>
   </div>
 
@@ -1270,6 +1276,12 @@ function login() {
   // times, users?days=7 (431 KB, 2 to 3 s) twice. Now: apps once, then
   // exactly one refresh(). tests/test_admin_load_path.py runs this
   // sequence in node and counts.
+  // The view the URL names (#tab=...&days=...&app=...) is restored AFTER
+  // the filter list exists (its checkboxes are what the app part ticks) and
+  // BEFORE that one refresh(), so the first fetch is already for the
+  // restored tab and window instead of the defaults followed by a second
+  // round (audit 2026-10-31: nothing survived a reload).
+  // tests/test_admin_view_state.py runs this path with a hash set.
   _origFetch(`${BASE}/webhooks/admin/apps`, {headers: {'X-Admin-Key': adminKey}})
     .then(r => { if (!r.ok) throw new Error('Invalid key'); return r.json(); })
     .then((apps) => {
@@ -1278,6 +1290,7 @@ function login() {
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('auth-error').textContent = '';
       loadAppFilter(apps.apps || []);
+      _restoreViewState();
       refresh();
     })
     .catch(() => { document.getElementById('auth-error').textContent = 'Invalid admin key'; });
@@ -1290,6 +1303,106 @@ function login() {
 })();
 
 let _activeTab = 'overview';
+
+// --- View state: the URL hash, and which tabs hold current data ------------
+// Audit and live page of 2026-10-31. Two findings, one block:
+// (1) Nothing survived a reload. Tab, period and app selection all reset to
+//     Overview / 7 days / All apps. They now live in location.hash as
+//     #tab=users&days=30&app=ss,n400, written on every change and read back
+//     by login() before its one refresh(). The Users table's sort and page
+//     are deliberately NOT in the hash.
+// (2) A period or app change ran refresh(), which fetched the dashboard
+//     group (dashboard, users, tiers) AND the active tab's loader, 6 to 8
+//     requests whatever tab was open; and switchTab re-fetched 13 tabs on
+//     every open with no notion of staleness. _tabFresh is that notion: a
+//     tab is fresh (true) when its loader has run under the current period
+//     and app, stale (false) after a filter change, and absent when it has
+//     never loaded. Opening a tab fetches only when it is not fresh.
+// Overview, Models, Users and Tiers are painted together from one payload
+// by refresh(), so they share the single key 'dashboard' here.
+const _DASH_TABS = ['overview', 'models', 'users', 'tiers'];
+// These loaders arm the polls that switchTab does not know about (live log
+// every 5 s, live meetings every 15 s) and stand them down when the tab is
+// not on screen, so they run on EVERY open; a skipped open would be a tab
+// with no poll. Their behaviour is theirs; this block only calls them.
+const _POLLING_TABS = ['livelog', 'telemetry'];
+let _tabFresh = {};
+// True while refresh() awaits the dashboard group; _loadTabIfStale() reads
+// it so opening a second group tab mid-fetch does not start the three
+// requests again. 'dashboard' itself turns fresh only after they all land.
+let _dashInFlight = false;
+function _markAllStale() {
+  for (const k of Object.keys(_tabFresh)) _tabFresh[k] = false;
+}
+
+function _viewHash() {
+  const days = document.getElementById('period')?.value || '';
+  const app = document.getElementById('app')?.value || '';
+  // App ids are joined with a literal comma so the URL reads as the filter
+  // does; URLSearchParams on the way back in accepts either spelling.
+  return '#tab=' + encodeURIComponent(_activeTab)
+    + (days ? '&days=' + encodeURIComponent(days) : '')
+    + (app ? '&app=' + encodeURIComponent(app).replace(/%2C/gi, ',') : '');
+}
+function _writeViewHash() {
+  const h = _viewHash();
+  if (location.hash === h) return;
+  // replaceState, not location.hash: a tab switch is not a page the Back
+  // button should return to, and replaceState fires no hashchange, so the
+  // listener below only ever sees edits that came from outside this page.
+  try { history.replaceState(null, '', h); } catch (e) { location.hash = h; }
+}
+
+// Reads the hash into the controls and shows the named tab WITHOUT loading
+// it: the caller's refresh() does the one fetch. Unknown tab ids and periods
+// not in the select are ignored, so a stale or mistyped link degrades to
+// the defaults rather than to a blank page.
+function _restoreViewState() {
+  const p = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+  const days = p.get('days');
+  const period = document.getElementById('period');
+  if (period && days && Array.from(period.options || []).some(o => o.value === days)) period.value = days;
+  const app = p.get('app');
+  if (app !== null) {
+    const want = new Set(app.split(',').filter(Boolean));
+    document.querySelectorAll('.app-filter-cb').forEach(cb => { cb.checked = want.has(cb.value); });
+    const all = document.getElementById('app-filter-all');
+    if (all) all.checked = _checkedApps().length === 0;
+    applyAppFilter(false);
+  }
+  const tab = p.get('tab');
+  if (tab && tab !== _activeTab && document.getElementById('tab-' + tab)) _showTab(tab);
+}
+
+// Marks the tab active in the strip and the sections, and records the view
+// in the hash. No loading: switchTab() adds that, _restoreViewState() does
+// not.
+function _showTab(name) {
+  _activeTab = name;
+  // A tab whose label no longer starts with its id (Performance is
+  // 'latency') names its id in data-tab; the others still match by text.
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',
+    t.dataset.tab ? t.dataset.tab === name : t.textContent.toLowerCase().includes(name.slice(0,4))));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  _writeViewHash();
+}
+
+// Fetches for a tab on open only when it is stale or has never loaded.
+// Routing is left out on purpose: the wrapper at the end of the file reloads
+// it on every open (a dial changed elsewhere must show), and a second path
+// here would be the double load that wrapper's pin guards against. The
+// global Refresh reaches Routing through _TAB_LOADERS in refresh().
+function _loadTabIfStale(name) {
+  if (_DASH_TABS.includes(name)) { if (!_tabFresh.dashboard && !_dashInFlight) refresh(); return; }
+  if (name === 'routing') return;
+  const loader = _TAB_LOADERS[name];
+  if (!loader) return;
+  if (_tabFresh[name] && !_POLLING_TABS.includes(name)) return;
+  _tabFresh[name] = true;
+  loader();
+}
+
 // Per-tab loaders, shared by tab switches and the global Refresh so the
 // top-right button always refreshes the tab you're actually looking at
 // (Scott 2026-07-28: two Refresh buttons that did different things).
@@ -1315,26 +1428,11 @@ const _TAB_LOADERS = {
   latency: () => loadLatency(),
 };
 function switchTab(name) {
-  _activeTab = name;
+  _showTab(name);
   if (name !== 'telemetry') clearInterval(_liveMeetingsTimer);
-  // A tab whose label no longer starts with its id (Performance is
-  // 'latency') names its id in data-tab; the others still match by text.
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',
-    t.dataset.tab ? t.dataset.tab === name : t.textContent.toLowerCase().includes(name.slice(0,4))));
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'providers') loadProviders();
-  if (name === 'entitlements') loadEntitlements();
-  if (name === 'errors') loadErrors();
-  if (name === 'configs') loadConfigs();
-  if (name === 'campaigns') loadCampaigns();
-  if (name === 'subscriptions') loadSubscriptions();
-  if (name === 'livelog') loadLiveLog();
-  if (name === 'email') loadEmail();
-  if (name === 'alerts') loadAlerts();
-  if (name === 'telemetry') loadTelemetry();
-  if (name === 'acquisition') loadAcquisition();
-  if (name === 'latency') loadLatency();
+  // Until 2026-10-31 an if-chain here duplicated _TAB_LOADERS and ran the
+  // loader on every open. One map, one staleness check.
+  _loadTabIfStale(name);
   // The Users map is built by refresh() while this tab is hidden, so
   // jsvectormap measures a 0x0 container and renders an empty SVG: no error,
   // no fallback text, just a blank panel. Re-measure once it is on screen.
@@ -1345,6 +1443,18 @@ function switchTab(name) {
     if (st && st.map) { try { st.map.updateSize(); } catch (e) {} }
   }
 }
+
+// A hash edited by hand, or a shared link pasted over an already open page,
+// is a same-document navigation: no reload, so login() never runs again and
+// this is the only place that sees it. Our own writes go through
+// replaceState and never arrive here.
+window.addEventListener('hashchange', () => {
+  if (!adminKey || location.hash === _viewHash()) return;
+  const filtersBefore = _viewHash().replace(/^#tab=[^&]*/, '');
+  _restoreViewState();
+  if (_viewHash().replace(/^#tab=[^&]*/, '') !== filtersBefore) refresh(true);
+  else _loadTabIfStale(_activeTab);
+});
 
 // ---------------------------------------------------------------------------
 // Telemetry tab — anonymous lifecycle events from iOS
@@ -3070,7 +3180,9 @@ function onAppFilterChange() {
 
 // `reload` is true when the user changed the selection (the checkbox
 // handlers above), false when loadAppFilter() is painting the list on
-// load and login() owns the refresh.
+// load and login() owns the refresh, and when _restoreViewState() ticks the
+// boxes the URL named for that same refresh. A user change is a filter
+// change: refresh(true) marks every tab stale and fetches the active one.
 function applyAppFilter(reload = true) {
   const picked = _checkedApps();
   const input = document.getElementById('app');
@@ -3083,28 +3195,57 @@ function applyAppFilter(reload = true) {
         : `${picked.length} apps`;
     btn.textContent = `${label} ▾`;
   }
-  if (reload) refresh();
+  if (reload) refresh(true);
 }
 
-async function refresh() {
+// Refreshes the view on screen. `filterChanged` is true from the period
+// select and the app filter: every tab's data is then for the wrong window,
+// so all of them go stale and only the active tab is fetched; the others
+// catch up when opened (_loadTabIfStale). Audit and live page of
+// 2026-10-31: one period change fired 6 to 8 requests whatever tab was
+// open, because this always fetched the dashboard group below AND ran the
+// active tab's loader. The global Refresh button, login() and the save
+// handlers call refresh() with no argument and force the active view only.
+async function refresh(filterChanged = false) {
+  if (filterChanged) _markAllStale();
+  _writeViewHash();
   _panelErrors = [];
   const _peb = document.getElementById('panel-error-banner');
   if (_peb) { _peb.style.display = 'none'; _peb.textContent = ''; }
   refreshCertPinBanner();
-  // Re-run the active tab's own loader too — the global button must never
+  // Re-run the active tab's own loader too: the global button must never
   // show fresher header numbers over a stale tab body.
   try { (_TAB_LOADERS[_activeTab] || (() => {}))(); } catch (e) {}
+  if (_TAB_LOADERS[_activeTab]) _tabFresh[_activeTab] = true;
+  // The dashboard group (Overview, Models, Users, Tiers) is painted from
+  // the three fetches below. With another tab on screen it waits:
+  // _loadTabIfStale() calls back here when one of the four opens stale.
+  if (!_DASH_TABS.includes(_activeTab)) return;
   const days = document.getElementById('period').value;
   const app = appQuery();
-  const [dash, users, tiers] = await Promise.all([
-    fetch(`${BASE}/webhooks/admin/dashboard?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-    fetch(`${BASE}/webhooks/admin/users?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-    // NOT app-scoped, and correctly so: /admin/tiers reads tiers.json,
-    // which defines the tiers themselves rather than any app's activity.
-    // (Per-app tier_overrides exist in apps.yml but this endpoint does
-    // not read them; surfacing those is separate work.)
-    fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-  ]);
+  // Fresh only once all three answered ok (review of #1176, 2026-11-01: an
+  // earlier draft marked it before the await, so a failed group fetch read
+  // as fresh until the next Refresh click). A non-ok status throws here
+  // rather than at tiers.tiers below, and a failure leaves 'dashboard'
+  // stale so the next open of a group tab retries. _dashInFlight is what
+  // stops a second open DURING the fetch from starting another.
+  const okJson = r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); };
+  let dash, users, tiers;
+  _dashInFlight = true;
+  try {
+    [dash, users, tiers] = await Promise.all([
+      fetch(`${BASE}/webhooks/admin/dashboard?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
+      fetch(`${BASE}/webhooks/admin/users?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
+      // NOT app-scoped, and correctly so: /admin/tiers reads tiers.json,
+      // which defines the tiers themselves rather than any app's activity.
+      // (Per-app tier_overrides exist in apps.yml but this endpoint does
+      // not read them; surfacing those is separate work.)
+      fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
+    ]);
+  } finally {
+    _dashInFlight = false;
+  }
+  _tabFresh.dashboard = true;
 
   const tierNames = Object.keys(tiers.tiers);
 
@@ -5721,13 +5862,48 @@ function entEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// Which app the panel shows when nobody said. 2026-10-31 audit: _TAB_LOADERS
+// and switchTab both call loadEntitlements() bare, so every tab visit and
+// every global Refresh snapped #ent-app back to the server default and an
+// operator comparing apps lost their place each time. Resolution order:
+// the select's own value when it is populated (a Refresh keeps the view),
+// then the last explicit choice persisted in localStorage (a reload keeps
+// it), then nothing, which lets the server pick its default_app. An
+// explicit argument (the select's onchange, the panel Refresh button, the
+// save handlers) is the only thing that writes the persisted choice. This
+// panel is deliberately NOT driven by the global #app filter: that value is
+// a comma-separated multi-select whose empty state means "all apps", and
+// GET /admin/entitlements takes exactly one app and 404s on anything else.
+function _entResolveApp(appId) {
+  const KEY = 'cz_admin_ent_app';
+  if (appId) {
+    try { localStorage.setItem(KEY, appId); } catch (_) {}
+    return {app: appId, source: 'explicit'};
+  }
+  const sel = document.getElementById('ent-app');
+  if (sel && sel.options && sel.options.length && sel.value) {
+    return {app: sel.value, source: 'select'};
+  }
+  let stored = '';
+  try { stored = localStorage.getItem(KEY) || ''; } catch (_) {}
+  if (stored) return {app: stored, source: 'stored'};
+  return {app: '', source: 'default'};
+}
 async function loadEntitlements(appId) {
   const box = document.getElementById('ent-content');
   box.innerHTML = '<div style="color:var(--text-dim)">Loading…</div>';
-  const q = appId ? `?app=${encodeURIComponent(appId)}` : '';
+  const chosen = _entResolveApp(appId);
+  const q = chosen.app ? `?app=${encodeURIComponent(chosen.app)}` : '';
   const r = await fetch(`${BASE}/webhooks/admin/entitlements${q}`,
     {headers: {'X-Admin-Key': adminKey}});
   if (!r.ok) {
+    if (r.status === 404 && chosen.source === 'stored') {
+      // The persisted app no longer exists (renamed or retired since the
+      // operator last chose it). A stale key must not wedge the tab on a
+      // 404 forever: forget it and fall through to the server default.
+      try { localStorage.removeItem('cz_admin_ent_app'); } catch (_) {}
+      return loadEntitlements();
+    }
     box.innerHTML = `<div style="color:var(--red)">Failed to load entitlements (${r.status})</div>`;
     return;
   }
@@ -6172,11 +6348,24 @@ async function deleteCampaign() {
 // within 5 seconds and the scroll offset could jump. Rows are keyed by the
 // payload's request_id, the set of expanded ids is re-applied after each
 // render, and the window scroll offset is put back.
+//
+// 2026-10-31, same page: live-log?limit=50 was 291 KB for 50 rows, 239 KB
+// of it the `response` field and 34 KB the `request` field, polled every
+// 5 seconds to draw a list that shows neither. The list route now returns
+// rows without bodies (has_request, has_response and captured_bytes stand
+// in for them), and the bodies come from live-log/{request_id} the first
+// time a row is expanded. _livelogDetails caches each fetched entry by
+// request_id, so a row that stays open across polls is re-rendered from
+// the cache and a second expand of the same row fetches nothing.
 
 let _livelogTimer = null;
 let _livelogEntries = [];
 // request_id of every row the operator has opened; survives the re-render.
 const _livelogExpanded = new Set();
+// request_id -> the full entry from live-log/{request_id}, or {pending:true}
+// while the fetch is in flight, or {error} when it failed (an error is not
+// kept past the next expand, so a click retries it).
+const _livelogDetails = new Map();
 
 function livelogRowId(e) {
   return e.request_id || `${e.timestamp}|${e.method}|${e.path}`;
@@ -6188,6 +6377,30 @@ function toggleLiveLogRow(head) {
   detail.style.display = open ? 'block' : 'none';
   const id = head.parentElement.dataset.rid;
   if (open) _livelogExpanded.add(id); else _livelogExpanded.delete(id);
+  // data-detail is set only on rows keyed by a real request_id; a fallback
+  // key cannot be looked up on the server and the pane says so instead.
+  if (open && head.parentElement.dataset.detail) loadLiveLogDetail(id, detail);
+}
+
+async function loadLiveLogDetail(rid, pane) {
+  const cached = _livelogDetails.get(rid);
+  if (cached && !cached.error) return;   // fetched already, or in flight
+  _livelogDetails.set(rid, {pending: true});
+  if (pane) pane.innerHTML = renderLiveLogDetail(true, {pending: true});
+  let d;
+  try {
+    const r = await fetch(`${BASE}/webhooks/admin/live-log/${encodeURIComponent(rid)}`, {
+      headers: {'X-Admin-Key': adminKey}
+    });
+    d = r.ok ? await r.json() : {error: `HTTP ${r.status}`};
+  } catch (e) {
+    d = {error: String((e && e.message) || e)};
+  }
+  _livelogDetails.set(rid, d);
+  // A poll may have swapped the list while the fetch was out, so find the
+  // pane by key rather than trusting the element the click handed over.
+  const target = document.querySelector(`#livelog-entries [data-rid="${rid}"] .livelog-detail`) || pane;
+  if (target) target.innerHTML = renderLiveLogDetail(true, d);
 }
 
 function filterLiveLog() {
@@ -6197,11 +6410,47 @@ function filterLiveLog() {
   // The page scrolls on window; swapping innerHTML shortens the document for
   // a frame and the browser clamps the offset, so put it back afterwards.
   const y = window.scrollY;
-  el.innerHTML = renderLiveLogEntries(filtered, _livelogExpanded);
+  el.innerHTML = renderLiveLogEntries(filtered, _livelogExpanded, _livelogDetails);
   window.scrollTo(window.scrollX, y);
 }
 
-function renderLiveLogEntries(entries, expanded) {
+function renderLiveLogDetail(hasDetail, d) {
+  // The inside of one row's detail pane. `d` is the full entry from the
+  // per-entry route, the pending marker, the error marker, or undefined
+  // when nothing has been asked for yet.
+  if (!hasDetail) {
+    return '<div style="color:var(--text-dim)">No detail available: this row has no request_id to look up.</div>';
+  }
+  if (!d || d.pending) return '<div style="color:var(--text-dim)">Loading detail...</div>';
+  if (d.error) return `<div style="color:var(--red)">Could not load detail: ${esc(d.error)}</div>`;
+  const req = d.request || {};
+  const resp = d.response || {};
+  const statusColor = d.status < 300 ? 'var(--green)' : d.status < 400 ? 'var(--orange)' : 'var(--red)';
+  const reqBody = req.body ? JSON.stringify(req.body, null, 2) : '<empty>';
+  const respBody = resp.body ? JSON.stringify(resp.body, null, 2) : '<empty>';
+  return `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <div style="color:var(--accent);font-weight:600;margin-bottom:6px;font-size:11px">REQUEST</div>
+              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Headers</div>
+              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:200px;font-size:11px;margin:0 0 8px 0">${esc(JSON.stringify(req.headers || {}, null, 2))}</pre>
+              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Body</div>
+              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:300px;font-size:11px;margin:0">${esc(reqBody)}</pre>
+            </div>
+            <div>
+              <div style="color:${statusColor};font-weight:600;margin-bottom:6px;font-size:11px">RESPONSE ${d.status}</div>
+              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Headers</div>
+              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:200px;font-size:11px;margin:0 0 8px 0">${esc(JSON.stringify(resp.headers || {}, null, 2))}</pre>
+              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Body</div>
+              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:300px;font-size:11px;margin:0">${esc(respBody)}</pre>
+            </div>
+          </div>`;
+}
+
+function renderLiveLogEntries(entries, expanded, details) {
+  // `details` is the request_id -> full entry cache; the list rows carry no
+  // bodies of their own, so an open row's pane is drawn from it (or shows
+  // the loading text until loadLiveLogDetail paints it).
   expanded = expanded || new Set();
   if (!entries || !entries.length) {
     return '<div style="color:var(--text-dim);padding:20px;text-align:center">No matching requests.</div>';
@@ -6209,39 +6458,24 @@ function renderLiveLogEntries(entries, expanded) {
   return entries.map((e) => {
       const rid = livelogRowId(e);
       const open = expanded.has(rid);
+      const hasDetail = !!e.request_id;
       const statusColor = e.status < 300 ? 'var(--green)' : e.status < 400 ? 'var(--orange)' : 'var(--red)';
       const time = new Date(e.timestamp).toLocaleTimeString();
-      const reqBody = e.request.body ? JSON.stringify(e.request.body, null, 2) : '<empty>';
-      const respBody = e.response.body ? JSON.stringify(e.response.body, null, 2) : '<empty>';
+      const size = e.captured_bytes ? `${(e.captured_bytes / 1024).toFixed(1)} KB` : '';
+      const pane = open ? renderLiveLogDetail(hasDetail, details && details.get(rid)) : '';
       return `
-      <div data-rid="${esc(rid)}" style="border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden">
+      <div data-rid="${esc(rid)}"${hasDetail ? ' data-detail="1"' : ''} style="border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden">
         <div onclick="toggleLiveLogRow(this)" style="cursor:pointer;padding:8px 12px;display:flex;gap:12px;align-items:center;background:var(--surface);transition:background 0.1s"
              onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='var(--surface)'">
           <span style="color:var(--text-dim);min-width:70px">${time}</span>
-          <span style="color:var(--accent);min-width:50px;font-weight:600">${e.method}</span>
-          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.path}${e.query ? '?' + e.query : ''}</span>
+          <span style="color:var(--accent);min-width:50px;font-weight:600">${esc(e.method)}</span>
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.path)}${e.query ? '?' + esc(e.query) : ''}</span>
           <span style="color:${statusColor};font-weight:600;min-width:30px">${e.status}</span>
           <span style="color:var(--text-dim);min-width:50px;text-align:right">${e.latency_ms}ms</span>
-          <span style="color:var(--text-dim);font-size:10px;min-width:90px;text-align:right">${e.client_ip}</span>
+          <span style="color:var(--text-dim);font-size:10px;min-width:56px;text-align:right" title="bytes captured for this entry">${size}</span>
+          <span style="color:var(--text-dim);font-size:10px;min-width:90px;text-align:right">${esc(e.client_ip)}</span>
         </div>
-        <div style="display:${open ? 'block' : 'none'};padding:12px;background:var(--bg);border-top:1px solid var(--border)">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-            <div>
-              <div style="color:var(--accent);font-weight:600;margin-bottom:6px;font-size:11px">REQUEST</div>
-              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Headers</div>
-              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:200px;font-size:11px;margin:0 0 8px 0">${JSON.stringify(e.request.headers, null, 2)}</pre>
-              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Body</div>
-              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:300px;font-size:11px;margin:0">${reqBody}</pre>
-            </div>
-            <div>
-              <div style="color:${statusColor};font-weight:600;margin-bottom:6px;font-size:11px">RESPONSE ${e.status}</div>
-              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Headers</div>
-              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:200px;font-size:11px;margin:0 0 8px 0">${JSON.stringify(e.response.headers, null, 2)}</pre>
-              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Body</div>
-              <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:300px;font-size:11px;margin:0">${respBody}</pre>
-            </div>
-          </div>
-        </div>
+        <div class="livelog-detail" style="display:${open ? 'block' : 'none'};padding:12px;background:var(--bg);border-top:1px solid var(--border)">${pane}</div>
       </div>`;
   }).join('');
 }
@@ -6420,8 +6654,11 @@ async function saveRouting() {
 // elsewhere (another browser, the config PUT endpoint) stayed stale here
 // until a full reload, and switchTab's own `models` branch had already set
 // _routingData before this tab was ever opened (audit 2026-10-31).
-// switchTab's if-chain and _TAB_LOADERS have no 'routing' entry of their
-// own yet, which is why this wrapper still exists.
+// _TAB_LOADERS has carried a routing entry since #1171; that is how the
+// global Refresh reaches this tab. The stale map (_loadTabIfStale, 2026-10-31)
+// deliberately leaves routing out, so this wrapper now exists for one reason:
+// it is the single place that loads Routing on open, every open, and with
+// no second path nothing can load it twice.
 const _origSwitchTab = switchTab;
 switchTab = function(tab) {
   _origSwitchTab(tab);

@@ -67,6 +67,15 @@ def _tab_loaders():
     return src[start:end]
 
 
+def _view_state_consts():
+    """The const lines the view-state helpers read (_DASH_TABS and
+    _POLLING_TABS), taken from the page so the harness cannot drift from it."""
+    src = _src()
+    lines = re.findall(r"^const _(?:DASH_TABS|POLLING_TABS) = .*;$", src, re.M)
+    assert len(lines) == 2, lines
+    return "\n".join(lines)
+
+
 def _node(js):
     out = subprocess.run(["node", "-e", js], capture_output=True, text=True, timeout=30)
     assert out.returncode == 0, out.stderr
@@ -96,6 +105,9 @@ const document = {
   querySelectorAll: () => [],
 };
 const localStorage = { setItem() {}, getItem() { return null; }, removeItem() {} };
+// No hash: login() restores the view from it since 2026-10-31
+// (tests/test_admin_view_state.py sets one); here the defaults must hold.
+const location = { hash: '' };
 const APPS_BODY = { default_app: 'shouldersurf',
   apps: [{id: 'shouldersurf', label: 'ShoulderSurf'}, {id: 'unknown', label: 'Unknown / unattributed'}] };
 function fakeResponse(url) {
@@ -119,6 +131,7 @@ def _run_load_sequence():
         + _extract("loadAppFilter") + "\n"
         + _extract("applyAppFilter") + "\n"
         + _extract("_checkedApps") + "\n"
+        + _extract("_restoreViewState") + "\n"
         + """
 login();
 // Promise chains in login() and any fetch inside loadAppFilter() settle in a
@@ -183,6 +196,7 @@ def test_a_rejected_key_never_refreshes():
         + _extract("loadAppFilter") + "\n"
         + _extract("applyAppFilter") + "\n"
         + _extract("_checkedApps") + "\n"
+        + _extract("_restoreViewState") + "\n"
         + """
 login();
 setTimeout(() => console.log(JSON.stringify({
@@ -262,10 +276,24 @@ const document = {
   querySelectorAll: () => [],
   getElementById: () => ({ classList: classes() }),
 };
+// 2026-10-31 view state: switchTab() loads a tab only when it is stale and
+// mirrors the view into the hash. This harness stands for a page right after
+// its first refresh(), so the dashboard group is fresh and Models, which is
+// painted from that group, has nothing of its own to fetch.
+let _tabFresh = { dashboard: true };
+let _dashInFlight = false;
+function refresh() { calls.push('refresh'); }
+const location = { hash: '' };
+const history = { replaceState(_s, _t, url) { location.hash = url; } };
 """
         + stubs + "\n"
         + "let _activeTab = 'overview';\n"
+        + _view_state_consts() + "\n"
         + _tab_loaders() + "\n"
+        + _extract("_viewHash") + "\n"
+        + _extract("_writeViewHash") + "\n"
+        + _extract("_showTab") + "\n"
+        + _extract("_loadTabIfStale") + "\n"
         + _extract("switchTab") + "\n"
         + tail
     )

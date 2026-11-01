@@ -511,6 +511,14 @@ app.add_middleware(StreamingBypassMiddleware)
 from app.middleware.version_enforcement import VersionEnforcementMiddleware  # noqa: E402
 app.add_middleware(VersionEnforcementMiddleware)
 
+# gzip for /webhooks/admin/* and /admin only (431 KB uncompressed users page,
+# measured 2026-10-31). Added LAST so it is OUTERMOST: StreamingBypassMiddleware
+# captures response bodies for the live log and must see them as plaintext.
+# Every non-admin path, /v1 streaming included, passes through untouched; the
+# path check lives in app/middleware/admin_gzip.py with the measurement.
+from app.middleware.admin_gzip import AdminGZipMiddleware  # noqa: E402
+app.add_middleware(AdminGZipMiddleware)
+
 app.include_router(health.router, tags=["health"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/v1", tags=["chat"])
