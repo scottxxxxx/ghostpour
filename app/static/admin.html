@@ -5728,13 +5728,48 @@ function entEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g,
     c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// Which app the panel shows when nobody said. 2026-10-31 audit: _TAB_LOADERS
+// and switchTab both call loadEntitlements() bare, so every tab visit and
+// every global Refresh snapped #ent-app back to the server default and an
+// operator comparing apps lost their place each time. Resolution order:
+// the select's own value when it is populated (a Refresh keeps the view),
+// then the last explicit choice persisted in localStorage (a reload keeps
+// it), then nothing, which lets the server pick its default_app. An
+// explicit argument (the select's onchange, the panel Refresh button, the
+// save handlers) is the only thing that writes the persisted choice. This
+// panel is deliberately NOT driven by the global #app filter: that value is
+// a comma-separated multi-select whose empty state means "all apps", and
+// GET /admin/entitlements takes exactly one app and 404s on anything else.
+function _entResolveApp(appId) {
+  const KEY = 'cz_admin_ent_app';
+  if (appId) {
+    try { localStorage.setItem(KEY, appId); } catch (_) {}
+    return {app: appId, source: 'explicit'};
+  }
+  const sel = document.getElementById('ent-app');
+  if (sel && sel.options && sel.options.length && sel.value) {
+    return {app: sel.value, source: 'select'};
+  }
+  let stored = '';
+  try { stored = localStorage.getItem(KEY) || ''; } catch (_) {}
+  if (stored) return {app: stored, source: 'stored'};
+  return {app: '', source: 'default'};
+}
 async function loadEntitlements(appId) {
   const box = document.getElementById('ent-content');
   box.innerHTML = '<div style="color:var(--text-dim)">Loading…</div>';
-  const q = appId ? `?app=${encodeURIComponent(appId)}` : '';
+  const chosen = _entResolveApp(appId);
+  const q = chosen.app ? `?app=${encodeURIComponent(chosen.app)}` : '';
   const r = await fetch(`${BASE}/webhooks/admin/entitlements${q}`,
     {headers: {'X-Admin-Key': adminKey}});
   if (!r.ok) {
+    if (r.status === 404 && chosen.source === 'stored') {
+      // The persisted app no longer exists (renamed or retired since the
+      // operator last chose it). A stale key must not wedge the tab on a
+      // 404 forever: forget it and fall through to the server default.
+      try { localStorage.removeItem('cz_admin_ent_app'); } catch (_) {}
+      return loadEntitlements();
+    }
     box.innerHTML = `<div style="color:var(--red)">Failed to load entitlements (${r.status})</div>`;
     return;
   }
