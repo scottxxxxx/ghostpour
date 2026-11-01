@@ -3130,6 +3130,217 @@ async def user_queries(
     return {"queries": queries, "total": total, "limit": limit, "offset": offset}
 
 
+def _list_users_sql(apps_filter: tuple[str, ...], days: int) -> tuple[str, tuple]:
+    """The users-list SELECT and its bound parameters.
+
+    One grouped pass over usage_log, one grouped pass over telemetry_events,
+    one window-function pass over subscription_events, LEFT JOINed onto
+    users.
+    Until 2026-11-01 this was thirty correlated subqueries per user row, so
+    N users meant N times thirty scans, four of them json_extract over a
+    metadata column that carries a 24 KB raw_request for 30 days. Receipt:
+    the live list took 15.8 s and 16.9 s right after a restart and 2 to 3 s
+    warm on 2026-10-31 for 296 users. The roll-up reads only columns that
+    idx_usage_user_rollup carries (app/database.py), so SQLite serves it
+    from the index and never opens a usage_log row.
+
+    Every value is the same as the subquery form produced, including the
+    types: COALESCE at the join gives users with no rows the 0 the old
+    COUNT and COALESCE(SUM) did, and last_request stays NULL for them.
+    Ties on timestamps were unspecified before and stay unspecified.
+
+    A module-level function rather than inline SQL so a test can EXPLAIN
+    it against the real schema.
+    """
+    _in = ", ".join("?" * len(apps_filter))
+    # The unary plus is SQLite's documented way to keep a term out of index
+    # selection without changing its value. Without it the planner, which
+    # has no statistics here, takes the partial idx_usage_app for the IN
+    # and then opens every matching row for the other columns, which is
+    # the blob read this query exists to avoid. With it the roll-up index
+    # is the only covering candidate, filter or no filter, and
+    # tests/test_admin_users_query.py pins that plan.
+    usage_where = f" WHERE +l.app_id IN ({_in})" if apps_filter else ""
+
+    # When an app is selected, HIDE users with no activity in it: keep only
+    # users with at least one usage_log OR telemetry_events row tagged with
+    # that app_id. So filtering by Tech Rehearsal drops users who only touch
+    # SS, and vice versa. Users are shared across apps, so someone active in
+    # both apps shows up under both filters. The usage half of that test is
+    # the roll-up itself: it is already scoped to the apps and has a row for
+    # exactly the users with a usage_log row in them, any status.
+    app_user_filter = (
+        " WHERE r.user_id IS NOT NULL"
+        " OR EXISTS (SELECT 1 FROM telemetry_events tx"
+        f" WHERE tx.user_id = u.id AND tx.app_id IN ({_in}))"
+        if apps_filter else ""
+    )
+
+    # Latest non-null value of one telemetry column per user. Per-field
+    # rather than latest-row so an older build that doesn't send
+    # device_model/app_locale doesn't blank out a value a newer ping set.
+    #
+    # Argmax by packing: MAX over `received_at || char(1) || value` taken
+    # only where the value is non-null, then the prefix stripped off. This
+    # picks the row `ORDER BY received_at DESC LIMIT 1` picked: both
+    # compare received_at as BINARY text, and where one timestamp is a
+    # prefix of another the shorter one carries char(1) at the first
+    # differing byte, which is below every byte a timestamp can contain, so
+    # it still sorts first. received_at is ISO-8601 text from one ingest
+    # (telemetry.py) and never holds byte 1. Equal timestamps were an
+    # unspecified pick before and are an unspecified pick now. Measured on
+    # a 15k-row seed, 2026-11-01: this is one ordered scan of
+    # idx_telemetry_user in 12 ms; nine FIRST_VALUE windows with nine
+    # orderings cost 390 ms because each ordering is its own full sort,
+    # slower than the correlated subqueries they replaced (20 ms).
+    def _packed(col: str) -> str:
+        return (f"MAX(CASE WHEN t.{col} IS NOT NULL"
+                f" THEN t.received_at || char(1) || t.{col} END) AS p_{col}")
+
+    def _unpacked(col: str) -> str:
+        return f"substr(p_{col}, instr(p_{col}, char(1)) + 1) AS {col}"
+
+    sql = f"""
+        WITH usage_rollup AS (
+            -- Windowed totals (last `days` days) and lifetime totals in one
+            -- pass. The "window_" prefix makes the date filter visible at
+            -- the call site so future editors don't confuse these with the
+            -- all-time aggregates. Lifetime is bounded by the usage_log
+            -- table's lifetime, which is never purged today. Every column
+            -- but last_request counts successful calls only.
+            SELECT user_id,
+                   SUM(CASE WHEN ok AND in_window THEN 1 ELSE 0 END) AS window_requests,
+                   SUM(CASE WHEN ok AND in_window THEN input_tokens ELSE 0 END) AS window_input_tokens,
+                   SUM(CASE WHEN ok AND in_window THEN output_tokens ELSE 0 END) AS window_output_tokens,
+                   SUM(CASE WHEN ok AND in_window THEN estimated_cost_usd END) AS window_cost_usd,
+                   SUM(CASE WHEN ok THEN 1 ELSE 0 END) AS lifetime_requests,
+                   SUM(CASE WHEN ok THEN input_tokens ELSE 0 END) AS lifetime_input_tokens,
+                   SUM(CASE WHEN ok THEN output_tokens ELSE 0 END) AS lifetime_output_tokens,
+                   SUM(CASE WHEN ok THEN estimated_cost_usd END) AS lifetime_cost_usd,
+                   -- Usage-visibility metrics (Scott 2026-08-23): what people
+                   -- actually put through the AI, all intercepted server-side
+                   -- from usage_log, zero client involvement. Windowed like the
+                   -- token columns; lifetime shown in the user detail. Counts:
+                   -- files GENERATED (metadata.generated.count, one per staged
+                   -- artifact, not per request), DOCUMENTS included in queries
+                   -- (metadata.documents.count), PHOTOS included (image_count
+                   -- column), TRANSLATION requests (call_type='translation').
+                   SUM(CASE WHEN ok AND in_window THEN files_generated END) AS window_files_generated,
+                   SUM(CASE WHEN ok AND in_window THEN documents END) AS window_documents,
+                   SUM(CASE WHEN ok AND in_window THEN image_count ELSE 0 END) AS window_photos,
+                   SUM(CASE WHEN ok AND in_window AND is_translation THEN 1 ELSE 0 END) AS window_translations,
+                   SUM(CASE WHEN ok THEN files_generated END) AS lifetime_files_generated,
+                   SUM(CASE WHEN ok THEN documents END) AS lifetime_documents,
+                   SUM(CASE WHEN ok THEN image_count ELSE 0 END) AS lifetime_photos,
+                   SUM(CASE WHEN ok AND is_translation THEN 1 ELSE 0 END) AS lifetime_translations,
+                   MAX(request_timestamp) AS last_request
+            FROM (
+                SELECT l.user_id,
+                       l.request_timestamp,
+                       l.status = 'success' AS ok,
+                       l.request_timestamp >= date('now', ?) AS in_window,
+                       COALESCE(l.input_tokens, 0) AS input_tokens,
+                       COALESCE(l.output_tokens, 0) AS output_tokens,
+                       l.estimated_cost_usd,
+                       COALESCE(l.image_count, 0) AS image_count,
+                       l.call_type = 'translation' AS is_translation,
+                       -- Plain columns written beside metadata (and
+                       -- backfilled from it once); the old json_extract
+                       -- over the 24 KB blob is what this query stops doing.
+                       l.generated_count AS files_generated,
+                       l.documents_count AS documents
+                FROM usage_log l{usage_where}
+            )
+            GROUP BY user_id
+        ),
+        telemetry_latest AS (
+            SELECT user_id,
+                   {_unpacked('app_locale')},
+                   {_unpacked('os_version')},
+                   {_unpacked('app_version')},
+                   {_unpacked('device_model')},
+                   {_unpacked('app_build')},
+                   {_unpacked('distribution')},
+                   {_unpacked('country')},
+                   {_unpacked('region')},
+                   {_unpacked('city')},
+                   telemetry_events
+            FROM (
+                SELECT t.user_id,
+                       {_packed('app_locale')},
+                       {_packed('os_version')},
+                       {_packed('app_version')},
+                       {_packed('device_model')},
+                       {_packed('app_build')},
+                       -- Install channel: telemetry distribution (production/
+                       -- sandbox/xcode) is the device-side truth; subscription
+                       -- environment below is the StoreKit-side fallback for
+                       -- paid users on older builds that don't send it yet.
+                       {_packed('distribution')},
+                       -- Coarse location (GeoIP-derived at ingestion; never
+                       -- the raw IP). Unscoped like the other device columns:
+                       -- location is the user's, not per-app.
+                       {_packed('country')},
+                       {_packed('region')},
+                       {_packed('city')},
+                       COUNT(*) AS telemetry_events
+                FROM telemetry_events t
+                WHERE t.user_id IS NOT NULL
+                GROUP BY t.user_id
+            )
+        ),
+        sub_environment AS (
+            SELECT user_id, environment
+            FROM (
+                SELECT e.user_id, e.environment,
+                       ROW_NUMBER() OVER (PARTITION BY e.user_id
+                                          ORDER BY e.recorded_at DESC) AS rn
+                FROM subscription_events e
+                WHERE e.environment IS NOT NULL
+            )
+            WHERE rn = 1
+        )
+        SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
+               u.simulated_tier, u.simulated_exhausted,
+               u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
+               u.searches_used, u.generations_used,
+               u.is_trial, u.trial_end, u.exclude_from_stats,
+               COALESCE(r.window_requests, 0) AS window_requests,
+               COALESCE(r.window_input_tokens, 0) AS window_input_tokens,
+               COALESCE(r.window_output_tokens, 0) AS window_output_tokens,
+               COALESCE(r.window_cost_usd, 0) AS window_cost_usd,
+               COALESCE(r.lifetime_requests, 0) AS lifetime_requests,
+               COALESCE(r.lifetime_input_tokens, 0) AS lifetime_input_tokens,
+               COALESCE(r.lifetime_output_tokens, 0) AS lifetime_output_tokens,
+               COALESCE(r.lifetime_cost_usd, 0) AS lifetime_cost_usd,
+               COALESCE(r.window_files_generated, 0) AS window_files_generated,
+               COALESCE(r.window_documents, 0) AS window_documents,
+               COALESCE(r.window_photos, 0) AS window_photos,
+               COALESCE(r.window_translations, 0) AS window_translations,
+               COALESCE(r.lifetime_files_generated, 0) AS lifetime_files_generated,
+               COALESCE(r.lifetime_documents, 0) AS lifetime_documents,
+               COALESCE(r.lifetime_photos, 0) AS lifetime_photos,
+               COALESCE(r.lifetime_translations, 0) AS lifetime_translations,
+               r.last_request,
+               u.marketing_opt_in,
+               t.app_locale, t.os_version, t.app_version, t.device_model, t.app_build,
+               t.distribution,
+               s.environment AS sub_environment,
+               COALESCE(t.telemetry_events, 0) AS telemetry_events,
+               t.country, t.region, t.city
+        FROM users u
+        LEFT JOIN usage_rollup r ON r.user_id = u.id
+        LEFT JOIN telemetry_latest t ON t.user_id = u.id
+        LEFT JOIN sub_environment s ON s.user_id = u.id{app_user_filter}
+        ORDER BY u.created_at DESC"""
+    params = (
+        f"-{days} days",   # usage_rollup: in_window
+        *apps_filter,      # usage_rollup: WHERE l.app_id IN (...)
+        *apps_filter,      # outer WHERE: telemetry EXISTS
+    )
+    return sql, params
+
+
 @router.get("/admin/users")
 async def list_users(
     request: Request,
@@ -3145,165 +3356,14 @@ async def list_users(
 
     tier_config = request.app.state.tier_config
 
-    # Optional per-app scoping. When `app` is set, every usage_log subquery
-    # below (windowed and lifetime) is restricted to that app_id so the row
-    # reflects a single app end to end; an empty/absent `app` keeps them
-    # global. Telemetry device/locale subqueries stay unscoped — they
-    # describe the user's device, not per-app activity. Each filtered
-    # subquery contributes one `?` (only when `app` is set), in SELECT order.
+    # Optional per-app scoping. When `app` is set, the usage_log roll-up
+    # (windowed and lifetime) is restricted to those app_ids so the row
+    # reflects a single app end to end; an empty/absent `app` keeps it
+    # global. The telemetry device/locale columns stay unscoped: they
+    # describe the user's device, not per-app activity.
     apps_filter = _apps_from_filter(app)
-
-    def _app_filt(alias: str) -> str:
-        return _app_sql(apps_filter, f"{alias}.app_id")
-
-    app_params = apps_filter
-
-    # When an app is selected, HIDE users with no activity in it: keep only
-    # users with at least one usage_log OR telemetry_events row tagged with
-    # that app_id. So filtering by Tech Rehearsal drops users who only touch
-    # SS, and vice versa. Users are shared across apps, so someone active in
-    # both apps shows up under both filters. The two `?`s bind last (the
-    # outer WHERE follows every SELECT-list subquery in the SQL text).
-    _in = ", ".join("?" * len(apps_filter))
-    app_user_filter = (
-        " WHERE EXISTS (SELECT 1 FROM usage_log ux"
-        f" WHERE ux.user_id = u.id AND ux.app_id IN ({_in}))"
-        " OR EXISTS (SELECT 1 FROM telemetry_events tx"
-        f" WHERE tx.user_id = u.id AND tx.app_id IN ({_in}))"
-        if apps_filter else ""
-    )
-    app_user_params = apps_filter + apps_filter if apps_filter else ()
-
-    cursor = await db.execute(
-        f"""SELECT u.id, u.apple_sub, u.email, u.display_name, u.tier, u.created_at, u.is_active,
-            u.simulated_tier, u.simulated_exhausted,
-            u.monthly_used_usd, u.monthly_cost_limit_usd, u.allocation_resets_at,
-            u.searches_used, u.generations_used,
-            u.is_trial, u.trial_end, u.exclude_from_stats,
-            -- Windowed totals (last `days` days). The "window_" prefix
-            -- makes the date filter visible at the call site so future
-            -- editors don't confuse these with all-time aggregates.
-            (SELECT COUNT(*) FROM usage_log l WHERE l.user_id = u.id AND l.status = 'success'
-             AND l.request_timestamp >= date('now', ?){_app_filt('l')}) as window_requests,
-            (SELECT COALESCE(SUM(COALESCE(l2.input_tokens,0)), 0)
-             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
-             AND l2.request_timestamp >= date('now', ?){_app_filt('l2')}) as window_input_tokens,
-            (SELECT COALESCE(SUM(COALESCE(l2.output_tokens,0)), 0)
-             FROM usage_log l2 WHERE l2.user_id = u.id AND l2.status = 'success'
-             AND l2.request_timestamp >= date('now', ?){_app_filt('l2')}) as window_output_tokens,
-            (SELECT COALESCE(SUM(l3.estimated_cost_usd), 0)
-             FROM usage_log l3 WHERE l3.user_id = u.id AND l3.status = 'success'
-             AND l3.request_timestamp >= date('now', ?){_app_filt('l3')}) as window_cost_usd,
-            -- Lifetime aggregates (no date filter). Bounded by the
-            -- usage_log table's lifetime, which is never purged today.
-            (SELECT COUNT(*) FROM usage_log lt1 WHERE lt1.user_id = u.id AND lt1.status = 'success'{_app_filt('lt1')})
-              as lifetime_requests,
-            (SELECT COALESCE(SUM(COALESCE(lt2.input_tokens,0)), 0)
-             FROM usage_log lt2 WHERE lt2.user_id = u.id AND lt2.status = 'success'{_app_filt('lt2')})
-              as lifetime_input_tokens,
-            (SELECT COALESCE(SUM(COALESCE(lt3.output_tokens,0)), 0)
-             FROM usage_log lt3 WHERE lt3.user_id = u.id AND lt3.status = 'success'{_app_filt('lt3')})
-              as lifetime_output_tokens,
-            (SELECT COALESCE(SUM(lt4.estimated_cost_usd), 0)
-             FROM usage_log lt4 WHERE lt4.user_id = u.id AND lt4.status = 'success'{_app_filt('lt4')})
-              as lifetime_cost_usd,
-            -- Usage-visibility metrics (Scott 2026-08-23): what people
-            -- actually put through the AI, all intercepted server-side
-            -- from usage_log — zero client involvement. Windowed like the
-            -- token columns; lifetime shown in the user detail. Counts:
-            -- files GENERATED (metadata.generated.count, one per staged
-            -- artifact, not per request), DOCUMENTS included in queries
-            -- (metadata.documents.count), PHOTOS included (image_count
-            -- column), TRANSLATION requests (call_type='translation',
-            -- zero until the /v1/translations endpoint ships — the
-            -- column is ready the day it does).
-            (SELECT COALESCE(SUM(json_extract(m1.metadata,'$.generated.count')),0)
-             FROM usage_log m1 WHERE m1.user_id = u.id AND m1.status = 'success'
-             AND m1.request_timestamp >= date('now', ?){_app_filt('m1')}) as window_files_generated,
-            (SELECT COALESCE(SUM(json_extract(m2.metadata,'$.documents.count')),0)
-             FROM usage_log m2 WHERE m2.user_id = u.id AND m2.status = 'success'
-             AND m2.request_timestamp >= date('now', ?){_app_filt('m2')}) as window_documents,
-            (SELECT COALESCE(SUM(COALESCE(m3.image_count,0)),0)
-             FROM usage_log m3 WHERE m3.user_id = u.id AND m3.status = 'success'
-             AND m3.request_timestamp >= date('now', ?){_app_filt('m3')}) as window_photos,
-            (SELECT COUNT(*) FROM usage_log m4 WHERE m4.user_id = u.id
-             AND m4.status = 'success' AND m4.call_type = 'translation'
-             AND m4.request_timestamp >= date('now', ?){_app_filt('m4')}) as window_translations,
-            (SELECT COALESCE(SUM(json_extract(n1.metadata,'$.generated.count')),0)
-             FROM usage_log n1 WHERE n1.user_id = u.id AND n1.status = 'success'{_app_filt('n1')}) as lifetime_files_generated,
-            (SELECT COALESCE(SUM(json_extract(n2.metadata,'$.documents.count')),0)
-             FROM usage_log n2 WHERE n2.user_id = u.id AND n2.status = 'success'{_app_filt('n2')}) as lifetime_documents,
-            (SELECT COALESCE(SUM(COALESCE(n3.image_count,0)),0)
-             FROM usage_log n3 WHERE n3.user_id = u.id AND n3.status = 'success'{_app_filt('n3')}) as lifetime_photos,
-            (SELECT COUNT(*) FROM usage_log n4 WHERE n4.user_id = u.id
-             AND n4.status = 'success' AND n4.call_type = 'translation'{_app_filt('n4')}) as lifetime_translations,
-            (SELECT MAX(l4.request_timestamp) FROM usage_log l4 WHERE l4.user_id = u.id{_app_filt('l4')}) as last_request,
-            u.marketing_opt_in,
-            -- Latest non-null device/version/locale from telemetry pings.
-            -- Per-field "latest non-null" so an older build that doesn't send
-            -- device_model/app_locale doesn't blank out a value a newer ping set.
-            (SELECT t.app_locale FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.app_locale IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as app_locale,
-            (SELECT t.os_version FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.os_version IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as os_version,
-            (SELECT t.app_version FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.app_version IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as app_version,
-            (SELECT t.device_model FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.device_model IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as device_model,
-            (SELECT t.app_build FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.app_build IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as app_build,
-            -- Install channel: telemetry distribution (production/sandbox/
-            -- xcode) is the device-side truth; subscription environment is
-            -- the StoreKit-side fallback for paid users on older builds
-            -- that don't send distribution yet.
-            (SELECT t.distribution FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.distribution IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as distribution,
-            (SELECT e.environment FROM subscription_events e
-             WHERE e.user_id = u.id AND e.environment IS NOT NULL
-             ORDER BY e.recorded_at DESC LIMIT 1) as sub_environment,
-            (SELECT COUNT(*) FROM telemetry_events t
-             WHERE t.user_id = u.id) as telemetry_events,
-            -- Coarse location: latest non-null country/region/city from
-            -- telemetry (GeoIP-derived at ingestion; never the raw IP). Unscoped
-            -- like the other device columns — location is the user's, not per-app.
-            (SELECT t.country FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.country IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as country,
-            (SELECT t.region FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.region IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as region,
-            (SELECT t.city FROM telemetry_events t
-             WHERE t.user_id = u.id AND t.city IS NOT NULL
-             ORDER BY t.received_at DESC LIMIT 1) as city
-           FROM users u""" + app_user_filter + """
-           ORDER BY u.created_at DESC""",
-        (
-            f"-{days} days", *app_params,   # window_requests
-            f"-{days} days", *app_params,   # window_input_tokens
-            f"-{days} days", *app_params,   # window_output_tokens
-            f"-{days} days", *app_params,   # window_cost_usd
-            *app_params,                    # lifetime_requests
-            *app_params,                    # lifetime_input_tokens
-            *app_params,                    # lifetime_output_tokens
-            *app_params,                    # lifetime_cost_usd
-            f"-{days} days", *app_params,   # window_files_generated
-            f"-{days} days", *app_params,   # window_documents
-            f"-{days} days", *app_params,   # window_photos
-            f"-{days} days", *app_params,   # window_translations
-            *app_params,                    # lifetime_files_generated
-            *app_params,                    # lifetime_documents
-            *app_params,                    # lifetime_photos
-            *app_params,                    # lifetime_translations
-            *app_params,                    # last_request
-            *app_user_params,               # outer WHERE: hide non-app users
-        ),
-    )
+    sql, params = _list_users_sql(apps_filter, days)
+    cursor = await db.execute(sql, params)
     rows_fetched = await cursor.fetchall()
 
     # Offer badge (Scott 2026-07-28/29): any subscription born from an

@@ -1411,6 +1411,38 @@ MIGRATIONS = [
     # the existing rows took 1.1 s, which is what the first boot after this
     # deploys pays once.
     "CREATE INDEX IF NOT EXISTS idx_usage_date_dash ON usage_log(request_timestamp, status, app_id, user_id, provider, model, call_type, scenario, input_tokens, output_tokens, cached_tokens, estimated_cost_usd, response_time_ms, ttft_ms)",
+    # The dashboard's users list (GET /admin/users; webhooks._list_users_sql,
+    # 2026-11-01) rolls usage_log up per user in ONE pass. What made the
+    # old query slow was metadata: it holds a 24 KB raw_request for 30
+    # days, and the list ran json_extract over it four times per row per
+    # user for two small counts (files generated, documents attached).
+    # Receipt: 15.8 s and 16.9 s right after a restart, 2 to 3 s warm,
+    # 2026-10-31. The two counts now live in plain columns, written by
+    # usage_tracker.log_usage from the same dict that becomes metadata, and
+    # backfilled here once from the JSON. 0 means "none", never NULL, so
+    # the backfill is one-shot: after it, no row matches `IS NULL` and the
+    # partial index below (empty from then on) answers the re-run in one
+    # probe instead of a table scan on every later sweep. json_valid guards
+    # the json_extract so one malformed blob cannot abort the whole
+    # UPDATE; such a row gets 0, as a SUM over it would have treated NULL.
+    # An expression index on json_extract(metadata, ...) was tried first
+    # and dropped: SQLite then refuses to DROP any usage_log column ("error
+    # in index ... after drop column"), which the schema-heal test does.
+    "ALTER TABLE usage_log ADD COLUMN generated_count INTEGER",
+    "ALTER TABLE usage_log ADD COLUMN documents_count INTEGER",
+    "CREATE INDEX IF NOT EXISTS idx_usage_rollup_unfilled ON usage_log(generated_count) WHERE generated_count IS NULL",
+    "UPDATE usage_log SET "
+    "generated_count = COALESCE(CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.generated.count') END, 0), "
+    "documents_count = COALESCE(CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.documents.count') END, 0) "
+    "WHERE generated_count IS NULL",
+    # Every column the roll-up reads, so SQLite answers it from this index
+    # and never opens a row (SCAN ... USING COVERING INDEX, pinned by
+    # tests/test_admin_users_query.py). Built after the backfill so the
+    # UPDATE does not maintain it row by row.
+    "CREATE INDEX IF NOT EXISTS idx_usage_user_rollup ON usage_log("
+    "user_id, request_timestamp, status, app_id, call_type, input_tokens, "
+    "output_tokens, estimated_cost_usd, image_count, generated_count, "
+    "documents_count)",
 ]
 
 

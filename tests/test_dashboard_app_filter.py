@@ -205,16 +205,24 @@ def test_telemetry_rich_app_filter(client):
 def _insert_media_usage(db_path, user_id, *, metadata=None, image_count=0,
                         call_type="chat", days_ago=0, status="success"):
     now = (datetime.now(timezone.utc) - timedelta(days=days_ago)).isoformat()
+    # The users list reads generated_count and documents_count, the plain
+    # columns usage_tracker.log_usage writes beside metadata (2026-11-01),
+    # so a raw seed writes them from the same dict, as the writer does.
+    generated = documents = None
+    if metadata:
+        generated = (metadata.get("generated") or {}).get("count") or 0
+        documents = (metadata.get("documents") or {}).get("count") or 0
     conn = sqlite3.connect(db_path)
     conn.execute(
         """INSERT INTO usage_log
            (id, user_id, provider, model, input_tokens, output_tokens,
             estimated_cost_usd, request_timestamp, response_time_ms,
-            status, call_type, image_count, metadata, app_id)
+            status, call_type, image_count, metadata, app_id,
+            generated_count, documents_count)
            VALUES (?, ?, 'anthropic', 'claude-haiku-4-5', 100, 50, 0.01, ?,
-                   120, ?, ?, ?, ?, 'shouldersurf')""",
+                   120, ?, ?, ?, ?, 'shouldersurf', ?, ?)""",
         (str(uuid.uuid4()), user_id, now, status, call_type, image_count,
-         json.dumps(metadata) if metadata else None),
+         json.dumps(metadata) if metadata else None, generated, documents),
     )
     conn.commit()
     conn.close()

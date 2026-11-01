@@ -403,6 +403,15 @@ class UsageTracker:
             }
 
         metadata_json = json.dumps(metadata, ensure_ascii=False) if metadata else None
+        # The two counts the admin users list sums, as plain columns so the
+        # list never has to json_extract them out of the raw_request blob
+        # (2026-11-01; idx_usage_user_rollup in database.py). Same values
+        # metadata carries; 0 when the key is absent, NULL only when there
+        # is no metadata at all, matching the one-time backfill.
+        generated_count = documents_count = None
+        if metadata_json is not None:
+            generated_count = (metadata.get("generated") or {}).get("count") or 0
+            documents_count = (metadata.get("documents") or {}).get("count") or 0
 
         # Extract estimated cost
         estimated_cost = None
@@ -429,9 +438,9 @@ class UsageTracker:
                 status, error_message, call_type, prompt_mode,
                 image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario, scenario_kind,
                 ttft_ms, jurisdiction, case_id, geo_country, geo_region, geo_city,
-                form_city, ip_hash)
+                form_city, ip_hash, generated_count, documents_count)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?, ?)""",
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -456,6 +465,8 @@ class UsageTracker:
                 _normalize_scenario_kind(request.get_meta("scenario_kind")),
                 int(ttft_ms) if ttft_ms is not None else None,
                 *n400_place_columns(request, app_id),
+                generated_count,
+                documents_count,
             ),
             what="log_usage", user_id=user_id, cost=estimated_cost,
         ):
