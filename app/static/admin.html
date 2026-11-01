@@ -1226,7 +1226,10 @@ function panelState(id, state, message, retry) {
   if (!line) return;
   const text = document.getElementById(`${id}-state-text`);
   const btn = document.getElementById(`${id}-state-retry`);
-  line.style.display = state === 'ready' ? 'none' : '';
+  // 'block', not '': the base rule is .panel-state { display: none }, so an
+  // empty inline value fell back to hidden and the Loading and error lines
+  // never showed; only the dim did (live page, build 81c6986, 2026-11-01).
+  line.style.display = state === 'ready' ? 'none' : 'block';
   line.className = state === 'ready' ? 'panel-state' : `panel-state ${state}`;
   if (text) {
     text.textContent = state === 'ready' ? ''
