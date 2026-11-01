@@ -150,6 +150,14 @@
 
   .section { display: none; }
   .section.active { display: block; }
+  /* Per-panel loading and error line (panelState). A panel with a fetch in
+     flight dims everything but the line, so numbers that are about to be
+     replaced read as stale rather than as current (Overview sat blank for
+     25 to 45 s on a cold server with nothing saying so, 2026-11-01). */
+  .panel-state { display: none; margin: 0 0 12px; padding: 8px 12px; font-size: 13px; color: var(--text-dim); border: 1px solid var(--border); border-radius: 6px; }
+  .panel-state.error { color: var(--red); border-color: var(--red); }
+  .panel-state .refresh-btn { margin-left: 10px; padding: 2px 10px; font-size: 12px; }
+  .panel-loading > :not(.panel-state) { opacity: 0.5; }
 
   /* Performance tab */
   .perf-controls { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -355,6 +363,7 @@
   <!-- Overview -->
   <div id="panel-error-banner" style="display:none;margin:8px 0;padding:10px 14px;border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:13px"></div>
   <div id="tab-overview" class="section active">
+    <div id="tab-overview-state" class="panel-state"><span id="tab-overview-state-text"></span><button id="tab-overview-state-retry" class="refresh-btn" onclick="panelRetry('tab-overview')" style="display:none">Retry</button></div>
     <h3>Today</h3>
     <div class="cards" id="today-cards"></div>
     <h3 id="period-label">Last 7 Days</h3>
@@ -386,6 +395,8 @@
     <h3>Avg Latency by Model</h3>
     <div class="card" id="latency-by-model-chart" style="padding:16px;max-width:560px"></div>
 
+    <div id="usage-by-place">
+    <div id="usage-by-place-state" class="panel-state"><span id="usage-by-place-state-text"></span><button id="usage-by-place-state-retry" class="refresh-btn" onclick="panelRetry('usage-by-place')" style="display:none">Retry</button></div>
     <h3>Usage by Place</h3>
     <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">Spend, cases (distinct case ids) and users by where the call came from. Three sources: the state picked in the app, the applicant's city the app sends, and the request IP. N-400 only today; the app filter applies. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
     <div class="card" style="padding:16px;max-width:720px">
@@ -401,10 +412,12 @@
     <div class="table-wrap"><table id="place-ip"><thead><tr>
       <th>App</th><th>IP country</th><th>IP region</th><th>IP city</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
     </tr></thead><tbody></tbody></table></div>
+    </div>
   </div>
 
   <!-- Models -->
   <div id="tab-models" class="section">
+    <div id="tab-models-state" class="panel-state"><span id="tab-models-state-text"></span><button id="tab-models-state-retry" class="refresh-btn" onclick="panelRetry('tab-models')" style="display:none">Retry</button></div>
     <h3>Usage by Model</h3>
     <div class="table-wrap"><table id="model-table"><thead><tr>
       <th>Provider</th><th>Model</th><th>Requests</th><th>Input Tokens</th><th>Output Tokens</th><th>Cost</th><th>Avg Latency</th>
@@ -423,6 +436,7 @@
 
   <!-- Users -->
   <div id="tab-users" class="section">
+    <div id="tab-users-state" class="panel-state"><span id="tab-users-state-text"></span><button id="tab-users-state-retry" class="refresh-btn" onclick="panelRetry('tab-users')" style="display:none">Retry</button></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px">
       <div class="card" style="padding:14px;grid-column:span 2;min-width:0">
         <h4 style="margin:0 0 8px">Users by country <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— country-level GeoIP; coordinates are never stored. Arrow = gained users in the last 7 days</span></h4>
@@ -480,6 +494,7 @@
 
     <!-- User detail panel (shown when clicking a user) -->
     <div id="user-detail" style="display:none">
+      <div id="user-detail-state" class="panel-state"><span id="user-detail-state-text"></span><button id="user-detail-state-retry" class="refresh-btn" onclick="panelRetry('user-detail')" style="display:none">Retry</button></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <h3 id="user-detail-title" style="margin:0">User Detail</h3>
         <button class="refresh-btn" onclick="_openDetailUserId=null;document.getElementById('user-detail').style.display='none'" style="font-size:1.1em;padding:4px 12px">Close</button>
@@ -541,6 +556,7 @@
 
   <!-- Tiers -->
   <div id="tab-tiers" class="section">
+    <div id="tab-tiers-state" class="panel-state"><span id="tab-tiers-state-text"></span><button id="tab-tiers-state-retry" class="refresh-btn" onclick="panelRetry('tab-tiers')" style="display:none">Retry</button></div>
     <h3>Subscription Tiers</h3>
     <!-- Simulation banner (shown when active) -->
     <div id="sim-banner" style="display:none;background:rgba(210,153,34,0.12);border:1px solid var(--orange);border-radius:8px;padding:12px 16px;margin-bottom:16px;justify-content:space-between;align-items:center;">
@@ -629,6 +645,7 @@
 
   <!-- Providers -->
   <div id="tab-providers" class="section">
+    <div id="tab-providers-state" class="panel-state"><span id="tab-providers-state-text"></span><button id="tab-providers-state-retry" class="refresh-btn" onclick="panelRetry('tab-providers')" style="display:none">Retry</button></div>
     <h3>API Provider Status</h3>
     <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">
       Check credit balances and update API keys. Changes take effect immediately and persist to Secret Manager.
@@ -638,6 +655,7 @@
 
   <!-- Remote Configs -->
   <div id="tab-configs" class="section">
+    <div id="tab-configs-state" class="panel-state"><span id="tab-configs-state-text"></span><button id="tab-configs-state-retry" class="refresh-btn" onclick="panelRetry('tab-configs')" style="display:none">Retry</button></div>
     <h3>Remote Configs</h3>
     <p style="color:var(--text-dim);margin-bottom:12px">JSON files served via <code style="color:var(--accent)">GET /v1/config/{name}</code>. Localized variants served when client sends <code style="color:var(--accent)">Accept-Language</code> header.</p>
 
@@ -695,6 +713,7 @@
 
   <!-- Promo Campaigns (#promo, slice 2) -->
   <div id="tab-campaigns" class="section">
+    <div id="tab-campaigns-state" class="panel-state"><span id="tab-campaigns-state-text"></span><button id="tab-campaigns-state-retry" class="refresh-btn" onclick="panelRetry('tab-campaigns')" style="display:none">Retry</button></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <h3 style="margin:0">Promo Campaigns</h3>
       <button class="refresh-btn" onclick="newCampaign()" style="background:var(--green);color:#000;font-weight:600">+ New campaign</button>
@@ -860,6 +879,7 @@
 
   <!-- Model Routing -->
   <div id="tab-routing" class="section">
+    <div id="tab-routing-state" class="panel-state"><span id="tab-routing-state-text"></span><button id="tab-routing-state-retry" class="refresh-btn" onclick="panelRetry('tab-routing')" style="display:none">Retry</button></div>
     <h3>Model Routing</h3>
     <p style="color:var(--text-dim);font-size:13px;margin-bottom:16px">Control which model serves each query type per app and subscription tier. Changes take effect immediately.</p>
     <div id="routing-grid"></div>
@@ -1032,6 +1052,7 @@
 
   <!-- Errors -->
   <div id="tab-errors" class="section">
+    <div id="tab-errors-state" class="panel-state"><span id="tab-errors-state-text"></span><button id="tab-errors-state-retry" class="refresh-btn" onclick="panelRetry('tab-errors')" style="display:none">Retry</button></div>
     <h3>Error Summary</h3>
     <div class="cards" id="error-summary-cards"></div>
     <h3>Recent Errors</h3>
@@ -1042,6 +1063,7 @@
 
   <!-- Email Management -->
   <div id="tab-email" class="section">
+    <div id="tab-email-state" class="panel-state"><span id="tab-email-state-text"></span><button id="tab-email-state-retry" class="refresh-btn" onclick="panelRetry('tab-email')" style="display:none">Retry</button></div>
     <h3>Overview</h3>
     <div class="cards" id="email-stats-cards"></div>
 
@@ -1071,6 +1093,7 @@
 
   <!-- Alerts (critical-failure recipients + incident history) -->
   <div id="tab-alerts" class="section">
+    <div id="tab-alerts-state" class="panel-state"><span id="tab-alerts-state-text"></span><button id="tab-alerts-state-retry" class="refresh-btn" onclick="panelRetry('tab-alerts')" style="display:none">Retry</button></div>
     <h3>Recipients</h3>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Emails that receive operator alerts when a critical system failure is detected (CQ unreachable, managed-provider key rejected, managed-provider budget exhausted). Recipients with no category filter receive every category. Suppression is once-per-incident — re-fires only after 30 min of quiet.</p>
 
@@ -1144,6 +1167,96 @@ window.fetch = async function(...args) {
   }
   return resp;
 };
+
+// --- Loading and error states (2026-11-01) ---------------------------------
+// Receipt, audit of 2026-10-31 confirmed on the live page 2026-11-01: on a
+// cold server the Overview sat empty for 25 to 45 seconds, headings and no
+// numbers and nothing on screen saying loading. And refresh() awaited
+// Promise.all over dashboard, users and tiers with no r.ok check, so one 500
+// threw out of the await and left every number silently stale; the only
+// sign of success the page had was the "Updated hh:mm" subtitle. The same
+// `.then(r => r.json())` shape in the user detail, configs, campaigns and
+// routing loaders painted an error body as data, and five loaders did
+// `if (!resp.ok) return;`, which makes a 502 look exactly like a tab with
+// no data.
+//
+// adminFetch is how a loader talks to /webhooks/admin: it adds the key,
+// checks the status and throws an Error carrying `status`, `detail` (the
+// server's detail text) and `path`, so a non-ok answer cannot be mistaken
+// for a payload. It goes through the wrapped fetch above so a rotated key
+// still bumps to the auth screen. `path` is everything after BASE.
+async function adminFetch(path, init) {
+  // No default in the signature: the tests' brace-matching extractor closes
+  // the function at the first balanced pair after `function`, and an empty
+  // object default would be that pair.
+  init = init || {};
+  const headers = Object.assign({'X-Admin-Key': adminKey}, init.headers || {});
+  const r = await fetch(`${BASE}${path}`, {...init, headers});
+  if (!r.ok) {
+    let detail = '';
+    try {
+      const body = await r.json();
+      if (body && body.detail != null) {
+        detail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail);
+      }
+    } catch (_) { /* no JSON body: the status is the whole story */ }
+    const err = new Error(`HTTP ${r.status}${detail ? ': ' + detail : ''}`);
+    err.status = r.status;
+    err.detail = detail;
+    err.path = path;
+    throw err;
+  }
+  return r.json();
+}
+
+// Per-panel state. A panel that fetches carries, as its first child,
+//   <div id="X-state" class="panel-state"><span id="X-state-text"></span>
+//     <button id="X-state-retry" onclick="panelRetry('X')">Retry</button></div>
+// where X is the panel's own id (tab-overview, user-detail, ...). 'loading'
+// dims the panel (CSS .panel-loading) and shows the line; 'ready' clears
+// it; 'error' shows the message in red with Retry, which re-runs whatever
+// loader the loading call registered. Fixed markup rather than innerHTML so
+// the server's detail text lands in textContent and nothing here escapes.
+const _panelRetry = {};
+function panelState(id, state, message, retry) {
+  if (retry) _panelRetry[id] = retry;
+  const sec = document.getElementById(id);
+  if (sec && sec.classList) sec.classList.toggle('panel-loading', state === 'loading');
+  const line = document.getElementById(`${id}-state`);
+  if (!line) return;
+  const text = document.getElementById(`${id}-state-text`);
+  const btn = document.getElementById(`${id}-state-retry`);
+  line.style.display = state === 'ready' ? 'none' : '';
+  line.className = state === 'ready' ? 'panel-state' : `panel-state ${state}`;
+  if (text) {
+    text.textContent = state === 'ready' ? ''
+      : (message || (state === 'loading' ? 'Loading...' : 'Failed to load'));
+  }
+  if (btn) btn.style.display = (state === 'error' && _panelRetry[id]) ? '' : 'none';
+}
+function panelRetry(id) {
+  const fn = _panelRetry[id];
+  if (fn) fn();
+}
+// What the error line says: the status and the server's detail when the
+// failure was an HTTP answer, the message otherwise (a network error).
+function panelErrorText(e) {
+  if (e && e.status) return `Failed to load: HTTP ${e.status}${e.detail ? ', ' + e.detail : ''}`;
+  return `Failed to load: ${(e && e.message) || 'unknown error'}`;
+}
+// Runs one loader under its panel's state. `rerun` is what Retry calls (the
+// public loader, so a retry comes back through here); `body` fetches and
+// paints. A loader wrapped this way never rejects: its failure is on screen.
+async function withPanelState(id, rerun, body) {
+  panelState(id, 'loading', 'Loading...', rerun);
+  try {
+    await body();
+    panelState(id, 'ready');
+  } catch (e) {
+    console.error(`[dashboard] ${id} failed:`, e);
+    panelState(id, 'error', panelErrorText(e));
+  }
+}
 
 // Which deployment is this page driving? null means production; anything
 // else is a {level, reason} the banner paints.
@@ -2358,15 +2471,15 @@ let _alertCategories = [];
 
 async function loadAlertCategories() {
   if (_alertCategories.length) return _alertCategories;
-  const resp = await fetch(`${BASE}/webhooks/admin/alerts/categories`, {
-    headers: {'X-Admin-Key': adminKey},
-  });
-  const j = await resp.json();
+  const j = await adminFetch('/webhooks/admin/alerts/categories');
   _alertCategories = j.categories || [];
   return _alertCategories;
 }
 
-async function loadAlerts() {
+function loadAlerts() {
+  return withPanelState('tab-alerts', loadAlerts, _loadAlerts);
+}
+async function _loadAlerts() {
   const cats = await loadAlertCategories();
 
   // Render the per-category checkbox row for the "add recipient" form.
@@ -2390,18 +2503,13 @@ async function loadAlerts() {
     sel.dataset.populated = '1';
   }
 
-  // Recipients table.
-  const recipientsResp = await fetch(`${BASE}/webhooks/admin/alerts/recipients`, {
-    headers: {'X-Admin-Key': adminKey},
-  });
-  const recipientsJson = await recipientsResp.json();
+  // Recipients table and incident history. Until 2026-11-01 neither answer
+  // was checked, so a 500 rendered "No recipients yet" over a live list.
+  const [recipientsJson, incJson] = await Promise.all([
+    adminFetch('/webhooks/admin/alerts/recipients'),
+    adminFetch('/webhooks/admin/alerts/incidents?limit=100'),
+  ]);
   renderAlertRecipients(recipientsJson.recipients || []);
-
-  // Incident history.
-  const incResp = await fetch(`${BASE}/webhooks/admin/alerts/incidents?limit=100`, {
-    headers: {'X-Admin-Key': adminKey},
-  });
-  const incJson = await incResp.json();
   renderAlertIncidents(incJson.incidents || []);
 }
 
@@ -3077,39 +3185,51 @@ let _openDetailEmail = null;
 async function refreshCertPinBanner() {
   // Auto-republish + expiry banner. Suppressed when level==green so the
   // banner is silent during the boring 90% of the manifest lifecycle.
+  const banner = document.getElementById('cert-pin-banner');
+  const text = document.getElementById('cert-pin-banner-text');
+  const meta = document.getElementById('cert-pin-banner-meta');
+  const quiet = {bg: 'rgba(255, 255, 255, 0.04)', border: 'rgba(255,255,255,0.18)', fg: 'rgba(255,255,255,0.55)'};
+  let s;
   try {
-    const r = await fetch(`${BASE}/webhooks/admin/cert-pins/status`, {headers:{'X-Admin-Key':adminKey}});
-    if (!r.ok) return;
-    const s = await r.json();
-    const banner = document.getElementById('cert-pin-banner');
-    const text = document.getElementById('cert-pin-banner-text');
-    const meta = document.getElementById('cert-pin-banner-meta');
-    // Green used to hide this entirely, which is how the 2026-08-23 gap
-    // stayed invisible: the banner said healthy and then said nothing at
-    // all, so "probed one host" had nowhere to appear. Green now renders
-    // a quiet line instead of vanishing, because the thing worth seeing
-    // in the healthy case is WHICH hosts the health was computed from.
-    const palette = s.level === 'red'
-      ? {bg: 'rgba(220, 53, 69, 0.18)', border: '#dc3545', fg: '#ffb3bc'}
-      : s.level === 'yellow'
-      ? {bg: 'rgba(255, 193, 7, 0.18)', border: '#ffc107', fg: '#ffe48a'}
-      : {bg: 'rgba(255, 255, 255, 0.04)', border: 'rgba(255,255,255,0.18)', fg: 'rgba(255,255,255,0.55)'};
-    banner.style.background = palette.bg;
-    banner.style.borderLeft = `4px solid ${palette.border}`;
-    banner.style.color = palette.fg;
-    text.textContent = s.text;
-    const checked = s.last_check && s.last_check.checked_at
-      ? `last check ${new Date(s.last_check.checked_at).toLocaleString()}`
-      : 'no auto-check yet';
-    // A manifest is only as complete as the set of chains it was built
-    // from. Stated as a fact, not judged: this side cannot know how many
-    // hosts there are meant to be, only how many it looked at.
-    const hosts = (s.probed_hosts && s.probed_hosts.length)
-      ? `probed ${s.probed_hosts.join(', ')}`
-      : 'no host list recorded';
-    meta.textContent = `(${checked} · ${hosts})`;
+    s = await adminFetch('/webhooks/admin/cert-pins/status');
+  } catch (e) {
+    // Until 2026-11-01 a non-ok answer returned here silently and the banner
+    // stayed hidden, which is the same picture as "pins healthy and quiet".
+    // Say what happened in the banner's own quiet palette instead.
+    console.error('[dashboard] cert-pin status failed:', e);
+    banner.style.background = quiet.bg;
+    banner.style.borderLeft = `4px solid ${quiet.border}`;
+    banner.style.color = quiet.fg;
+    text.textContent = 'Cert pin status unavailable';
+    meta.textContent = `(${panelErrorText(e)})`;
     banner.style.display = '';
-  } catch (_) { /* silent */ }
+    return;
+  }
+  // Green used to hide this entirely, which is how the 2026-08-23 gap
+  // stayed invisible: the banner said healthy and then said nothing at
+  // all, so "probed one host" had nowhere to appear. Green now renders
+  // a quiet line instead of vanishing, because the thing worth seeing
+  // in the healthy case is WHICH hosts the health was computed from.
+  const palette = s.level === 'red'
+    ? {bg: 'rgba(220, 53, 69, 0.18)', border: '#dc3545', fg: '#ffb3bc'}
+    : s.level === 'yellow'
+    ? {bg: 'rgba(255, 193, 7, 0.18)', border: '#ffc107', fg: '#ffe48a'}
+    : quiet;
+  banner.style.background = palette.bg;
+  banner.style.borderLeft = `4px solid ${palette.border}`;
+  banner.style.color = palette.fg;
+  text.textContent = s.text;
+  const checked = s.last_check && s.last_check.checked_at
+    ? `last check ${new Date(s.last_check.checked_at).toLocaleString()}`
+    : 'no auto-check yet';
+  // A manifest is only as complete as the set of chains it was built
+  // from. Stated as a fact, not judged: this side cannot know how many
+  // hosts there are meant to be, only how many it looked at.
+  const hosts = (s.probed_hosts && s.probed_hosts.length)
+    ? `probed ${s.probed_hosts.join(', ')}`
+    : 'no host list recorded';
+  meta.textContent = `(${checked} · ${hosts})`;
+  banner.style.display = '';
 }
 
 // Selected app filter as a URL suffix ('' = all apps). Read from the one
@@ -3223,34 +3343,54 @@ async function refresh(filterChanged = false) {
   if (!_DASH_TABS.includes(_activeTab)) return;
   const days = document.getElementById('period').value;
   const app = appQuery();
-  // Fresh only once all three answered ok (review of #1176, 2026-11-01: an
-  // earlier draft marked it before the await, so a failed group fetch read
-  // as fresh until the next Refresh click). A non-ok status throws here
-  // rather than at tiers.tiers below, and a failure leaves 'dashboard'
-  // stale so the next open of a group tab retries. _dashInFlight is what
-  // stops a second open DURING the fetch from starting another.
-  const okJson = r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); };
-  let dash, users, tiers;
+  // Loading on the four group tabs while the three fetches are in flight:
+  // on a cold server they take 25 to 45 seconds, and until 2026-11-01 the
+  // page showed headings over nothing for all of it. Retry from any of
+  // them is a plain refresh().
+  _DASH_TABS.forEach(t => panelState(`tab-${t}`, 'loading', 'Loading...', () => refresh()));
+  // allSettled, not all: one 500 used to throw out of the await and leave
+  // every panel silently stale. Each payload paints the panels it feeds
+  // and a failed one marks only those (dashboard feeds Overview and
+  // Models, users feeds Users, tiers feeds Tiers). adminFetch throws on a
+  // non-ok status, so an error body is never read as data. _dashInFlight
+  // is what stops a second open DURING the fetch from starting another.
   _dashInFlight = true;
+  let settled;
   try {
-    [dash, users, tiers] = await Promise.all([
-      fetch(`${BASE}/webhooks/admin/dashboard?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
-      fetch(`${BASE}/webhooks/admin/users?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
+    settled = await Promise.allSettled([
+      adminFetch(`/webhooks/admin/dashboard?days=${days}${app}`),
+      adminFetch(`/webhooks/admin/users?days=${days}${app}`),
       // NOT app-scoped, and correctly so: /admin/tiers reads tiers.json,
       // which defines the tiers themselves rather than any app's activity.
       // (Per-app tier_overrides exist in apps.yml but this endpoint does
       // not read them; surfacing those is separate work.)
-      fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
+      adminFetch(`/webhooks/admin/tiers`),
     ]);
   } finally {
     _dashInFlight = false;
   }
-  _tabFresh.dashboard = true;
+  const [dashR, usersR, tiersR] = settled;
+  const got = r => r.status === 'fulfilled' ? r.value : null;
+  const dash = got(dashR), users = got(usersR), tiers = got(tiersR);
+  const mark = (ids, r) => ids.forEach(id => r.status === 'fulfilled'
+    ? panelState(id, 'ready')
+    : panelState(id, 'error', panelErrorText(r.reason)));
+  mark(['tab-overview', 'tab-models'], dashR);
+  mark(['tab-users'], usersR);
+  mark(['tab-tiers'], tiersR);
+  settled.filter(r => r.status === 'rejected')
+    .forEach(r => console.error('[dashboard] group fetch failed:', r.reason));
+  // Fresh only once all three answered ok (review of #1176, 2026-11-01: an
+  // earlier draft marked it before the await, so a failed group fetch read
+  // as fresh until the next Refresh click). A partial failure leaves
+  // 'dashboard' stale so the next open of a group tab retries.
+  const groupOk = settled.every(r => r.status === 'fulfilled');
+  if (groupOk) _tabFresh.dashboard = true;
 
-  const tierNames = Object.keys(tiers.tiers);
+  const tierNames = tiers ? Object.keys(tiers.tiers) : [];
 
-  // Track current user for simulate — find the admin user, fall back to first
-  if (users.users.length > 0) {
+  // Track current user for simulate: find the admin user, fall back to first
+  if (users && users.users.length > 0) {
     const me = users.users.find(u => u.tier === 'admin') || users.users[0];
     currentUserTier = me.tier;
     currentUserId = me.id;
@@ -3264,7 +3404,34 @@ async function refresh(filterChanged = false) {
   }
 
   // Render tiers
-  renderTiers(tiers.tiers);
+  if (tiers) renderTiers(tiers.tiers);
+
+  if (users) panel('users', () => {
+    // User table: sync the windowed cost column header with the active period
+    // selector so operators see "30d Cost" / "90d Cost" / etc instead of a
+    // generic label that doesn't say what window the number covers.
+    const _userWinTh = document.getElementById('user-table-window-cost-th');
+    if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
+    // Stash rows + tier list, then render via the sortable renderer so column
+    // header clicks can re-sort without re-fetching. tierNames is empty when
+    // the tiers fetch failed; the rows still paint.
+    const _anonRows = (users.anonymous_devices || []).map(a => ({...a, id: 'anon:' + a.device_id, anonymous: true}));
+    window._userTableState = { rows: users.users.concat(_anonRows), tierNames };
+    renderUserRows();
+    renderUserAnalytics(users.users);
+  });
+
+  // Neither of these reads the group payloads: Usage by Place fetches for
+  // itself and an open user detail re-fetches its own user, so a failed
+  // group fetch must not stop them.
+  loadUsageByPlace(days, app);
+  if (_openDetailUserId) {
+    showUserDetail(_openDetailUserId, _openDetailEmail);
+  }
+
+  // Everything below paints from the dashboard payload alone; with it
+  // missing, Overview and Models already show the error line and Retry.
+  if (!dash) return;
 
   const u = dash.usage, t = dash.today;
   document.getElementById('period-label').textContent = days == 1 ? 'Today (detailed)' : `Last ${days} Days`;
@@ -3324,20 +3491,6 @@ async function refresh(filterChanged = false) {
     stbody.innerHTML = (dash.by_scenario || []).map(s => `<tr>
       <td>${s.scenario}</td><td>${fmt(s.requests)}</td><td>${fmt(s.tokens)}</td><td>${fmtCost(s.cost_usd)}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No scenario data yet</td></tr>';
-  });
-
-  panel('users', () => {
-    // User table — sync the windowed cost column header with the active period
-    // selector so operators see "30d Cost" / "90d Cost" / etc instead of a
-    // generic label that doesn't say what window the number covers.
-    const _userWinTh = document.getElementById('user-table-window-cost-th');
-    if (_userWinTh) _userWinTh.textContent = `${days}d Cost`;
-    // Stash rows + tier list, then render via the sortable renderer so column
-    // header clicks can re-sort without re-fetching.
-    const _anonRows = (users.anonymous_devices || []).map(a => ({...a, id: 'anon:' + a.device_id, anonymous: true}));
-    window._userTableState = { rows: users.users.concat(_anonRows), tierNames };
-    renderUserRows();
-    renderUserAnalytics(users.users);
   });
 
   // The Performance tab no longer reads dash.latency_percentiles (one list
@@ -3542,27 +3695,22 @@ async function refresh(filterChanged = false) {
     lbmEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No latency data in this window</div>';
   }
 
-  loadUsageByPlace(days, app);
-
-  document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
-
-  // Re-fetch open user detail if one is visible
-  if (_openDetailUserId) {
-    showUserDetail(_openDetailUserId, _openDetailEmail);
+  // Only when all three answered: a partial paint must not read as a full
+  // refresh, since this line was the one sign of success the page had.
+  if (groupOk) {
+    document.getElementById('dash-subtitle').textContent = `Updated ${new Date().toLocaleTimeString()}`;
   }
 }
 
 // --- Usage by place (Scott, 2026-10-05): spend, cases and users by the state
 // the user picked, the form's address, and the request IP. App aware through
 // the global filter; only N-400 fills these columns today. ------------------
-async function loadUsageByPlace(days, app) {
+function loadUsageByPlace(days, app) {
+  return withPanelState('usage-by-place', () => loadUsageByPlace(days, app), () => _loadUsageByPlace(days, app));
+}
+async function _loadUsageByPlace(days, app) {
   const dim = v => v ? esc(v) : '<span style="color:var(--text-dim)">not sent</span>';
-  let d;
-  try {
-    const r = await fetch(`${BASE}/webhooks/admin/usage-by-place?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}});
-    if (!r.ok) return;
-    d = await r.json();
-  } catch (_) { return; }
+  const d = await adminFetch(`/webhooks/admin/usage-by-place?days=${days}${app}`);
   const nums = x => `<td>$${(x.spend || 0).toFixed(2)}</td><td>${(x.cases || 0).toLocaleString()}</td><td>${(x.users || 0).toLocaleString()}</td><td>${(x.anonymous_users || 0).toLocaleString()}</td><td>${(x.calls || 0).toLocaleString()}</td>`;
   const empty = n => `<tr><td colspan="${n}" style="text-align:center;color:var(--text-dim)">No data in this window.</td></tr>`;
   const fill = (id, rows, cells, n) => {
@@ -4558,16 +4706,19 @@ async function refreshTierCard(tierName, statusId, keepIds) {
   if (fresh) { fresh.textContent = text; fresh.style.color = color; }
 }
 
-async function showUserDetail(userId, email) {
+function showUserDetail(userId, email) {
   _openDetailUserId = userId;
   _openDetailEmail = email;
+  // Shown before the fetch so the Loading line has somewhere to appear; the
+  // previous user's detail stays on screen, dimmed, until the new one lands.
+  document.getElementById('user-detail').style.display = 'block';
+  return withPanelState('user-detail', () => showUserDetail(userId, email), () => _showUserDetail(userId, email));
+}
+async function _showUserDetail(userId, email) {
   const days = document.getElementById('period').value;
-  const data = await fetch(`${BASE}/webhooks/admin/user/${userId}?days=${days}${appQuery()}`, {
-    headers: {'X-Admin-Key': adminKey}
-  }).then(r => r.json());
+  const data = await adminFetch(`/webhooks/admin/user/${userId}?days=${days}${appQuery()}`);
 
   const detailEl = document.getElementById('user-detail');
-  detailEl.style.display = 'block';
   const _loc = data.user.location;
   const _locStr = _loc ? [_loc.city, _loc.region, _loc.country].filter(Boolean).join(', ') : null;
   document.getElementById('user-detail-title').innerHTML = `${email} (${data.user.tier}) <span class="mono" style="font-size:11px;color:var(--text-dim);margin-left:8px">${data.user.id}</span>`
@@ -4612,18 +4763,14 @@ async function showUserDetail(userId, email) {
     <td>${fmtCost(r.cost)}</td><td>${fmtMs(r.avg_latency_ms)}</td>
   </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No data</td></tr>';
 
-  // Web search activity (separate endpoint — search_usage audit table)
-  loadSearchActivity(userId, days);
-
-  // Query log
-  loadQueryLog(userId, 0);
+  // Web search activity (separate endpoint: the search_usage audit table) and
+  // the query log, awaited so a failure in either lands on the detail's
+  // error line instead of as an unhandled rejection nobody sees.
+  await Promise.all([loadSearchActivity(userId, days), loadQueryLog(userId, 0)]);
 }
 
 async function loadSearchActivity(userId, days) {
-  const data = await fetch(
-    `${BASE}/webhooks/admin/user/${userId}/search-usage?days=${days}&limit=100`,
-    {headers: {'X-Admin-Key': adminKey}},
-  ).then(r => r.json());
+  const data = await adminFetch(`/webhooks/admin/user/${userId}/search-usage?days=${days}&limit=100`);
 
   // Cards: current-period counter + resets-at + window aggregates.
   const cur = data.current_period || {};
@@ -4698,9 +4845,7 @@ let queryLogCache = [];
 
 async function loadQueryLog(userId, offset) {
   const days = document.getElementById('period').value;
-  const data = await fetch(`${BASE}/webhooks/admin/user/${userId}/queries?days=${days}&limit=50&offset=${offset}`, {
-    headers: {'X-Admin-Key': adminKey}
-  }).then(r => r.json());
+  const data = await adminFetch(`/webhooks/admin/user/${userId}/queries?days=${days}&limit=50&offset=${offset}`);
 
   queryLogCache = data.queries;
 
@@ -4825,10 +4970,11 @@ function updateSimBanner() {
 }
 
 // --- Providers tab ---
-async function loadProviders() {
-  const resp = await fetch(`${BASE}/webhooks/admin/provider-status`, {headers:{'X-Admin-Key':adminKey}});
-  if (!resp.ok) return;
-  const data = await resp.json();
+function loadProviders() {
+  return withPanelState('tab-providers', loadProviders, _loadProviders);
+}
+async function _loadProviders() {
+  const data = await adminFetch('/webhooks/admin/provider-status');
   const container = document.getElementById('provider-cards');
 
   container.innerHTML = Object.entries(data.providers).map(([name, p]) => {
@@ -4923,7 +5069,10 @@ async function promptUpdateKey(provider, displayName) {
   }
 }
 
-async function loadEmail() {
+function loadEmail() {
+  return withPanelState('tab-email', loadEmail, _loadEmail);
+}
+async function _loadEmail() {
   const days = document.getElementById('period').value;
   const eventType = document.getElementById('email-type-filter').value;
   const recipient = document.getElementById('email-recipient-filter').value.trim();
@@ -4932,17 +5081,11 @@ async function loadEmail() {
   if (eventType) eventsParams.append('event_type', eventType);
   if (recipient) eventsParams.append('recipient', recipient);
 
-  const headers = {'X-Admin-Key': adminKey};
-  const [statsResp, eventsResp, supResp] = await Promise.all([
-    fetch(`${BASE}/webhooks/admin/email/stats?days=${days}`, {headers}),
-    fetch(`${BASE}/webhooks/admin/email/events?${eventsParams}`, {headers}),
-    fetch(`${BASE}/webhooks/admin/email/suppression?limit=200`, {headers}),
+  const [stats, events, sup] = await Promise.all([
+    adminFetch(`/webhooks/admin/email/stats?days=${days}`),
+    adminFetch(`/webhooks/admin/email/events?${eventsParams}`),
+    adminFetch(`/webhooks/admin/email/suppression?limit=200`),
   ]);
-  if (!statsResp.ok || !eventsResp.ok || !supResp.ok) return;
-
-  const stats = await statsResp.json();
-  const events = await eventsResp.json();
-  const sup = await supResp.json();
 
   // Stats cards
   const supColor = stats.suppression_count > 0 ? 'orange' : 'green';
@@ -4983,11 +5126,12 @@ async function loadEmail() {
     supRows || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No suppressed addresses</td></tr>';
 }
 
-async function loadErrors() {
+function loadErrors() {
+  return withPanelState('tab-errors', loadErrors, _loadErrors);
+}
+async function _loadErrors() {
   const days = document.getElementById('period').value;
-  const resp = await fetch(`${BASE}/webhooks/admin/errors?days=${days}${appQuery()}`, {headers:{'X-Admin-Key':adminKey}});
-  if (!resp.ok) return;
-  const data = await resp.json();
+  const data = await adminFetch(`/webhooks/admin/errors?days=${days}${appQuery()}`);
 
   // Summary cards
   const summaryEl = document.getElementById('error-summary-cards');
@@ -5283,9 +5427,7 @@ let _registry = null;
 // tester variant is mid-verification and has not reached the base.
 async function loadRegistry() {
   try {
-    _registry = await fetch(`${BASE}/webhooks/admin/config-registry`, {
-      headers: {'X-Admin-Key': adminKey}
-    }).then(r => r.json());
+    _registry = await adminFetch('/webhooks/admin/config-registry');
   } catch (e) {
     document.getElementById('registry-table').innerHTML =
       `<div class="card">Registry unavailable: ${e.message}</div>`;
@@ -5334,11 +5476,12 @@ function renderRegistry() {
     ${rows.length ? '' : '<div style="color:var(--text-dim);padding:8px">Nothing matches this filter.</div>'}`;
 }
 
-async function loadConfigs() {
+function loadConfigs() {
+  return withPanelState('tab-configs', loadConfigs, _loadConfigs);
+}
+async function _loadConfigs() {
   loadRegistry();
-  const data = await fetch(`${BASE}/webhooks/admin/configs`, {
-    headers: {'X-Admin-Key': adminKey}
-  }).then(r => r.json());
+  const data = await adminFetch('/webhooks/admin/configs');
 
   // Bucket by app first (clear per-app segregation), then group base vs
   // locale variants within each app.
@@ -5674,12 +5817,13 @@ function _cEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
 
-async function loadCampaigns() {
+function loadCampaigns() {
+  return withPanelState('tab-campaigns', loadCampaigns, _loadCampaigns);
+}
+async function _loadCampaigns() {
   // Same dropped-filter bug as the tiers panel had; the endpoint has
   // taken `app` since promo campaigns became per-app.
-  const data = await fetch(`${BASE}/webhooks/admin/campaigns?_=1${appQuery()}`, {
-    headers: {'X-Admin-Key': adminKey}
-  }).then(r => r.json());
+  const data = await adminFetch(`/webhooks/admin/campaigns?_=1${appQuery()}`);
   _campaigns = data.campaigns || [];
 
   const listEl = document.getElementById('campaign-list');
@@ -6533,10 +6677,11 @@ document.addEventListener('visibilitychange', function() {
 // top-level function name.
 let _routingData = null;
 
-async function loadRouting() {
-  const data = await fetch(`${BASE}/webhooks/admin/config/model-routing`, {
-    headers: {'X-Admin-Key': adminKey}
-  }).then(r => r.json());
+function loadRouting() {
+  return withPanelState('tab-routing', loadRouting, _loadRouting);
+}
+async function _loadRouting() {
+  const data = await adminFetch('/webhooks/admin/config/model-routing');
   _routingData = data.data;
   renderRouting();
 }
