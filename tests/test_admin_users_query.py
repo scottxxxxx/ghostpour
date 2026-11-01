@@ -60,15 +60,24 @@ T_ANON_OLD = _ts(days=9)
 
 def _usage(conn, user_id, app_id, ts, *, status="success", tokens=(0, 0),
            cost=None, images=0, call_type="chat", metadata=None):
+    # generated_count and documents_count are what usage_tracker.log_usage
+    # writes beside metadata from the same dict (2026-11-01); a raw seed
+    # has to write them too, as the one-time backfill ran at boot, before
+    # these rows existed. The assertions below never changed for it.
+    generated = documents = None
+    if metadata is not None:
+        generated = (metadata.get("generated") or {}).get("count") or 0
+        documents = (metadata.get("documents") or {}).get("count") or 0
     conn.execute(
         """INSERT INTO usage_log
            (id, user_id, provider, model, input_tokens, output_tokens,
             estimated_cost_usd, request_timestamp, response_time_ms, status,
-            call_type, image_count, metadata, app_id)
-           VALUES (?, ?, 'anthropic', 'm', ?, ?, ?, ?, 100, ?, ?, ?, ?, ?)""",
+            call_type, image_count, metadata, app_id, generated_count,
+            documents_count)
+           VALUES (?, ?, 'anthropic', 'm', ?, ?, ?, ?, 100, ?, ?, ?, ?, ?, ?, ?)""",
         (str(uuid.uuid4()), user_id, tokens[0], tokens[1], cost, ts, status,
          call_type, images, json.dumps(metadata) if metadata is not None else None,
-         app_id),
+         app_id, generated, documents),
     )
 
 

@@ -3244,12 +3244,11 @@ def _list_users_sql(apps_filter: tuple[str, ...], days: int) -> tuple[str, tuple
                        l.estimated_cost_usd,
                        COALESCE(l.image_count, 0) AS image_count,
                        l.call_type = 'translation' AS is_translation,
-                       -- Guarded so a failed call's metadata is never parsed,
-                       -- exactly the set of rows the old subqueries parsed.
-                       CASE WHEN l.status = 'success'
-                            THEN json_extract(l.metadata, '$.generated.count') END AS files_generated,
-                       CASE WHEN l.status = 'success'
-                            THEN json_extract(l.metadata, '$.documents.count') END AS documents
+                       -- Plain columns written beside metadata (and
+                       -- backfilled from it once); the old json_extract
+                       -- over the 24 KB blob is what this query stops doing.
+                       l.generated_count AS files_generated,
+                       l.documents_count AS documents
                 FROM usage_log l{usage_where}
             )
             GROUP BY user_id
