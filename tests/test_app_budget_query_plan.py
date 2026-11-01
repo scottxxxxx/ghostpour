@@ -45,6 +45,10 @@ def test_the_old_index_alone_was_not_enough(client, tmp_db_path):
     # old shape cannot be reproduced. Dropped too: this test is about the
     # (user_id, request_timestamp) index alone.
     conn.execute("DROP INDEX idx_usage_app_date_user_cost")
+    # The users list's roll-up index (2026-11-01) leads with user_id and
+    # carries estimated_cost_usd too, so it would rescue this statement
+    # the same way. Dropped for the same reason.
+    conn.execute("DROP INDEX idx_usage_user_rollup")
     conn.commit(); conn.close()
     plan = _plan(tmp_db_path, app_budget.MONTH_SPEND_SQL)
     assert "COVERING" not in plan and "idx_usage_user_date" in plan, plan
