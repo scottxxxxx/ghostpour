@@ -1327,6 +1327,10 @@ const _DASH_TABS = ['overview', 'models', 'users', 'tiers'];
 // with no poll. Their behaviour is theirs; this block only calls them.
 const _POLLING_TABS = ['livelog', 'telemetry'];
 let _tabFresh = {};
+// True while refresh() awaits the dashboard group; _loadTabIfStale() reads
+// it so opening a second group tab mid-fetch does not start the three
+// requests again. 'dashboard' itself turns fresh only after they all land.
+let _dashInFlight = false;
 function _markAllStale() {
   for (const k of Object.keys(_tabFresh)) _tabFresh[k] = false;
 }
@@ -1390,7 +1394,7 @@ function _showTab(name) {
 // here would be the double load that wrapper's pin guards against. The
 // global Refresh reaches Routing through _TAB_LOADERS in refresh().
 function _loadTabIfStale(name) {
-  if (_DASH_TABS.includes(name)) { if (!_tabFresh.dashboard) refresh(); return; }
+  if (_DASH_TABS.includes(name)) { if (!_tabFresh.dashboard && !_dashInFlight) refresh(); return; }
   if (name === 'routing') return;
   const loader = _TAB_LOADERS[name];
   if (!loader) return;
@@ -3216,21 +3220,32 @@ async function refresh(filterChanged = false) {
   // The dashboard group (Overview, Models, Users, Tiers) is painted from
   // the three fetches below. With another tab on screen it waits:
   // _loadTabIfStale() calls back here when one of the four opens stale.
-  // Marked fresh before the await so a quick second open while these are
-  // in flight does not start them again.
   if (!_DASH_TABS.includes(_activeTab)) return;
-  _tabFresh.dashboard = true;
   const days = document.getElementById('period').value;
   const app = appQuery();
-  const [dash, users, tiers] = await Promise.all([
-    fetch(`${BASE}/webhooks/admin/dashboard?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-    fetch(`${BASE}/webhooks/admin/users?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-    // NOT app-scoped, and correctly so: /admin/tiers reads tiers.json,
-    // which defines the tiers themselves rather than any app's activity.
-    // (Per-app tier_overrides exist in apps.yml but this endpoint does
-    // not read them; surfacing those is separate work.)
-    fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(r=>r.json()),
-  ]);
+  // Fresh only once all three answered ok (review of #1176, 2026-11-01: an
+  // earlier draft marked it before the await, so a failed group fetch read
+  // as fresh until the next Refresh click). A non-ok status throws here
+  // rather than at tiers.tiers below, and a failure leaves 'dashboard'
+  // stale so the next open of a group tab retries. _dashInFlight is what
+  // stops a second open DURING the fetch from starting another.
+  const okJson = r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); };
+  let dash, users, tiers;
+  _dashInFlight = true;
+  try {
+    [dash, users, tiers] = await Promise.all([
+      fetch(`${BASE}/webhooks/admin/dashboard?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
+      fetch(`${BASE}/webhooks/admin/users?days=${days}${app}`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
+      // NOT app-scoped, and correctly so: /admin/tiers reads tiers.json,
+      // which defines the tiers themselves rather than any app's activity.
+      // (Per-app tier_overrides exist in apps.yml but this endpoint does
+      // not read them; surfacing those is separate work.)
+      fetch(`${BASE}/webhooks/admin/tiers`, {headers:{'X-Admin-Key':adminKey}}).then(okJson),
+    ]);
+  } finally {
+    _dashInFlight = false;
+  }
+  _tabFresh.dashboard = true;
 
   const tierNames = Object.keys(tiers.tiers);
 
@@ -6608,8 +6623,11 @@ async function saveRouting() {
 // elsewhere (another browser, the config PUT endpoint) stayed stale here
 // until a full reload, and switchTab's own `models` branch had already set
 // _routingData before this tab was ever opened (audit 2026-10-31).
-// switchTab's if-chain and _TAB_LOADERS have no 'routing' entry of their
-// own yet, which is why this wrapper still exists.
+// _TAB_LOADERS has carried a routing entry since #1171; that is how the
+// global Refresh reaches this tab. The stale map (_loadTabIfStale, 2026-10-31)
+// deliberately leaves routing out, so this wrapper now exists for one reason:
+// it is the single place that loads Routing on open, every open, and with
+// no second path nothing can load it twice.
 const _origSwitchTab = switchTab;
 switchTab = function(tab) {
   _origSwitchTab(tab);

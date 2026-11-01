@@ -43,6 +43,7 @@ let adminKey = '';
 let _APPS = [];
 let _activeTab = 'overview';
 let _tabFresh = {};
+let _dashInFlight = false;
 let _panelErrors = [];
 let _openDetailUserId = null;
 const _liveMeetingsTimer = null;
@@ -89,7 +90,19 @@ function fakeResponse() {
   return Promise.resolve({ ok: true, status: 200, json: async () => APPS_BODY });
 }
 const _origFetch = (url) => { fetched.push(url); return fakeResponse(); };
-const fetch = (url) => { fetched.push(url); return fakeResponse(); };
+// FAIL_GROUP makes the three dashboard-group endpoints fail: '500' answers
+// with ok:false, 'reject' never answers (a network error). The loaders'
+// own urls are untouched either way.
+const fetch = (url) => {
+  fetched.push(url);
+  if (FAIL_GROUP && /\/admin\/(dashboard|users|tiers)/.test(url)) {
+    return FAIL_GROUP === 'reject' ? Promise.reject(new Error('network'))
+      : Promise.resolve({ ok: false, status: 500, json: async () => ({}) });
+  }
+  return fakeResponse();
+};
+// Lets a test wait for refresh()'s awaited group fetch to settle.
+const settle = () => new Promise(r => setTimeout(r, 10));
 function handleAdminAuthFailure() { events.push('authFailure'); }
 function refreshCertPinBanner() {}
 // The real refresh() is cut short by the apps body once it awaits the
@@ -116,8 +129,9 @@ def _tab_ids():
     return ids
 
 
-def _page(hash_value, real_refresh):
-    js = _STUB.replace("HASH", json.dumps(hash_value)).replace("TABS", json.dumps(_tab_ids()))
+def _page(hash_value, real_refresh, fail_group=None):
+    js = (_STUB.replace("HASH", json.dumps(hash_value)).replace("TABS", json.dumps(_tab_ids()))
+          .replace("FAIL_GROUP", json.dumps(fail_group)))
     js += _loader_stubs() + "\n"
     js += _view_state_consts() + "\n" + _tab_loaders() + "\n"
     for name in ("login", "loadAppFilter", "applyAppFilter", "_checkedApps", "appQuery",
@@ -200,15 +214,21 @@ def test_no_hash_is_the_default_view():
 
 # ── (b) a period change from a non-overview tab fetches only that tab ──────
 
-def _after_load_on(tab, then):
+def _after_load_on(tab, then, fail_group=None):
     # A page after login: the dashboard group was painted by the first
-    # refresh(), the operator opened Performance and then `tab`.
-    js = _page("", real_refresh=True) + """
+    # refresh(), the operator opened Performance and then `tab`. `then` runs
+    # inside an async function so a test can `await settle()` between steps;
+    # the state is printed after one more settle so an awaited group fetch
+    # has landed (or failed) before it is read.
+    js = _page("", real_refresh=True, fail_group=fail_group) + """
 _tabFresh = { dashboard: true, latency: true };
 _activeTab = %s;
 calls.length = 0; fetched.length = 0;
+(async () => {
 %s
+await settle();
 console.log(%s);
+})();
 """ % (json.dumps(tab), then, _state_js())
     return _node(js)
 
@@ -301,6 +321,42 @@ switchTab('users');
     paths = [u.split("?")[0] for u in r["fetched"]]
     assert paths == ["/webhooks/admin/dashboard", "/webhooks/admin/users", "/webhooks/admin/tiers"], r["fetched"]
     assert r["calls"] == [], f"Errors was fetched by the period change and must not be again: {r['calls']}"
+
+
+@pytest.mark.parametrize("mode", ["500", "reject"])
+def test_a_failed_group_fetch_leaves_the_group_stale_and_the_next_open_retries(mode):
+    # Review of #1176 (2026-11-01): an earlier draft marked 'dashboard' fresh
+    # before the await, so a failed group fetch read as fresh until the next
+    # Refresh click. Period changed on Errors, Overview opened and its fetch
+    # fails: the group must still be stale, and the next open must retry.
+    r = _after_load_on("errors", """
+document.getElementById('period').value = '30';
+refresh(true);
+fetched.length = 0; calls.length = 0;
+switchTab('overview'); await settle();
+switchTab('errors');
+switchTab('overview'); await settle();
+""", fail_group=mode)
+    paths = [u.split("?")[0] for u in r["fetched"]]
+    assert r["fresh"]["dashboard"] is not True, (
+        f"the group fetch failed ({mode}) and 'dashboard' still reads fresh: {r['fresh']}")
+    assert paths.count("/webhooks/admin/dashboard") == 2, (
+        f"the second open of a group tab after a failed fetch must retry; fetched {r['fetched']}")
+    assert r["calls"] == [], "Errors was fresh throughout and must not be fetched again"
+
+
+def test_a_second_group_tab_opened_mid_fetch_does_not_start_the_fetch_again():
+    r = _after_load_on("errors", """
+document.getElementById('period').value = '30';
+refresh(true);
+fetched.length = 0; calls.length = 0;
+switchTab('overview');
+switchTab('users');
+switchTab('tiers');
+""")
+    paths = [u.split("?")[0] for u in r["fetched"]]
+    assert paths == ["/webhooks/admin/dashboard", "/webhooks/admin/users", "/webhooks/admin/tiers"], r["fetched"]
+    assert r["fresh"]["dashboard"] is True, "once the fetch lands the group is fresh"
 
 
 def test_the_polling_tabs_run_their_loader_on_every_open():

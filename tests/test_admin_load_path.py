@@ -281,6 +281,7 @@ const document = {
 // its first refresh(), so the dashboard group is fresh and Models, which is
 // painted from that group, has nothing of its own to fetch.
 let _tabFresh = { dashboard: true };
+let _dashInFlight = false;
 function refresh() { calls.push('refresh'); }
 const location = { hash: '' };
 const history = { replaceState(_s, _t, url) { location.hash = url; } };
