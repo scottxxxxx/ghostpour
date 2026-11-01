@@ -16,6 +16,15 @@ logger = logging.getLogger("ghostpour")
 _SKIP_PATHS = {"/health", "/docs", "/openapi.json", "/v1/model-pricing",
                "/webhooks/admin/live-log", "/webhooks/admin/dashboard",
                "/webhooks/admin/configs", "/admin"}
+# The per-entry detail route carries the request_id in its path, so an exact
+# match cannot skip it. Since 2026-10-31 the dashboard fetches it on every
+# row expand; without this each expand would write itself into the log it
+# is reading, and the operator would scroll past their own clicks.
+_SKIP_PREFIXES = ("/webhooks/admin/live-log/",)
+
+
+def _skipped(path: str) -> bool:
+    return path in _SKIP_PATHS or path.startswith(_SKIP_PREFIXES)
 
 # Max body size to log (prevent huge payloads from flooding logs)
 _MAX_BODY_LOG = 10_000
@@ -86,6 +95,30 @@ def _buffer_append(entry: dict, size: int = 0) -> None:
 def _public(entry: dict) -> dict:
     return {k: v for k, v in entry.items() if k != _SIZE_KEY}
 
+
+# The two keys that hold captured payloads. Everything else on an entry is
+# a few hundred bytes of routing metadata.
+_BODY_KEYS = ("request", "response")
+
+
+def _summary(entry: dict) -> dict:
+    """One list row: the entry minus its captured payloads.
+
+    2026-10-31, measured on the live page: live-log?limit=50 returned 291 KB
+    for 50 rows, 239 KB of it the `response` key and 34 KB the `request`
+    key, and the Live Log tab polled it every 5 seconds. The dashboard only
+    renders the bodies for a row the operator expands, and it already had a
+    per-entry route for that, so the list carries the metadata plus three
+    hints the client can show without the payload: whether each side has a
+    body, and how many bytes the recorder captured for the entry.
+    """
+    out = {k: v for k, v in entry.items() if k not in _BODY_KEYS and k != _SIZE_KEY}
+    for key in _BODY_KEYS:
+        section = entry.get(key) or {}
+        out[f"has_{key}"] = section.get("body") is not None
+    out["captured_bytes"] = entry.get(_SIZE_KEY, 0)
+    return out
+
 # Redact any field whose name contains one of these substrings. Matching
 # broadly (not an exact-name list) so new sensitive wire fields are redacted
 # by default instead of silently logged. Only string values are redacted, so
@@ -97,10 +130,21 @@ _MAX_QUERY_LOG = 2048
 
 
 def get_recent_logs(limit: int = 50) -> list[dict]:
-    """Return the most recent log entries, newest first."""
+    """Return the most recent log entries in full, newest first."""
     entries = list(_LOG_BUFFER)
     entries.reverse()
     return [_public(e) for e in entries[:limit]]
+
+
+def get_recent_log_summaries(limit: int = 50) -> list[dict]:
+    """The most recent entries without their payloads, newest first.
+
+    This is what the dashboard's list polls; a row's bodies come from
+    get_log_by_request_id when the operator expands it (see _summary).
+    """
+    entries = list(_LOG_BUFFER)
+    entries.reverse()
+    return [_summary(e) for e in entries[:limit]]
 
 
 def get_log_by_request_id(request_id: str) -> dict | None:
@@ -138,7 +182,7 @@ class StreamingBypassMiddleware:
             path = "/s/<token>" + ("/" + rest[1] if len(rest) > 1 else "")
         method = scope.get("method", "")
 
-        if path in _SKIP_PATHS:
+        if _skipped(path):
             await self.app(scope, receive, send)
             return
 
@@ -270,7 +314,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Capture request body
         cap = _body_cap(request.url.path)
         req_body_str = None
-        if request.url.path not in _SKIP_PATHS:
+        if not _skipped(request.url.path):
             try:
                 raw = await request.body()
                 if raw:
@@ -284,7 +328,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         # Always set X-Request-ID so clients can correlate with GP logs
         response.headers["X-Request-ID"] = request_id
 
-        if request.url.path in _SKIP_PATHS:
+        if _skipped(request.url.path):
             return response
 
         # Log summary line for non-skipped paths

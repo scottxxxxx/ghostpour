@@ -21,6 +21,7 @@ or a 0 where a bucket had no first-token time.
 
 import inspect
 import json
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -692,7 +693,12 @@ def test_the_page_wires_the_tab_and_keeps_the_panel_wrapper():
     assert "latency: () => loadLatency()" in src, "the tab must reload with the global Refresh"
     assert "panel('latency', () => renderPerformance(data))" in src, (
         "the render must run inside panel() so a ReferenceError is contained and named")
-    assert '<div class="tab" data-tab="latency" onclick="switchTab(\'latency\')">Performance</div>' in src
+    # Attribute-tolerant since 2026-10-31, when the tabs gained role, tabindex
+    # and aria-selected; what this pins is the id in data-tab, the onclick and
+    # the label, not the byte order of the other attributes.
+    assert re.search(r'<div class="tab"[^>]*\bdata-tab="latency"[^>]*'
+                     r'onclick="switchTab\(\'latency\'\)"[^>]*>Performance</div>', src), (
+        "the Performance tab must name its id in data-tab and call switchTab('latency')")
     assert 'id="tab-latency"' in src
     for sid in ("lat-days", "lat-bucket", "lat-model", "lat-call-type", "perf-kpis", "perf-stacked",
                 "perf-main-chart", "perf-caption", "perf-ttft-chart", "perf-ttft-note",

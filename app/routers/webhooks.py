@@ -285,10 +285,18 @@ async def get_live_log(
     x_admin_key: str = Header(...),
     limit: int = 50,
 ):
-    """Return recent API request/response log entries from the in-memory buffer."""
+    """Recent log entries from the in-memory buffer, WITHOUT their bodies.
+
+    2026-10-31, measured on the live page: this returned 291 KB for 50 rows,
+    239 KB of it `response` and 34 KB `request`, and the dashboard polled it
+    every 5 seconds to draw a list that shows neither. Each row now carries
+    the routing metadata plus has_request, has_response and captured_bytes;
+    the bodies come from the per-entry route below when a row is expanded.
+    The dashboard is the only caller of either route.
+    """
     _verify_admin(request, x_admin_key)
-    from app.middleware.request_logging import get_recent_logs
-    return {"entries": get_recent_logs(limit)}
+    from app.middleware.request_logging import get_recent_log_summaries
+    return {"entries": get_recent_log_summaries(limit)}
 
 
 @router.get("/admin/live-log/{request_id}")
@@ -297,7 +305,9 @@ async def get_live_log_entry(
     request: Request,
     x_admin_key: str = Header(...),
 ):
-    """Look up a single log entry by request_id (from X-Request-ID header)."""
+    """One log entry in full (request and response) by request_id (from the
+    X-Request-ID header). The list above drops the bodies; this is where
+    the dashboard gets them for an expanded row."""
     _verify_admin(request, x_admin_key)
     from app.middleware.request_logging import get_log_by_request_id
     entry = get_log_by_request_id(request_id)
