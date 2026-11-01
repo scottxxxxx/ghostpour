@@ -206,7 +206,7 @@ def test_a_users_500_still_renders_the_dashboard_numbers():
 def test_a_users_500_marks_only_the_users_panel():
     r = _users_500()
     users = r["panels"]["tab-users"]
-    assert users["display"] == "" and "error" in (users["cls"] or ""), (
+    assert users["display"] == "block" and "error" in (users["cls"] or ""), (
         f"the Users panel shows no error line after its fetch returned 500: {users}")
     assert "500" in users["text"], f"the error line must carry the status: {users['text']!r}"
     assert "db locked" in users["text"], f"and the server's detail: {users['text']!r}"
@@ -248,7 +248,7 @@ await settle();
     assert r["outcome"] == "resolved"
     for pid in ("tab-overview", "tab-models"):
         p = r["panels"][pid]
-        assert p["display"] == "" and "error" in p["cls"], f"{pid}: {p}"
+        assert p["display"] == "block" and "error" in p["cls"], f"{pid}: {p}"
         assert "network down" in p["text"], p["text"]
     assert r["panels"]["tab-users"]["display"] == "none"
     assert "renderUserRows" in r["calls"], "the users payload arrived and must paint"
@@ -279,7 +279,7 @@ calls.push('during:' + JSON.stringify(during));
     assert during["loading"] is True, (
         f"the Overview panel is not dimmed while its fetch is in flight: {during} "
         "(cold server, 25 to 45 s of headings over nothing, 2026-11-01)")
-    assert during["display"] == "" and during["text"] == "Loading...", during
+    assert during["display"] == "block" and during["text"] == "Loading...", during
     assert "loading" in during["cls"], during
     assert during["subtitle"] == "Admin Dashboard", "nothing has succeeded yet"
     # And after the answers land: ready, subtitle moved.
@@ -319,7 +319,7 @@ def test_load_providers_on_a_502_shows_an_inline_error_line():
         {"/webhooks/admin/provider-status": {"ok": False, "status": 502, "body": {"detail": "upstream down"}}},
         "await loadProviders().then(() => { outcome = 'resolved'; }, e => { outcome = 'threw: ' + e; });")
     assert r["outcome"] == "resolved", r["outcome"]
-    assert r["display"] == "" and "error" in r["cls"], (
+    assert r["display"] == "block" and "error" in r["cls"], (
         f"loadProviders returned silently on a 502; the panel shows no error line: {r}")
     assert "502" in r["text"] and "upstream down" in r["text"], r["text"]
     assert r["retry"] == "", "the error line offers Retry"
@@ -445,3 +445,15 @@ def test_states_copy_carries_no_dashes():
     for region in regions:
         for d in (chr(0x2014), chr(0x2013)):
             assert d not in region, region[:80]
+
+
+def test_a_loading_or_error_line_is_actually_visible():
+    # The base CSS rule hides .panel-state; the inline style is what shows it.
+    # An empty inline value ('') falls back to the hidden rule, which is what
+    # shipped in #1179: the panel dimmed but no line ever appeared (build
+    # 81c6986 on the live page, 2026-11-01). So the inline value must be a
+    # visible one while loading or in error, and the CSS must hide by default.
+    src = _src()
+    assert re.search(r"\.panel-state\s*\{[^}]*display:\s*none", src), "the base rule hides the line"
+    assert "line.style.display = state === 'ready' ? 'none' : 'block';" in src
+    assert "line.style.display = state === 'ready' ? 'none' : '';" not in src
