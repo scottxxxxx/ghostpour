@@ -301,7 +301,13 @@
           <div id="app-filter-list"></div>
         </div>
       </div>
-      <select class="period-select" id="period" onchange="refresh()">
+      <!-- refresh(true): a period change marks every tab stale and fetches
+           only the tab on screen (audit and live page of 2026-10-31, one
+           period change fired 6 to 8 requests whatever tab was open). The
+           app filter below takes the same path through applyAppFilter().
+           Period, app and active tab are mirrored into location.hash so a
+           reload or a shared URL lands on the same view. -->
+      <select class="period-select" id="period" onchange="refresh(true)">
         <option value="1">Today</option>
         <option value="7" selected>Last 7 days</option>
         <option value="30">Last 30 days</option>
@@ -1270,6 +1276,12 @@ function login() {
   // times, users?days=7 (431 KB, 2 to 3 s) twice. Now: apps once, then
   // exactly one refresh(). tests/test_admin_load_path.py runs this
   // sequence in node and counts.
+  // The view the URL names (#tab=...&days=...&app=...) is restored AFTER
+  // the filter list exists (its checkboxes are what the app part ticks) and
+  // BEFORE that one refresh(), so the first fetch is already for the
+  // restored tab and window instead of the defaults followed by a second
+  // round (audit 2026-10-31: nothing survived a reload).
+  // tests/test_admin_view_state.py runs this path with a hash set.
   _origFetch(`${BASE}/webhooks/admin/apps`, {headers: {'X-Admin-Key': adminKey}})
     .then(r => { if (!r.ok) throw new Error('Invalid key'); return r.json(); })
     .then((apps) => {
@@ -1278,6 +1290,7 @@ function login() {
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('auth-error').textContent = '';
       loadAppFilter(apps.apps || []);
+      _restoreViewState();
       refresh();
     })
     .catch(() => { document.getElementById('auth-error').textContent = 'Invalid admin key'; });
@@ -1290,6 +1303,102 @@ function login() {
 })();
 
 let _activeTab = 'overview';
+
+// --- View state: the URL hash, and which tabs hold current data ------------
+// Audit and live page of 2026-10-31. Two findings, one block:
+// (1) Nothing survived a reload. Tab, period and app selection all reset to
+//     Overview / 7 days / All apps. They now live in location.hash as
+//     #tab=users&days=30&app=ss,n400, written on every change and read back
+//     by login() before its one refresh(). The Users table's sort and page
+//     are deliberately NOT in the hash.
+// (2) A period or app change ran refresh(), which fetched the dashboard
+//     group (dashboard, users, tiers) AND the active tab's loader, 6 to 8
+//     requests whatever tab was open; and switchTab re-fetched 13 tabs on
+//     every open with no notion of staleness. _tabFresh is that notion: a
+//     tab is fresh (true) when its loader has run under the current period
+//     and app, stale (false) after a filter change, and absent when it has
+//     never loaded. Opening a tab fetches only when it is not fresh.
+// Overview, Models, Users and Tiers are painted together from one payload
+// by refresh(), so they share the single key 'dashboard' here.
+const _DASH_TABS = ['overview', 'models', 'users', 'tiers'];
+// These loaders arm the polls that switchTab does not know about (live log
+// every 5 s, live meetings every 15 s) and stand them down when the tab is
+// not on screen, so they run on EVERY open; a skipped open would be a tab
+// with no poll. Their behaviour is theirs; this block only calls them.
+const _POLLING_TABS = ['livelog', 'telemetry'];
+let _tabFresh = {};
+function _markAllStale() {
+  for (const k of Object.keys(_tabFresh)) _tabFresh[k] = false;
+}
+
+function _viewHash() {
+  const days = document.getElementById('period')?.value || '';
+  const app = document.getElementById('app')?.value || '';
+  // App ids are joined with a literal comma so the URL reads as the filter
+  // does; URLSearchParams on the way back in accepts either spelling.
+  return '#tab=' + encodeURIComponent(_activeTab)
+    + (days ? '&days=' + encodeURIComponent(days) : '')
+    + (app ? '&app=' + encodeURIComponent(app).replace(/%2C/gi, ',') : '');
+}
+function _writeViewHash() {
+  const h = _viewHash();
+  if (location.hash === h) return;
+  // replaceState, not location.hash: a tab switch is not a page the Back
+  // button should return to, and replaceState fires no hashchange, so the
+  // listener below only ever sees edits that came from outside this page.
+  try { history.replaceState(null, '', h); } catch (e) { location.hash = h; }
+}
+
+// Reads the hash into the controls and shows the named tab WITHOUT loading
+// it: the caller's refresh() does the one fetch. Unknown tab ids and periods
+// not in the select are ignored, so a stale or mistyped link degrades to
+// the defaults rather than to a blank page.
+function _restoreViewState() {
+  const p = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+  const days = p.get('days');
+  const period = document.getElementById('period');
+  if (period && days && Array.from(period.options || []).some(o => o.value === days)) period.value = days;
+  const app = p.get('app');
+  if (app !== null) {
+    const want = new Set(app.split(',').filter(Boolean));
+    document.querySelectorAll('.app-filter-cb').forEach(cb => { cb.checked = want.has(cb.value); });
+    const all = document.getElementById('app-filter-all');
+    if (all) all.checked = _checkedApps().length === 0;
+    applyAppFilter(false);
+  }
+  const tab = p.get('tab');
+  if (tab && tab !== _activeTab && document.getElementById('tab-' + tab)) _showTab(tab);
+}
+
+// Marks the tab active in the strip and the sections, and records the view
+// in the hash. No loading: switchTab() adds that, _restoreViewState() does
+// not.
+function _showTab(name) {
+  _activeTab = name;
+  // A tab whose label no longer starts with its id (Performance is
+  // 'latency') names its id in data-tab; the others still match by text.
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',
+    t.dataset.tab ? t.dataset.tab === name : t.textContent.toLowerCase().includes(name.slice(0,4))));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  _writeViewHash();
+}
+
+// Fetches for a tab on open only when it is stale or has never loaded.
+// Routing is left out on purpose: the wrapper at the end of the file reloads
+// it on every open (a dial changed elsewhere must show), and a second path
+// here would be the double load that wrapper's pin guards against. The
+// global Refresh reaches Routing through _TAB_LOADERS in refresh().
+function _loadTabIfStale(name) {
+  if (_DASH_TABS.includes(name)) { if (!_tabFresh.dashboard) refresh(); return; }
+  if (name === 'routing') return;
+  const loader = _TAB_LOADERS[name];
+  if (!loader) return;
+  if (_tabFresh[name] && !_POLLING_TABS.includes(name)) return;
+  _tabFresh[name] = true;
+  loader();
+}
+
 // Per-tab loaders, shared by tab switches and the global Refresh so the
 // top-right button always refreshes the tab you're actually looking at
 // (Scott 2026-07-28: two Refresh buttons that did different things).
@@ -1315,26 +1424,11 @@ const _TAB_LOADERS = {
   latency: () => loadLatency(),
 };
 function switchTab(name) {
-  _activeTab = name;
+  _showTab(name);
   if (name !== 'telemetry') clearInterval(_liveMeetingsTimer);
-  // A tab whose label no longer starts with its id (Performance is
-  // 'latency') names its id in data-tab; the others still match by text.
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',
-    t.dataset.tab ? t.dataset.tab === name : t.textContent.toLowerCase().includes(name.slice(0,4))));
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'providers') loadProviders();
-  if (name === 'entitlements') loadEntitlements();
-  if (name === 'errors') loadErrors();
-  if (name === 'configs') loadConfigs();
-  if (name === 'campaigns') loadCampaigns();
-  if (name === 'subscriptions') loadSubscriptions();
-  if (name === 'livelog') loadLiveLog();
-  if (name === 'email') loadEmail();
-  if (name === 'alerts') loadAlerts();
-  if (name === 'telemetry') loadTelemetry();
-  if (name === 'acquisition') loadAcquisition();
-  if (name === 'latency') loadLatency();
+  // Until 2026-10-31 an if-chain here duplicated _TAB_LOADERS and ran the
+  // loader on every open. One map, one staleness check.
+  _loadTabIfStale(name);
   // The Users map is built by refresh() while this tab is hidden, so
   // jsvectormap measures a 0x0 container and renders an empty SVG: no error,
   // no fallback text, just a blank panel. Re-measure once it is on screen.
@@ -1345,6 +1439,18 @@ function switchTab(name) {
     if (st && st.map) { try { st.map.updateSize(); } catch (e) {} }
   }
 }
+
+// A hash edited by hand, or a shared link pasted over an already open page,
+// is a same-document navigation: no reload, so login() never runs again and
+// this is the only place that sees it. Our own writes go through
+// replaceState and never arrive here.
+window.addEventListener('hashchange', () => {
+  if (!adminKey || location.hash === _viewHash()) return;
+  const filtersBefore = _viewHash().replace(/^#tab=[^&]*/, '');
+  _restoreViewState();
+  if (_viewHash().replace(/^#tab=[^&]*/, '') !== filtersBefore) refresh(true);
+  else _loadTabIfStale(_activeTab);
+});
 
 // ---------------------------------------------------------------------------
 // Telemetry tab — anonymous lifecycle events from iOS
@@ -3070,7 +3176,9 @@ function onAppFilterChange() {
 
 // `reload` is true when the user changed the selection (the checkbox
 // handlers above), false when loadAppFilter() is painting the list on
-// load and login() owns the refresh.
+// load and login() owns the refresh, and when _restoreViewState() ticks the
+// boxes the URL named for that same refresh. A user change is a filter
+// change: refresh(true) marks every tab stale and fetches the active one.
 function applyAppFilter(reload = true) {
   const picked = _checkedApps();
   const input = document.getElementById('app');
@@ -3083,17 +3191,35 @@ function applyAppFilter(reload = true) {
         : `${picked.length} apps`;
     btn.textContent = `${label} ▾`;
   }
-  if (reload) refresh();
+  if (reload) refresh(true);
 }
 
-async function refresh() {
+// Refreshes the view on screen. `filterChanged` is true from the period
+// select and the app filter: every tab's data is then for the wrong window,
+// so all of them go stale and only the active tab is fetched; the others
+// catch up when opened (_loadTabIfStale). Audit and live page of
+// 2026-10-31: one period change fired 6 to 8 requests whatever tab was
+// open, because this always fetched the dashboard group below AND ran the
+// active tab's loader. The global Refresh button, login() and the save
+// handlers call refresh() with no argument and force the active view only.
+async function refresh(filterChanged = false) {
+  if (filterChanged) _markAllStale();
+  _writeViewHash();
   _panelErrors = [];
   const _peb = document.getElementById('panel-error-banner');
   if (_peb) { _peb.style.display = 'none'; _peb.textContent = ''; }
   refreshCertPinBanner();
-  // Re-run the active tab's own loader too — the global button must never
+  // Re-run the active tab's own loader too: the global button must never
   // show fresher header numbers over a stale tab body.
   try { (_TAB_LOADERS[_activeTab] || (() => {}))(); } catch (e) {}
+  if (_TAB_LOADERS[_activeTab]) _tabFresh[_activeTab] = true;
+  // The dashboard group (Overview, Models, Users, Tiers) is painted from
+  // the three fetches below. With another tab on screen it waits:
+  // _loadTabIfStale() calls back here when one of the four opens stale.
+  // Marked fresh before the await so a quick second open while these are
+  // in flight does not start them again.
+  if (!_DASH_TABS.includes(_activeTab)) return;
+  _tabFresh.dashboard = true;
   const days = document.getElementById('period').value;
   const app = appQuery();
   const [dash, users, tiers] = await Promise.all([
