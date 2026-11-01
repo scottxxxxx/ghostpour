@@ -1411,6 +1411,25 @@ MIGRATIONS = [
     # the existing rows took 1.1 s, which is what the first boot after this
     # deploys pays once.
     "CREATE INDEX IF NOT EXISTS idx_usage_date_dash ON usage_log(request_timestamp, status, app_id, user_id, provider, model, call_type, scenario, input_tokens, output_tokens, cached_tokens, estimated_cost_usd, response_time_ms, ttft_ms)",
+    # The dashboard's users list (GET /admin/users; webhooks._list_users_sql,
+    # 2026-11-01). It rolls usage_log up per user in ONE pass, and this index
+    # carries every column that pass reads, the two json_extract values
+    # included, so SQLite answers it from the index and never opens a row.
+    # The rows are what made the old query slow: metadata holds a 24 KB
+    # raw_request for 30 days, and the list was parsing it four times per
+    # row per user. Receipt: 15.8 s and 16.9 s right after a restart, 2 to
+    # 3 s warm, 2026-10-31. SQLite reads an indexed expression's value out
+    # of the index from 3.41 on (prod's python:3.12-slim is trixie, 3.46);
+    # on anything older the query still runs and still agrees, it just
+    # reads rows. Building it scans usage_log once and parses each metadata
+    # blob twice, so the deploy that ships it boots slow once. A row whose
+    # metadata is not valid JSON would fail the CREATE and leave the list
+    # on the slow path, which is the direction a failure should fall.
+    "CREATE INDEX IF NOT EXISTS idx_usage_user_rollup ON usage_log("
+    "user_id, request_timestamp, status, app_id, call_type, input_tokens, "
+    "output_tokens, estimated_cost_usd, image_count, "
+    "json_extract(metadata, '$.generated.count'), "
+    "json_extract(metadata, '$.documents.count'))",
 ]
 
 
