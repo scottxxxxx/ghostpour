@@ -1385,6 +1385,32 @@ MIGRATIONS = [
                '[{"variant_id": "section", "weight": 100, "render": "html", "html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-home-forms.html", "content_locales": {"es": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-home-forms.es.html"}, "pt": {"html_url": "https://cz.shouldersurf.com/v1/promo/assets/i765-home-forms.pt.html"}}}]',
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'),
                strftime('%Y-%m-%dT%H:%M:%S+00:00', 'now'))""",
+    # The admin dashboard's windowed aggregates (webhooks.dashboard: totals,
+    # by provider and model, by call type, by scenario, top users, today,
+    # the latency list, cache savings, the daily trend, and the TTFT
+    # percentile reads) filter usage_log on request_timestamp ALONE. Every
+    # composite index above leads with user_id or app_id, so each of those
+    # eleven statements was a full scan of a table whose rows carry the raw
+    # request and response text. Measured on the live dashboard 2026-11-01:
+    # GET /admin/dashboard?days=7 took 0.4 to 1.5 s warm and 24 to 29 s on
+    # the first call after a container restart, which is every deploy, as
+    # eleven scans read most of a 636 MB file off a cold disk. With this one
+    # index every one of them plans as SEARCH USING COVERING INDEX. Measured
+    # 2026-11-01 on a 50k-row, 645 MB local copy (SSD, so the cold figure is
+    # smaller than prod's HDD-backed one): 4.1 to 4.4 s cold and 0.6 to
+    # 0.7 s warm became 0.09 s cold and 0.03 s warm, same numbers out.
+    # /admin/latency-trends (request_timestamp >= ?, no user or app) is
+    # covered by it too. Column order: the range column first, then every
+    # column those statements read, so the table is never touched.
+    # Insert cost: one more b-tree per usage_log write (the thirteenth
+    # secondary index on the table), about 150 to 200 bytes per row against
+    # rows of several KB to 63 KB; timestamps are monotonic, so the entry
+    # lands on the rightmost leaf (an append, no random page), which is the
+    # cheapest shape a secondary index can have. Measured on the 50k-row
+    # copy: the index is 7.1 MB, about 1% of the file, and building it on
+    # the existing rows took 1.1 s, which is what the first boot after this
+    # deploys pays once.
+    "CREATE INDEX IF NOT EXISTS idx_usage_date_dash ON usage_log(request_timestamp, status, app_id, user_id, provider, model, call_type, scenario, input_tokens, output_tokens, cached_tokens, estimated_cost_usd, response_time_ms, ttft_ms)",
 ]
 
 
