@@ -155,6 +155,7 @@ def _extract_if_present(name):
 
 def _render_twice(expanded_ids, first, second):
     js = _extract("esc") + "\n" + _extract_if_present("livelogRowId")
+    js += _extract_if_present("renderLiveLogDetail")  # the pane helper the list render calls for open rows
     js += _extract("renderLiveLogEntries")
     js += """
 const expanded = new Set(%s);
@@ -184,6 +185,7 @@ def test_the_click_handler_records_the_row_in_the_expanded_set():
     # The round trip the operator actually takes: click opens and records,
     # the next render honours it, a second click closes and forgets.
     js = _extract("esc") + "\n" + _extract("livelogRowId") + "\n" + _extract("toggleLiveLogRow") + "\n"
+    js += _extract_if_present("renderLiveLogDetail")
     js += _extract("renderLiveLogEntries")
     js += """
 const _livelogExpanded = new Set();
