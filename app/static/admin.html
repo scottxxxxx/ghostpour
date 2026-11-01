@@ -993,7 +993,7 @@
         <button class="refresh-btn" onclick="loadLiveLog()">Refresh</button>
       </div>
     </div>
-    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Last 50 API requests. Click a row to expand request/response details. Use the filter to search by path.</p>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Last 50 API requests. Click a row to expand request/response details; expanded rows stay open across refreshes. Use the filter to search by path. Polling stops while another tab or window is in front.</p>
     <div id="livelog-entries" style="font-family:'SF Mono',Menlo,monospace;font-size:12px"></div>
   </div>
 
@@ -6265,29 +6265,65 @@ async function deleteCampaign() {
 }
 
 // --- Live Log ---
+//
+// 2026-10-31: loadLiveLog armed setInterval(loadLiveLog, 5000) and nothing
+// cleared it on a tab switch (switchTab clears only the live-meetings timer).
+// Measured on the live page: after one visit to Live Log, sitting on
+// Overview, _livelogTimer was still set and two more live-log fetches landed
+// in 11 seconds at 294 KB each (live-log?limit=50 is 294 KB for 50 rows),
+// and the poll kept running while the browser tab was hidden. The timer is
+// therefore self-governing, the same shape as loadLiveMeetings: every tick
+// re-enters loadLiveLog, which stands the timer down whenever this tab is
+// not the active one or the document is hidden, and switchTab('livelog')
+// re-arms it by calling loadLiveLog. Separately, every poll rebuilt the
+// list with innerHTML, so a row the operator had expanded snapped shut
+// within 5 seconds and the scroll offset could jump. Rows are keyed by the
+// payload's request_id, the set of expanded ids is re-applied after each
+// render, and the window scroll offset is put back.
 
 let _livelogTimer = null;
 let _livelogEntries = [];
+// request_id of every row the operator has opened; survives the re-render.
+const _livelogExpanded = new Set();
+
+function livelogRowId(e) {
+  return e.request_id || `${e.timestamp}|${e.method}|${e.path}`;
+}
+
+function toggleLiveLogRow(head) {
+  const detail = head.nextElementSibling;
+  const open = detail.style.display === 'none';
+  detail.style.display = open ? 'block' : 'none';
+  const id = head.parentElement.dataset.rid;
+  if (open) _livelogExpanded.add(id); else _livelogExpanded.delete(id);
+}
 
 function filterLiveLog() {
   const filter = (document.getElementById('livelog-filter').value || '').toLowerCase();
   const el = document.getElementById('livelog-entries');
   const filtered = filter ? _livelogEntries.filter(e => (e.path + (e.query||'')).toLowerCase().includes(filter)) : _livelogEntries;
-  el.innerHTML = renderLiveLogEntries(filtered);
+  // The page scrolls on window; swapping innerHTML shortens the document for
+  // a frame and the browser clamps the offset, so put it back afterwards.
+  const y = window.scrollY;
+  el.innerHTML = renderLiveLogEntries(filtered, _livelogExpanded);
+  window.scrollTo(window.scrollX, y);
 }
 
-function renderLiveLogEntries(entries) {
+function renderLiveLogEntries(entries, expanded) {
+  expanded = expanded || new Set();
   if (!entries || !entries.length) {
     return '<div style="color:var(--text-dim);padding:20px;text-align:center">No matching requests.</div>';
   }
-  return entries.map((e, i) => {
+  return entries.map((e) => {
+      const rid = livelogRowId(e);
+      const open = expanded.has(rid);
       const statusColor = e.status < 300 ? 'var(--green)' : e.status < 400 ? 'var(--orange)' : 'var(--red)';
       const time = new Date(e.timestamp).toLocaleTimeString();
       const reqBody = e.request.body ? JSON.stringify(e.request.body, null, 2) : '<empty>';
       const respBody = e.response.body ? JSON.stringify(e.response.body, null, 2) : '<empty>';
       return `
-      <div style="border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden">
-        <div onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'" style="cursor:pointer;padding:8px 12px;display:flex;gap:12px;align-items:center;background:var(--surface);transition:background 0.1s"
+      <div data-rid="${esc(rid)}" style="border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden">
+        <div onclick="toggleLiveLogRow(this)" style="cursor:pointer;padding:8px 12px;display:flex;gap:12px;align-items:center;background:var(--surface);transition:background 0.1s"
              onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='var(--surface)'">
           <span style="color:var(--text-dim);min-width:70px">${time}</span>
           <span style="color:var(--accent);min-width:50px;font-weight:600">${e.method}</span>
@@ -6296,7 +6332,7 @@ function renderLiveLogEntries(entries) {
           <span style="color:var(--text-dim);min-width:50px;text-align:right">${e.latency_ms}ms</span>
           <span style="color:var(--text-dim);font-size:10px;min-width:90px;text-align:right">${e.client_ip}</span>
         </div>
-        <div style="display:none;padding:12px;background:var(--bg);border-top:1px solid var(--border)">
+        <div style="display:${open ? 'block' : 'none'};padding:12px;background:var(--bg);border-top:1px solid var(--border)">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
               <div style="color:var(--accent);font-weight:600;margin-bottom:6px;font-size:11px">REQUEST</div>
@@ -6319,6 +6355,16 @@ function renderLiveLogEntries(entries) {
 }
 
 async function loadLiveLog() {
+  // Entered by switchTab('livelog'), the Refresh button, the auto-refresh
+  // box, the visibility listener and every interval tick. Off screen there
+  // is nothing to show, so no fetch, and the timer stands itself down here
+  // because switchTab does not know about it (2026-10-31, 2 x 294 KB in 11 s
+  // from the Overview tab).
+  if (_activeTab !== 'livelog' || document.hidden) {
+    clearInterval(_livelogTimer);
+    _livelogTimer = null;
+    return;
+  }
   const data = await fetch(`${BASE}/webhooks/admin/live-log?limit=50`, {
     headers: {'X-Admin-Key': adminKey}
   }).then(r => r.json());
@@ -6326,16 +6372,27 @@ async function loadLiveLog() {
   _livelogEntries = data.entries || [];
   filterLiveLog();
 
-  // Auto-refresh
+  // Auto-refresh: one timer, re-armed only while this tab is still the one
+  // on screen after the fetch (the operator may have moved during it).
   clearInterval(_livelogTimer);
-  if (document.getElementById('livelog-auto').checked) {
+  _livelogTimer = null;
+  if (_activeTab === 'livelog' && !document.hidden && document.getElementById('livelog-auto').checked) {
     _livelogTimer = setInterval(loadLiveLog, 5000);
   }
 }
 
 document.getElementById('livelog-auto').addEventListener('change', function() {
   clearInterval(_livelogTimer);
+  _livelogTimer = null;
   if (this.checked) loadLiveLog();
+});
+
+// A hidden browser tab: the next tick finds document.hidden and stands the
+// timer down. Back in view on this tab with the box ticked, poll at once
+// instead of waiting out a stale interval (none is left) or showing stale rows.
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden || _activeTab !== 'livelog') return;
+  if (document.getElementById('livelog-auto').checked) loadLiveLog();
 });
 
 // --- Model Routing ---
