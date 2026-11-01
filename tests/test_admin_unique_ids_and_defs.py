@@ -68,7 +68,9 @@ def test_no_top_level_function_is_declared_twice():
 
 def test_show_user_detail_targets_its_own_call_type_table():
     src = _src()
-    body = src[src.index("async function showUserDetail("):]
+    # From the public wrapper through _showUserDetail, which paints the panel
+    # (split on 2026-11-01 so the fetch runs under the detail's state line).
+    body = src[src.index("function showUserDetail("):]
     body = body[:body.index("\nasync function loadSearchActivity(")]
     assert "querySelector('#user-call-type-table tbody')" in body, (
         "showUserDetail must write into the detail panel's own table")

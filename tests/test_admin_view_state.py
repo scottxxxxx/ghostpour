@@ -45,6 +45,7 @@ let _activeTab = 'overview';
 let _tabFresh = {};
 let _dashInFlight = false;
 let _panelErrors = [];
+const _panelRetry = {};
 let _openDetailUserId = null;
 const _liveMeetingsTimer = null;
 const _heatMaps = {};
@@ -134,10 +135,13 @@ def _page(hash_value, real_refresh, fail_group=None):
           .replace("FAIL_GROUP", json.dumps(fail_group)))
     js += _loader_stubs() + "\n"
     js += _view_state_consts() + "\n" + _tab_loaders() + "\n"
+    # adminFetch, panelState and panelErrorText are what refresh() fetches
+    # and marks its panels through since 2026-11-01 (tests/test_admin_states.py
+    # covers them; here they only have to be present).
     for name in ("login", "loadAppFilter", "applyAppFilter", "_checkedApps", "appQuery",
                  "onAppFilterChange", "onAppFilterAll", "_markAllStale", "_viewHash",
                  "_writeViewHash", "_restoreViewState", "_showTab", "_loadTabIfStale",
-                 "switchTab"):
+                 "switchTab", "adminFetch", "panelState", "panelErrorText"):
         js += _extract(name) + "\n"
     if real_refresh:
         js += _extract("refresh") + "\n"
