@@ -4181,9 +4181,15 @@ function renderTiers(tiers) {
   window.tierGenCaps = Object.fromEntries(
     Object.entries(tiers).map(([n, t]) => [n, t.generations_per_month]));
   const grid = document.getElementById('tier-grid');
-  const tierColors = { free: 'var(--text-dim)', subscriber: 'var(--green)', admin: 'var(--purple)' };
+  grid.innerHTML = Object.entries(tiers).map(([name, t]) => renderTierCard(name, t)).join('');
+}
 
-  grid.innerHTML = Object.entries(tiers).map(([name, t]) => {
+// One tier card's markup. Split out of renderTiers (audit of 2026-10-31)
+// so a cap save can repaint ITS card from a fresh /admin/tiers read without
+// rebuilding the whole grid; the data-tier attribute is how refreshTierCard
+// finds the card to replace. Body kept verbatim, hence the 4-space indent.
+function renderTierCard(name, t) {
+    const tierColors = { free: 'var(--text-dim)', subscriber: 'var(--green)', admin: 'var(--purple)' };
     const isCurrentTier = name === currentUserTier;
     const isSimulatedTier = simulationState && simulationState.tier === name;
     const color = tierColors[name] || 'var(--accent)';
@@ -4228,7 +4234,7 @@ function renderTiers(tiers) {
       `;
     }
 
-    return `<div class="tier-card" style="border-color:${borderColor}">
+    return `<div class="tier-card" data-tier="${name}" style="border-color:${borderColor}">
       <h4>
         <span style="color:${color}">${t.display_name}</span>
         ${isCurrentTier ? '<span class="badge subscriber">Real Tier</span>' : ''}
@@ -4371,7 +4377,44 @@ function renderTiers(tiers) {
         ${simButtons}
       </div>
     </div>`;
-  }).join('');
+}
+
+// Repaint ONE tier card from a fresh /admin/tiers read and put the save
+// confirmation back. WHY (audit of 2026-10-31): four of the seven cap saves
+// called refresh() after their PUT, which re-fetched the whole dashboard
+// (users alone is 431 KB) and rebuilt #tier-grid with innerHTML, so the
+// "Saved" line was wiped a beat after it was written and any half-typed
+// value in another card was lost; the other three saves skipped refresh()
+// entirely, so the card kept showing the pre-save value. This keeps the
+// echo (rule 4: check the echo, not the status) and touches one card.
+// `keepIds` are inputs whose typed value survives the repaint; used for a
+// locale-specific project chat cap, which /admin/tiers does not carry.
+async function refreshTierCard(tierName, statusId, keepIds) {
+  const status = document.getElementById(statusId);
+  const text = status.textContent, color = status.style.color;
+  const kept = (keepIds || []).map(id => {
+    const el = document.getElementById(id);
+    return el ? [id, el.value] : null;
+  }).filter(Boolean);
+  let t = null;
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/tiers`, {headers: {'X-Admin-Key': adminKey}});
+    if (resp.ok) t = ((await resp.json()).tiers || {})[tierName] || null;
+  } catch (e) { t = null; }
+  if (!t) {
+    status.textContent = text + ' (re-read of /admin/tiers failed; reload to confirm the card)';
+    return;
+  }
+  window.tierGenCaps = Object.assign(window.tierGenCaps || {}, {[tierName]: t.generations_per_month});
+  const grid = document.getElementById('tier-grid');
+  const old = grid && grid.querySelector(`.tier-card[data-tier="${tierName}"]`);
+  if (!old) return;
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderTierCard(tierName, t);
+  old.replaceWith(tmp.firstElementChild);
+  kept.forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
+  const fresh = document.getElementById(statusId);
+  if (fresh) { fresh.textContent = text; fresh.style.color = color; }
 }
 
 async function showUserDetail(userId, email) {
@@ -4826,10 +4869,16 @@ async function loadErrors() {
   </tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-dim)">No errors</td></tr>';
 }
 
-async function changeTier(userId, newTier, oldTier) {
+async function changeTier(userId, newTier, oldTier, sel) {
   if (newTier === oldTier) return;
+  // The select that fired this. The inline handler passes this.value, not
+  // the element, so find it by its own handler text; a 4th argument wins.
+  // Cancel used to call refresh() to put one select back (audit of
+  // 2026-10-31): a whole-dashboard re-fetch for a one-element reset.
+  sel = sel || document.querySelector(`select[onchange^="changeTier('${userId}'"]`);
+  const reset = () => { if (sel) sel.value = oldTier; };
   const ok = confirm(`Change tier from "${oldTier}" to "${newTier}"?`);
-  if (!ok) { refresh(); return; }
+  if (!ok) { reset(); return; }
 
   const resp = await fetch(`${BASE}/webhooks/admin/set-tier`, {
     method: 'POST',
@@ -4838,11 +4887,11 @@ async function changeTier(userId, newTier, oldTier) {
   });
 
   if (resp.ok) {
-    refresh();
+    refresh();   // the tier moved: users table, by-tier cards and badges all change
   } else {
-    const err = await resp.json();
+    const err = await resp.json().catch(() => ({}));
     alert('Failed: ' + (err.detail || 'Unknown error'));
-    refresh();
+    reset();
   }
 }
 
@@ -4887,304 +4936,193 @@ async function loadProjectChatCap(tierName) {
   }
 }
 
-async function saveProjectChatCap(tierName) {
+// --- Tier cap saves (one helper, seven thin wrappers; audit of 2026-10-31) ---
+//
+// Every per-tier dial on a tier card saves through saveTierField. Before
+// this, seven near-identical functions diverged in three ways: four called
+// refresh() after the PUT (wiping their own "Saved" line and every other
+// card's half-typed input while re-fetching the whole dashboard), three
+// never repainted at all, and the error text came in two formats. One
+// helper, one behaviour: validate, PUT, show the files_updated count, then
+// refreshTierCard() re-reads /admin/tiers and repaints only this card with
+// the confirmation left in place. No save here calls refresh().
+//
+//   parse(raw) returns {value} or {error: 'message for the status line'}.
+//   opts.url / opts.body override the endpoint (the project chat cap writes
+//   client-config.{locale}.json through its own route); opts.saving,
+//   opts.saved(n) and opts.unchanged keep each dial's own wording;
+//   opts.keep lists input ids whose typed value survives the repaint.
+async function saveTierField(tierName, feature, field, inputId, statusId, parse, opts) {
+  opts = opts || {};
+  const input = document.getElementById(inputId);
+  const status = document.getElementById(statusId);
+
+  const parsed = parse(input.value);
+  if (parsed.error) {
+    status.textContent = parsed.error;
+    status.style.color = 'var(--red)';
+    return;
+  }
+  const value = parsed.value;
+
+  status.textContent = opts.saving || `Saving ${field}…`;
+  status.style.color = 'var(--orange)';
+
+  const resp = await fetch(opts.url || `${BASE}/webhooks/admin/tunable/tier-field`, {
+    method: 'PUT',
+    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
+    body: JSON.stringify(opts.body ? opts.body(value)
+                                   : {tier: tierName, feature: feature, field: field, value: value}),
+  });
+
+  if (!resp.ok) {
+    const raw = await resp.text().catch(() => '');
+    let detail = raw;
+    try { detail = JSON.parse(raw).detail || raw; } catch (e) {}
+    status.textContent = `Save failed (${resp.status}): ${detail || 'save failed'}`;
+    status.style.color = 'var(--red)';
+    return;
+  }
+
+  const data = await resp.json();
+  const n = (data.files_updated || []).length;
+  status.textContent = n > 0
+    ? (opts.saved ? opts.saved(n) : `Saved ${field}. Updated ${n} file(s).`)
+    : (opts.unchanged || `No change (${field}: value already matched).`);
+  status.style.color = 'var(--green)';
+  await refreshTierCard(tierName, statusId, opts.keep);
+}
+
+// Shared parsers. Empty input means "clear" for the dials that allow it.
+function parseIntMin(raw, min, emptyValue, msg) {
+  if (raw === '' || raw === null) {
+    return emptyValue === undefined ? {error: msg} : {value: emptyValue};
+  }
+  const v = parseInt(raw, 10);
+  if (isNaN(v) || v < min) return {error: msg};
+  return {value: v};
+}
+
+// Project Chat context cap: its own route, per locale. Writes
+// client-config.{locale}.json AND the legacy tiers.{locale}.json. For a
+// non-default locale the repaint keeps the typed value and the locale
+// select, because /admin/tiers serves the default locale's number only.
+function saveProjectChatCap(tierName) {
   const locale = document.getElementById('pcc-locale-' + tierName).value;
-  const input = document.getElementById('pcc-input-' + tierName);
-  const status = document.getElementById('pcc-status-' + tierName);
-
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = -1;
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < -1) {
-      status.textContent = 'Must be a non-negative integer (chars) or empty for unlimited.';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-
   const localeLabel = locale || 'default';
-  status.textContent = `Saving (${localeLabel})…`;
-  status.style.color = 'var(--orange)';
-
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/project-chat-cap`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, locale: locale, max_input_chars: value}),
-  });
-
-  if (resp.ok) {
-    const data = await resp.json();
-    const fileCount = (data.files_updated || []).length;
-    status.textContent = fileCount > 0
-      ? `Saved (${localeLabel}). Updated ${fileCount} file(s); server enforcement live.`
-      : `No change (${localeLabel}: value already matched).`;
-    status.style.color = 'var(--green)';
-    refresh();
-  } else {
-    const err = await resp.json().catch(() => ({}));
-    status.textContent = 'Error: ' + (err.detail || 'save failed');
-    status.style.color = 'var(--red)';
-  }
+  return saveTierField(tierName, 'project_chat', 'max_input_chars',
+    'pcc-input-' + tierName, 'pcc-status-' + tierName,
+    raw => parseIntMin(raw, -1, -1, 'Must be a non-negative integer (chars) or empty for unlimited.'),
+    {
+      url: `${BASE}/webhooks/admin/tunable/project-chat-cap`,
+      body: v => ({tier: tierName, locale: locale, max_input_chars: v}),
+      saving: `Saving (${localeLabel})…`,
+      saved: n => `Saved (${localeLabel}). Updated ${n} file(s); server enforcement live.`,
+      unchanged: `No change (${localeLabel}: value already matched).`,
+      keep: locale ? ['pcc-locale-' + tierName, 'pcc-input-' + tierName] : ['pcc-locale-' + tierName],
+    });
 }
 
-// --- Web search caps (hard + soft) ---
-//
-// One Save click writes ONE field across en/es/ja via the existing
-// /admin/tunable/tier-field endpoint. Soft cap can be cleared (empty
-// input) which sends `null` to remove the threshold; hard cap is always
-// numeric. Both surface as `tiers.{tier}.feature_definitions.search.{field}`
-// in tiers.{locale}.json.
-async function saveSearchCap(tierName, field) {
-  const idSuffix = field === 'searches_per_month' ? 'hard' : 'soft';
-  const input = document.getElementById(`src-${idSuffix}-${tierName}`);
-  const status = document.getElementById('src-status-' + tierName);
-
-  let value;
-  if (input.value === '' || input.value === null) {
-    if (field === 'searches_per_month') {
-      status.textContent = 'Hard cap is required (use 0 to disable search).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-    value = null;
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 0) {
-      status.textContent = 'Must be a non-negative integer (or empty for soft = none).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-
-  status.textContent = `Saving ${field}…`;
-  status.style.color = 'var(--orange)';
-
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'search', field: field, value: value}),
-  });
-
-  if (resp.ok) {
-    const data = await resp.json();
-    const fileCount = (data.files_updated || []).length;
-    status.textContent = fileCount > 0
-      ? `Saved ${field}. Updated ${fileCount} file(s).`
-      : `No change (${field}: value already matched).`;
-    status.style.color = 'var(--green)';
-    refresh();
-  } else {
-    const err = await resp.json().catch(() => ({}));
-    status.textContent = 'Error: ' + (err.detail || 'save failed');
-    status.style.color = 'var(--red)';
-  }
+// Web search caps (hard + soft). One Save click writes ONE field across
+// en/es/ja; soft cap clears to null, hard cap is always numeric. Both land
+// as tiers.{tier}.feature_definitions.search.{field} in tiers.{locale}.json.
+function saveSearchCap(tierName, field) {
+  const hard = field === 'searches_per_month';
+  return saveTierField(tierName, 'search', field,
+    `src-${hard ? 'hard' : 'soft'}-${tierName}`, 'src-status-' + tierName,
+    raw => hard
+      ? parseIntMin(raw, 0, undefined, raw === '' ? 'Hard cap is required (use 0 to disable search).'
+                                                  : 'Must be a non-negative integer.')
+      : parseIntMin(raw, 0, null, 'Must be a non-negative integer (or empty for soft = none).'),
+    {
+      saved: n => `Saved ${field}. Updated ${n} file(s).`,
+      unchanged: `No change (${field}: value already matched).`,
+    });
 }
 
-// --- File generation cap ---
-//
-// Same endpoint and lockstep-locale semantics as the search caps; the
-// value lands as tiers.{tier}.feature_definitions.generation
-// .generations_per_month and hot-reloads, so a save here changes
-// enforcement on the very next /v1/chat call. Empty input = null =
+// File generation cap: tiers.{tier}.feature_definitions.generation
+// .generations_per_month, hot on the very next /v1/chat call. Empty = null =
 // uncapped (the entitlement still gates who can generate at all).
-// --- Memory recall window (2026-08-21) ---
-// tiers.{tier}.feature_definitions.context_quilt.recall_max_age_days. Hot:
-// the next chat call sends it to CQ and the next /v1/tiers renders it into
-// the copy. Every save is logged server-side (tunable_tier_field_saved);
-// mirroring to the repo is still a PR.
-// --- Meeting share archive cap (2026-08-22) ---
-// tiers.{tier}.feature_definitions.share.max_archive_mb; empty = no cap,
-// Scott's default. Hot on the next share create. Every save is logged.
-async function saveShareCap(tierName) {
-  const input = document.getElementById(`share-cap-${tierName}`);
-  const status = document.getElementById('share-cap-status-' + tierName);
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = null;   // no cap
-  } else {
-    value = parseFloat(input.value);
-    if (isNaN(value) || value <= 0) {
-      status.textContent = 'Must be a positive number of MB (or empty for no cap).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-  status.textContent = 'Saving share cap…';
-  status.style.color = 'var(--orange)';
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'share', field: 'max_archive_mb', value: value}),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const n = (data.files_updated || []).length;
-    status.textContent = n > 0 ? `Saved. Updated ${n} locale file(s); live on the next share. Mirror it to the repo.` : 'No change (already at that value).';
-    status.style.color = 'var(--green)';
-  } else {
-    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
-    status.style.color = 'var(--red)';
-  }
+function saveGenerationCap(tierName) {
+  return saveTierField(tierName, 'generation', 'generations_per_month',
+    `gen-cap-${tierName}`, 'gen-cap-status-' + tierName,
+    raw => parseIntMin(raw, 0, null, 'Must be a non-negative integer (or empty for uncapped).'),
+    {
+      saving: 'Saving generation cap…',
+      saved: n => `Saved. Updated ${n} file(s); live on the next chat call.`,
+      unchanged: 'No change (value already matched).',
+    });
 }
 
-async function saveRecallWindow(tierName) {
-  const input = document.getElementById(`recall-window-${tierName}`);
-  const status = document.getElementById('recall-window-status-' + tierName);
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = null;   // unlimited
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 1) {
-      status.textContent = 'Must be a whole number of days, 1 or more (or empty for unlimited).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-  status.textContent = 'Saving recall window…';
-  status.style.color = 'var(--orange)';
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'context_quilt',
-                          field: 'recall_max_age_days', value: value}),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const n = (data.files_updated || []).length;
-    status.textContent = n > 0
-      ? `Saved. Updated ${n} locale file(s); live on the next recall and the next /v1/tiers. Now mirror it to the repo.`
-      : 'No change (already at that value).';
-    status.style.color = 'var(--green)';
-  } else {
-    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
-    status.style.color = 'var(--red)';
-  }
+// Memory recall window (2026-08-21): tiers.{tier}.feature_definitions
+// .context_quilt.recall_max_age_days. Hot: the next chat call sends it to CQ
+// and the next /v1/tiers renders it into the copy. Every save is logged
+// server-side (tunable_tier_field_saved); mirroring to the repo is still a PR.
+function saveRecallWindow(tierName) {
+  return saveTierField(tierName, 'context_quilt', 'recall_max_age_days',
+    `recall-window-${tierName}`, 'recall-window-status-' + tierName,
+    raw => parseIntMin(raw, 1, null, 'Must be a whole number of days, 1 or more (or empty for unlimited).'),
+    {
+      saving: 'Saving recall window…',
+      saved: n => `Saved. Updated ${n} locale file(s); live on the next recall and the next /v1/tiers. Now mirror it to the repo.`,
+      unchanged: 'No change (already at that value).',
+    });
 }
 
-// --- Project chat meeting window (split from the memory window 2026-10-15) ---
+// Project chat meeting window (split from the memory window 2026-10-15):
 // tiers.{tier}.feature_definitions.project_chat.meeting_window_days.
-async function saveProjectChatWindow(tierName) {
-  const input = document.getElementById(`pc-window-${tierName}`);
-  const status = document.getElementById('pc-window-status-' + tierName);
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = null;   // unlimited
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 1) {
-      status.textContent = 'Must be a whole number of days, 1 or more (or empty for unlimited).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-  status.textContent = 'Saving project chat window…';
-  status.style.color = 'var(--orange)';
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'project_chat',
-                          field: 'meeting_window_days', value: value}),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const n = (data.files_updated || []).length;
-    status.textContent = n > 0
-      ? `Saved. Updated ${n} locale file(s); live on the next project chat and the next /v1/tiers. Now mirror it to the repo.`
-      : 'No change (already at that value).';
-    status.style.color = 'var(--green)';
-  } else {
-    status.textContent = `Save failed: ${resp.status} ${await resp.text()}`;
-    status.style.color = 'var(--red)';
-  }
+function saveProjectChatWindow(tierName) {
+  return saveTierField(tierName, 'project_chat', 'meeting_window_days',
+    `pc-window-${tierName}`, 'pc-window-status-' + tierName,
+    raw => parseIntMin(raw, 1, null, 'Must be a whole number of days, 1 or more (or empty for unlimited).'),
+    {
+      saving: 'Saving project chat window…',
+      saved: n => `Saved. Updated ${n} locale file(s); live on the next project chat and the next /v1/tiers. Now mirror it to the repo.`,
+      unchanged: 'No change (already at that value).',
+    });
 }
 
-async function saveGenerationCap(tierName) {
-  const input = document.getElementById(`gen-cap-${tierName}`);
-  const status = document.getElementById('gen-cap-status-' + tierName);
-
-  let value;
-  if (input.value === '' || input.value === null) {
-    value = null;   // uncapped
-  } else {
-    value = parseInt(input.value, 10);
-    if (isNaN(value) || value < 0) {
-      status.textContent = 'Must be a non-negative integer (or empty for uncapped).';
-      status.style.color = 'var(--red)';
-      return;
-    }
-  }
-
-  status.textContent = 'Saving generation cap…';
-  status.style.color = 'var(--orange)';
-
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'generation',
-                          field: 'generations_per_month', value: value}),
-  });
-
-  if (resp.ok) {
-    const data = await resp.json();
-    const fileCount = (data.files_updated || []).length;
-    status.textContent = fileCount > 0
-      ? `Saved. Updated ${fileCount} file(s); live on the next chat call.`
-      : 'No change (value already matched).';
-    status.style.color = 'var(--green)';
-    refresh();
-  } else {
-    const err = await resp.json().catch(() => ({}));
-    status.textContent = 'Error: ' + (err.detail || 'save failed');
-    status.style.color = 'var(--red)';
-  }
+// Meeting share archive cap (2026-08-22): tiers.{tier}.feature_definitions
+// .share.max_archive_mb; empty = no cap, Scott's default. Hot on the next
+// share create. Every save is logged.
+function saveShareCap(tierName) {
+  return saveTierField(tierName, 'share', 'max_archive_mb',
+    `share-cap-${tierName}`, 'share-cap-status-' + tierName,
+    raw => {
+      if (raw === '' || raw === null) return {value: null};
+      const v = parseFloat(raw);
+      if (isNaN(v) || v <= 0) return {error: 'Must be a positive number of MB (or empty for no cap).'};
+      return {value: v};
+    },
+    {
+      saving: 'Saving share cap…',
+      saved: n => `Saved. Updated ${n} locale file(s); live on the next share. Mirror it to the repo.`,
+      unchanged: 'No change (already at that value).',
+    });
 }
 
-// --- Image send config (per tier) ---
-//
-// GP dictates the downscale long-edge and JPEG quality SS applies on the
-// chat and generation send path, per subscription tier. Writes
-// tiers.{tier}.feature_definitions.images.{field} via the same tunable
-// endpoint (lockstep locales, hot reload); SS reads it at runtime, so a
-// save here retargets what the client sends without a client build.
-async function saveImageConfig(tierName, field) {
+// Image send config (per tier). GP dictates the downscale long-edge and JPEG
+// quality SS applies on the chat and generation send path. Writes
+// tiers.{tier}.feature_definitions.images.{field}; SS reads it at runtime,
+// so a save here retargets what the client sends without a client build.
+function saveImageConfig(tierName, field) {
   const isEdge = field === 'max_long_edge';
-  const input = document.getElementById(`${isEdge ? 'img-edge' : 'img-q'}-${tierName}`);
-  const status = document.getElementById('img-status-' + tierName);
-  const raw = input.value.trim();
-  if (raw === '') {
-    status.textContent = isEdge ? 'Long edge is required (px).' : 'Quality is required (0.0-1.0).';
-    status.style.color = 'var(--red)';
-    return;
-  }
-  let value = isEdge ? parseInt(raw, 10) : parseFloat(raw);
-  if (isNaN(value) || value < 0 || (!isEdge && value > 1)) {
-    status.textContent = isEdge ? 'Must be a positive integer (px).' : 'Must be between 0.0 and 1.0.';
-    status.style.color = 'var(--red)';
-    return;
-  }
-  status.textContent = 'Saving image config…';
-  status.style.color = 'var(--orange)';
-  const resp = await fetch(`${BASE}/webhooks/admin/tunable/tier-field`, {
-    method: 'PUT',
-    headers: {'X-Admin-Key': adminKey, 'Content-Type': 'application/json'},
-    body: JSON.stringify({tier: tierName, feature: 'images', field: field, value: value}),
-  });
-  if (resp.ok) {
-    const data = await resp.json();
-    const fileCount = (data.files_updated || []).length;
-    status.textContent = fileCount > 0
-      ? `Saved. Updated ${fileCount} file(s); SS picks it up on next config fetch.`
-      : 'No change (value already matched).';
-    status.style.color = 'var(--green)';
-    refresh();
-  } else {
-    const err = await resp.json().catch(() => ({}));
-    status.textContent = 'Error: ' + (err.detail || 'save failed');
-    status.style.color = 'var(--red)';
-  }
+  return saveTierField(tierName, 'images', field,
+    `${isEdge ? 'img-edge' : 'img-q'}-${tierName}`, 'img-status-' + tierName,
+    raw => {
+      const s = String(raw == null ? '' : raw).trim();
+      if (s === '') return {error: isEdge ? 'Long edge is required (px).' : 'Quality is required (0.0-1.0).'};
+      const v = isEdge ? parseInt(s, 10) : parseFloat(s);
+      if (isNaN(v) || v < 0 || (!isEdge && v > 1)) {
+        return {error: isEdge ? 'Must be a positive integer (px).' : 'Must be between 0.0 and 1.0.'};
+      }
+      return {value: v};
+    },
+    {
+      saving: 'Saving image config…',
+      saved: n => `Saved. Updated ${n} file(s); SS picks it up on next config fetch.`,
+      unchanged: 'No change (value already matched).',
+    });
 }
 
 // --- Remote Configs ---
