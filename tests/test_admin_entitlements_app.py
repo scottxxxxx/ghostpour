@@ -196,12 +196,14 @@ def test_a_bare_call_does_not_write_the_persisted_choice():
 # ── the callers this fix cannot touch ─────────────────────────────────────
 
 def test_the_tab_loaders_still_call_the_loader_bare():
-    # The fix lives inside loadEntitlements on purpose: _TAB_LOADERS and
-    # switchTab belong to another PR's region. If a later change passes an
-    # argument there, these tests still hold, but the premise above changes.
+    # The fix lives inside loadEntitlements on purpose: the caller passes no
+    # argument. Since #1176 the only caller is the _TAB_LOADERS map (switchTab's
+    # per-tab if-chain is gone), so that entry is the premise this file rests
+    # on. If a later change passes an argument there, these tests still hold,
+    # but the premise above changes.
     src = _src()
     assert "entitlements: () => loadEntitlements()," in src
-    assert "if (name === 'entitlements') loadEntitlements();" in src
+    assert "if (name === 'entitlements')" not in src, "the if-chain came back; _TAB_LOADERS is the one caller"
 
 
 def test_the_select_and_refresh_button_pass_the_choice_explicitly():
