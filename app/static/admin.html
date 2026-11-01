@@ -1234,14 +1234,23 @@ function login() {
   // Use the original fetch directly so the wrapped 403 handler
   // doesn't trigger handleAdminAuthFailure during the login attempt
   // itself (we want to surface the error inline on the auth screen).
-  _origFetch(`${BASE}/webhooks/admin/dashboard?days=7`, {headers: {'X-Admin-Key': adminKey}})
+  // The key check is GET /admin/apps, because loadAppFilter() needs that
+  // body anyway and one response serves both. Until 2026-10-31 the check
+  // was dashboard?days=7, the same payload refresh() was about to fetch
+  // again, and refresh() itself ran twice per load (once from here, once
+  // from applyAppFilter() as the filter list was first populated). One
+  // page load measured 22 requests to /webhooks/admin: dashboard three
+  // times, users?days=7 (431 KB, 2 to 3 s) twice. Now: apps once, then
+  // exactly one refresh(). tests/test_admin_load_path.py runs this
+  // sequence in node and counts.
+  _origFetch(`${BASE}/webhooks/admin/apps`, {headers: {'X-Admin-Key': adminKey}})
     .then(r => { if (!r.ok) throw new Error('Invalid key'); return r.json(); })
-    .then(() => {
+    .then((apps) => {
       localStorage.setItem('cz_admin_key', adminKey);
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       document.getElementById('auth-error').textContent = '';
-      loadAppFilter();
+      loadAppFilter(apps.apps || []);
       refresh();
     })
     .catch(() => { document.getElementById('auth-error').textContent = 'Invalid admin key'; });
@@ -1257,8 +1266,14 @@ let _activeTab = 'overview';
 // Per-tab loaders, shared by tab switches and the global Refresh so the
 // top-right button always refreshes the tab you're actually looking at
 // (Scott 2026-07-28: two Refresh buttons that did different things).
+// Models has no loader: refresh() paints its tables from the dashboard
+// payload. Until 2026-10-31 it mapped to loadRouting(), which fetched the
+// Model Routing tab's data and painted its hidden grid every time Models
+// opened. Routing is here so the global Refresh reloads it when it is the
+// tab on screen; its first load on open is the switchTab wrapper at the
+// end of the file, which only fetches while _routingData is empty.
 const _TAB_LOADERS = {
-  models: () => loadRouting(),
+  routing: () => loadRouting(),
   providers: () => loadProviders(),
   entitlements: () => loadEntitlements(),
   errors: () => loadErrors(),
@@ -1281,7 +1296,6 @@ function switchTab(name) {
     t.dataset.tab ? t.dataset.tab === name : t.textContent.toLowerCase().includes(name.slice(0,4))));
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'models') loadRouting();
   if (name === 'providers') loadProviders();
   if (name === 'entitlements') loadEntitlements();
   if (name === 'errors') loadErrors();
@@ -2977,14 +2991,13 @@ function appQuery() {
 // the deliberate act.
 let _APPS = [];
 
-async function loadAppFilter() {
-  try {
-    const resp = await fetch(`${BASE}/webhooks/admin/apps`, {
-      headers: {'X-Admin-Key': adminKey},
-    });
-    if (!resp.ok) return;
-    _APPS = (await resp.json()).apps || [];
-  } catch (_) { return; }
+// Populates the filter from the /admin/apps body login() already fetched
+// as its key check (2026-10-31; this used to fetch /apps a second time).
+// Synchronous on purpose: login() calls refresh() right after, and
+// refresh() reads the #app value this sets, so there must be no await
+// between the two.
+function loadAppFilter(apps) {
+  _APPS = apps || [];
   const list = document.getElementById('app-filter-list');
   if (!list) return;
   list.innerHTML = _APPS.map(a => `
@@ -2992,7 +3005,10 @@ async function loadAppFilter() {
       <input type="checkbox" class="app-filter-cb" value="${a.id}" onchange="onAppFilterChange()">
       <span>${a.label}</span>
     </label>`).join('');
-  applyAppFilter();
+  // First population is not a filter change: login() runs the one
+  // refresh() itself. Passing true here is what made every load refresh
+  // twice.
+  applyAppFilter(false);
 }
 
 function toggleAppFilter(e) {
@@ -3025,7 +3041,10 @@ function onAppFilterChange() {
   applyAppFilter();
 }
 
-function applyAppFilter() {
+// `reload` is true when the user changed the selection (the checkbox
+// handlers above), false when loadAppFilter() is painting the list on
+// load and login() owns the refresh.
+function applyAppFilter(reload = true) {
   const picked = _checkedApps();
   const input = document.getElementById('app');
   if (input) input.value = picked.join(',');
@@ -3037,7 +3056,7 @@ function applyAppFilter() {
         : `${picked.length} apps`;
     btn.textContent = `${label} ▾`;
   }
-  refresh();
+  if (reload) refresh();
 }
 
 async function refresh() {
@@ -3153,14 +3172,16 @@ async function refresh() {
     renderUserAnalytics(users.users);
   });
 
-  panel('latency', () => {
-    // The Latency tab no longer reads dash.latency_percentiles (one list
-    // over the whole window, no time axis). It loads its own bucketed
-    // series from /admin/latency-trends, see loadLatency(). When it is the
-    // active tab the tab loader at the top of refresh() already ran it, so
-    // only a refresh from another tab goes through here.
-    if (_activeTab !== 'latency') loadLatency();
-  });
+  // The Performance tab no longer reads dash.latency_percentiles (one list
+  // over the whole window, no time axis). It loads its own bucketed series
+  // from /admin/latency-trends, then typesafe-health, in loadLatency(), and
+  // refresh() reaches that ONLY through the active tab's loader at the top:
+  // switchTab('latency') runs loadLatency() every time the tab opens, so a
+  // hidden tab needs nothing fetched for it here. Until 2026-10-31 this
+  // called loadLatency() for the hidden tab on every refresh, so the two
+  // load-time refreshes alone cost two latency-trends and two
+  // typesafe-health requests nobody was looking at (the live count on one
+  // load was four of each; this path explains two).
 
   // Allocation alerts
   const alerts = dash.allocation_alerts || [];
