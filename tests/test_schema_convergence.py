@@ -51,18 +51,22 @@ async def test_a_tampered_schema_falls_back_to_the_full_sweep_and_heals(tmp_path
     await apply_migrations(db)
     assert (await apply_migrations(db))["path"] == "skipped"
 
+    # prompt_mode, not metadata: since idx_usage_user_rollup (2026-11-01)
+    # indexes json_extract(metadata, ...), SQLite refuses to drop metadata
+    # ("error in index ... after drop column"), which is the engine doing
+    # its job, not the sweep failing. No index names prompt_mode.
     cols = lambda rows: {r[1] for r in rows}
     before = cols(await (await db.execute("PRAGMA table_info(usage_log)")).fetchall())
-    assert "metadata" in before
+    assert "prompt_mode" in before
 
-    await db.execute("ALTER TABLE usage_log DROP COLUMN metadata")
+    await db.execute("ALTER TABLE usage_log DROP COLUMN prompt_mode")
     after_drop = cols(await (await db.execute("PRAGMA table_info(usage_log)")).fetchall())
-    assert "metadata" not in after_drop, "the sabotage must have landed"
+    assert "prompt_mode" not in after_drop, "the sabotage must have landed"
 
     report = await apply_migrations(db)
     assert report["path"] == "swept", "a changed schema must not be skipped"
     healed = cols(await (await db.execute("PRAGMA table_info(usage_log)")).fetchall())
-    assert "metadata" in healed, "the sweep must put back what was dropped"
+    assert "prompt_mode" in healed, "the sweep must put back what was dropped"
     await db.close()
 
 
