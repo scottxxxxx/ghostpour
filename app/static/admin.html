@@ -30,6 +30,17 @@
     --red: #f85149;
     --orange: #d29922;
     --purple: #bc8cff;
+    /* Aliases for names the panels reach for but nobody ever defined. An
+       undefined custom property makes the declaration invalid at computed
+       value time, so background:var(--bg-card) painted NOTHING and the app
+       filter dropdown showed the page through it (live page at 1120 px,
+       2026-10-31). Mapped onto the tokens above rather than fixing ~12 usage
+       sites spread across panels other people are editing. */
+    --bg-card: var(--surface);
+    --bg-alt: var(--surface);
+    --card-bg: var(--surface);
+    --warn: var(--orange);
+    --mono: 'SF Mono', Menlo, monospace;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -65,13 +76,18 @@
 
   /* Dashboard */
   #dashboard { display: none; }
-  .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  /* Wraps so the filter controls drop below the title instead of overflowing
+     the body when the window is narrow (2026-10-31). */
+  .header-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 24px; }
   .header-row .meta { font-size: 12px; color: var(--text-dim); }
-  .refresh-btn {
+  /* .btn is the generic form of the same button; the Subscriptions panel
+     used class="btn" with no rule behind it, so it rendered as a browser
+     default button (2026-10-31). */
+  .refresh-btn, .btn {
     background: var(--surface); border: 1px solid var(--border); color: var(--text-dim);
     padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 13px;
   }
-  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .refresh-btn:hover, .btn:hover { border-color: var(--accent); color: var(--accent); }
 
   /* Cards */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
@@ -89,15 +105,24 @@
   .card .value.purple { color: var(--purple); }
 
   /* Tables */
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 28px; }
+  /* overflow-x:auto, not hidden: the 22-column user table was clipped at the
+     card edge with no way to reach the Detail column (1120 px, 2026-10-31).
+     A non-visible overflow-x still clips the y axis, so the rounded corners
+     keep hiding the row hover fill exactly as before. */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; margin-bottom: 28px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; padding: 10px 14px; color: var(--text-dim); font-weight: 500; border-bottom: 1px solid var(--border); font-size: 12px; }
   td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: rgba(88,166,255,0.04); }
   .mono { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; }
+  /* One .badge rule. It was declared twice at equal specificity (here and
+     under the campaign form fields); the later one won every conflicting
+     property, so these are the values that were actually rendering, merged
+     into the first site and the second removed (2026-10-31). */
   .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+    display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em;
   }
   .badge.admin { background: rgba(188,140,255,0.15); color: var(--purple); }
   .badge.subscriber { background: rgba(63,185,80,0.15); color: var(--green); }
@@ -106,13 +131,22 @@
   .badge.rate_limited { background: rgba(210,153,34,0.15); color: var(--orange); }
 
   /* Tabs */
-  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  /* Eighteen tabs run to about 1,800 px. Without wrap the strip overflowed
+     the body at 1120 px: Model Routing and Live Log broke onto two lines
+     inside their own pills and Telemetry was clipped off the right edge
+     (live page, 2026-10-31). Wrap over horizontal scroll because macOS
+     overlay scrollbars are invisible until touched, so a scrolled strip
+     would hide the last tabs with no hint they exist; two rows show all of
+     them. nowrap on the pill keeps the break between tabs, never inside one. */
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 20px; }
   .tab {
     padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px;
     background: transparent; border: 1px solid transparent; color: var(--text-dim);
+    white-space: nowrap;
   }
   .tab.active { background: var(--surface); border-color: var(--border); color: var(--text); }
   .tab:hover { color: var(--text); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .section { display: none; }
   .section.active { display: block; }
@@ -190,10 +224,6 @@
   .cf textarea.cf-json {
     font-family: 'SF Mono', Menlo, monospace; font-size: 12px; min-height: 130px;
     resize: vertical; tab-size: 2;
-  }
-  .badge {
-    display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.04em; padding: 2px 7px; border-radius: 10px;
   }
 
   /* Tier cards */
@@ -290,26 +320,30 @@
     <span id="cert-pin-banner-meta" style="margin-left:8px;color:rgba(255,255,255,0.65);font-size:11px;"></span>
   </div>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('overview')">Overview</div>
-    <div class="tab" onclick="switchTab('models')">Models</div>
-    <div class="tab" onclick="switchTab('users')">Users</div>
-    <div class="tab" onclick="switchTab('tiers')">Tiers</div>
-    <div class="tab" onclick="switchTab('entitlements')">Entitlements</div>
-    <div class="tab" data-tab="latency" onclick="switchTab('latency')">Performance</div>
-    <div class="tab" onclick="switchTab('providers')">Providers</div>
-    <div class="tab" onclick="switchTab('errors')">Errors</div>
-    <div class="tab" onclick="switchTab('email')">Email</div>
-    <div class="tab" onclick="switchTab('alerts')">Alerts</div>
-    <div class="tab" onclick="switchTab('configs')">Configs</div>
-    <div class="tab" onclick="switchTab('campaigns')">Campaigns</div>
-    <div class="tab" onclick="switchTab('acquisition')">Acquisition</div>
-    <div class="tab" onclick="switchTab('subscriptions')">Subscriptions</div>
-    <div class="tab" onclick="switchTab('transcripts')">Transcripts</div>
-    <div class="tab" onclick="switchTab('routing')">Model Routing</div>
-    <div class="tab" onclick="switchTab('livelog')">Live Log</div>
-    <div class="tab" onclick="switchTab('telemetry')">Telemetry</div>
+  <!-- Tabs. role/tabindex/aria-selected make the strip reachable by
+       keyboard (2026-10-31); wireTabKeyboard() at the end of the script
+       handles the keys and keeps aria-selected in step with .active, so
+       switchTab() is untouched. Label text is load-bearing: switchTab
+       matches the active tab by the first four letters of its label. -->
+  <div class="tabs" role="tablist" aria-label="Dashboard sections">
+    <div class="tab active" role="tab" tabindex="0" aria-selected="true" onclick="switchTab('overview')">Overview</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('models')">Models</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('users')">Users</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('tiers')">Tiers</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('entitlements')">Entitlements</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" data-tab="latency" onclick="switchTab('latency')">Performance</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('providers')">Providers</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('errors')">Errors</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('email')">Email</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('alerts')">Alerts</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('configs')">Configs</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('campaigns')">Campaigns</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('acquisition')">Acquisition</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('subscriptions')">Subscriptions</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('transcripts')">Transcripts</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('routing')">Model Routing</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('livelog')">Live Log</div>
+    <div class="tab" role="tab" tabindex="0" aria-selected="false" onclick="switchTab('telemetry')">Telemetry</div>
   </div>
 
   <!-- Overview -->
@@ -6434,6 +6468,40 @@ switchTab = function(tab) {
   _origSwitchTab(tab);
   if (tab === 'routing') loadRouting();
 };
+
+// Keyboard support for the tab strip (2026-10-31). The tabs are <div onclick>,
+// so until now they took no focus and answered no key. One delegated listener
+// on the tablist: Enter or Space activates the focused tab through its own
+// onclick (so the existing switchTab path runs unchanged), ArrowLeft and
+// ArrowRight move focus with wrap-around, Home and End jump to the ends.
+// aria-selected follows the .active class through a MutationObserver rather
+// than inside switchTab(), because switchTab is owned by another region of
+// this file and is already wrapped once just above; this never has to touch
+// or re-wrap it, and it also covers programmatic switchTab() calls that no
+// click or key ever went through.
+function wireTabKeyboard() {
+  const strip = document.querySelector('.tabs[role="tablist"]');
+  if (!strip) return;
+  const tabs = () => Array.from(strip.querySelectorAll('[role="tab"]'));
+  const sync = () => tabs().forEach(t =>
+    t.setAttribute('aria-selected', t.classList.contains('active') ? 'true' : 'false'));
+  strip.addEventListener('keydown', (e) => {
+    const t = e.target.closest('[role="tab"]');
+    if (!t) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); return; }
+    const all = tabs();
+    const i = all.indexOf(t);
+    let next = null;
+    if (e.key === 'ArrowRight') next = all[(i + 1) % all.length];
+    else if (e.key === 'ArrowLeft') next = all[(i - 1 + all.length) % all.length];
+    else if (e.key === 'Home') next = all[0];
+    else if (e.key === 'End') next = all[all.length - 1];
+    if (next) { e.preventDefault(); next.focus(); }
+  });
+  new MutationObserver(sync).observe(strip, { attributes: true, attributeFilter: ['class'], subtree: true });
+  sync();
+}
+wireTabKeyboard();
 </script>
 </body>
 </html>
