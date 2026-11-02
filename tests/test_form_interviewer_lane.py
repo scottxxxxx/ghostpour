@@ -143,6 +143,32 @@ def test_a_hedge_on_a_field_without_unsure_reasks_with_clarification_null():
                     "dont_know, its one re-ask of the same node carries clarification null") == sp.index(unsure) + len(unsure)
 
 
+def test_a_digits_read_back_takes_the_one_format_the_client_can_restore():
+    # Lane v4 (I-765 lead, 2026-11-02). The lane sees a same-shaped fake; the
+    # client swaps the real value back by matching the fake's characters with
+    # only [-,\\s().]{0,3} between them. "0, 1 y 8", digit words and a digit
+    # spaced last four "0, 0, 5, 8" match nothing, and leftoverFakes uses the
+    # same pattern, so the applicant would hear the FAKE as her own number
+    # (run against the client's SurrogateBook, not just read). The bare "0058"
+    # restores but breaks the one format, so last four is gone. The receipt has
+    # no digits_only flag, so the rule names identifiers too. The live I-765
+    # lane is untouched: a parity seam for when the I-765 moves.
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    for copy in ('joined by a comma and a space and nothing else ("2, 0, 1, 4, 5, 6, 7, 8" for a number, '
+                 '"M, S, C, 2, 1, 9, 0, 0, 1, 2, 3, 4, 5" for a receipt number)',
+                 'never "and", "y" or "e" before the last character, never a period or a line break inside it',
+                 'never only the last four',
+                 'reads the number back in the read-back format below',
+                 'read it back in the read-back format below',
+                 'speak both candidates in the read-back format',
+                 'each character joined by a comma and a space and nothing else.'):
+        assert copy in sp, copy
+    for gone in ("spoken groups", "512, 555, 0143", "whole or last four"):
+        assert gone not in sp, gone
+    live = json.loads((I765_DIR / "interviewer-turn.json").read_text(encoding="utf-8"))["systemPrompt"]
+    assert "read-back format" not in live
+
+
 # Every copy of the unsure rule (2026-10-31 parity sabotage, qa/runs/
 # i131-parity-sabotage-2026-10-31): cutting the paragraph alone left plain
 # hedges filing unsure 9 of 9, because these restatements carry it; cutting
