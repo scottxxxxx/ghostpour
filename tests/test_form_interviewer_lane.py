@@ -173,11 +173,15 @@ def test_an_address_reads_back_whole_with_only_the_zip_in_the_format():
     # Same lead, same day. Blind, 3 of 9 replies spoke only the ZIP and then
     # asked "is that also where you live" about an address the applicant never
     # heard, with the whole thing already filed. The read-back is their one
-    # chance to catch a wrong street or city.
+    # chance to catch a wrong street or city. The first wording, "never spelled
+    # out", lost the house number in 1 of 9 replies; the fake only restores whole
+    # when its number arrives as digits.
     sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
     for copy in ("An address is read back whole in the reply that files it, in one sentence",
+                 "the street with its house number, unit, city and state in ordinary words",
                  "then the ZIP, and only the ZIP, in the read-back format",
-                 "Never the ZIP alone, and the house number and unit are never spelled out."):
+                 "never the street without its number",
+                 "the house number and unit are said whole, as written, never digit by digit."):
         assert copy in sp, copy
 
 
