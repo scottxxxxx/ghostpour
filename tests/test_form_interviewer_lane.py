@@ -169,6 +169,18 @@ def test_a_digits_read_back_takes_the_one_format_the_client_can_restore():
     assert "read-back format" not in live
 
 
+def test_an_address_reads_back_whole_with_only_the_zip_in_the_format():
+    # Same lead, same day. Blind, 3 of 9 replies spoke only the ZIP and then
+    # asked "is that also where you live" about an address the applicant never
+    # heard, with the whole thing already filed. The read-back is their one
+    # chance to catch a wrong street or city.
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    for copy in ("An address is read back whole in the reply that files it, in one sentence",
+                 "then the ZIP, and only the ZIP, in the read-back format",
+                 "Never the ZIP alone, and the house number and unit are never spelled out."):
+        assert copy in sp, copy
+
+
 # Every copy of the unsure rule (2026-10-31 parity sabotage, qa/runs/
 # i131-parity-sabotage-2026-10-31): cutting the paragraph alone left plain
 # hedges filing unsure 9 of 9, because these restatements carry it; cutting
