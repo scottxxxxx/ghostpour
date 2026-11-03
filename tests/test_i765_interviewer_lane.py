@@ -158,7 +158,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 7
+    assert i765["server_only"] is True and i765["version"] == 8
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
@@ -410,3 +410,37 @@ def test_a_yes_or_no_question_never_ends_on_an_alternative():
     sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
     assert "A question that can be answered yes or no ends as a yes or no question and never tacks on an alternative" in sp
     assert 'so a bare "yes" has exactly one reading; ask the follow-up only after the answer.' in sp
+
+
+def test_a_conflict_is_a_note_and_the_lane_is_never_the_judge():
+    """Scott's ruling, relayed by the I-765 side, 2026-11-02: "We can mention
+    the conflict, but must not act as a judge or offer legal advice. If they
+    are warned about the conflict and choose to ignore it, that is allowed."
+    v7 asked which is right and stayed on the node, and on a name it pointed at
+    the passport, which picks a side. The name question can still say "as
+    printed on the passport" when it asks, so only the conflict note is cut."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    assert "the person resolves it" not in sp
+    i = sp.index("If the person states a value that disagrees with one KNOWN FACTS holds")
+    rule = sp[i:sp.index("The state on file is the one in KNOWN FACTS", i)]
+    assert "each in the form the fact is filed in (TX and OK, never Texas and Oklahoma)" in rule
+    assert "A conflict is a note and never a question" in rule
+    assert "never ask which is right, never point to a document or an instruction to settle it" in rule
+    assert "with asking on that next question" in rule
+    assert "You are never the judge" in rule
+    assert "when they move on without settling it, never raise it again" in rule
+
+
+def test_a_different_state_is_filed_and_noted_and_never_asked_about():
+    """The same ruling: the state they said wins and the reply says so once.
+    Two states in one turn mint the latest AND carry a conflict; a city or ZIP
+    with no state word is not saying a state, so nothing moves and no note."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    i = sp.index("The state is the exception.")
+    rule = sp[i:sp.index("The state on file is the one in KNOWN FACTS", i)]
+    assert "mint the state they said at full confidence, carry conflict null" in rule
+    assert "that you switched it and they can tell you if that is not right" in rule
+    assert "mint the latest one they said AND carry a conflict naming both" in rule
+    assert "never ask which state, and never stay on the address for it" in rule
+    assert "A city or a ZIP with no state word is not saying a state: the state on file stays, with no note." in rule
+    assert "The state on file is the one in KNOWN FACTS, even when APPLICANT CONTEXT still names another." in sp
