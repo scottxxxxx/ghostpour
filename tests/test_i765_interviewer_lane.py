@@ -158,7 +158,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 8
+    assert i765["server_only"] is True and i765["version"] == 9
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
@@ -444,3 +444,21 @@ def test_a_different_state_is_filed_and_noted_and_never_asked_about():
     assert "never ask which state, and never stay on the address for it" in rule
     assert "A city or a ZIP with no state word is not saying a state: the state on file stays, with no note." in rule
     assert "The state on file is the one in KNOWN FACTS, even when APPLICANT CONTEXT still names another." in sp
+
+
+def test_the_last_line_answered_counts_as_empty_and_the_offer_answer_settles_optional_rows():
+    """Manager's ruling on CQ's notes, 2026-11-03: a phone-only contact answer
+    got "is that right?" instead of the review offer, then "yes" got "first,
+    what's your email?". The client keeps q_p3_contact on the agenda until
+    mobile and email are answered (lead's scripted test on build 15), so the
+    second sentence is what lets their choice stand. Blind on a9fdf0e0 against
+    item 1 alone: the form on "go to the form" 2 to 9 of 9, the read-back on
+    "yes" 0 to 3 of 9."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    gate = 'AGENDA reads exactly "[agenda empty]" when nothing is left.'
+    assert sp.index("The reply whose facts answer the last line on the agenda counts as empty, unless the answer "
+                    "just opened rows: read the values back, then make the review offer below as the one question, "
+                    "with asking null.") == sp.index(gate) + len(gate) + 1
+    assert "A value you just read back is never the question." in sp
+    assert "Once that offer has been made, their answer to it settles the optional rows still on the agenda: " \
+           "do not ask them, do what they chose." in sp
