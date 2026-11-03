@@ -5785,6 +5785,20 @@ async def subscriptions_unlocks(
     return await unlocks.report(db, days=days)
 
 
+@router.get("/admin/subscriptions/apple-cloud-users")
+async def subscriptions_apple_cloud_users(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=30),
+):
+    """Who is on Apple Cloud, and who bought it and has not used it, for the
+    Subscriptions tab. See app/services/unlocks.py apple_cloud_users()."""
+    _verify_admin(request, x_admin_key)
+    from app.services import unlocks
+    return await unlocks.apple_cloud_users(db, days=days)
+
+
 @router.get("/admin/subscriptions/redemptions")
 async def subscriptions_redemptions(
     request: Request,
