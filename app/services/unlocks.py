@@ -244,3 +244,52 @@ async def report(db: aiosqlite.Connection, days: int = 365) -> dict:
     return {"days": days, "totals": totals, "revenue_production": revenue,
             "by_product": sorted(by_product.values(), key=lambda b: b["product_id"]),
             "recent": rows[:100]}
+
+
+APPLE_CLOUD_MODEL_ID = "onDevice/private-cloud-compute"
+
+
+async def apple_cloud_users(db: aiosqlite.Connection, days: int = 30) -> dict:
+    """Who is on Apple Cloud, and who bought it and has not used it (Scott,
+    2026-11-02). Use comes from telemetry_events: these meetings never touch
+    GP, so model_id is what the client says it selected at meeting start, and
+    the raw events only last 30 days (retention.py). Meetings count the way
+    the meetings-by-model chart counts them, so the two agree. A signed-out
+    meeting has no user_id and groups by device. exclude_from_stats accounts
+    are left out of both lists, as they are from every other count."""
+    from app.services.telemetry_rollup import NOT_RESUMED_ORPHAN
+
+    excluded = "(SELECT id FROM users WHERE exclude_from_stats = 1)"
+    cur = await db.execute(
+        "SELECT t.user_id, MIN(t.device_id) AS device_id, u.email, COUNT(*) AS meetings, "
+        "MAX(t.received_at) AS last_used "
+        "FROM (SELECT user_id, device_id, received_at FROM telemetry_events "
+        "WHERE received_at >= datetime('now', ?) AND event_type = 'meeting_start' AND model_id = ? "
+        f"AND (user_id IS NULL OR user_id NOT IN {excluded})" + NOT_RESUMED_ORPHAN + ") t "
+        "LEFT JOIN users u ON u.id = t.user_id "
+        "GROUP BY COALESCE(t.user_id, 'device:' || t.device_id) ORDER BY last_used DESC",
+        (f"-{days} days", APPLE_CLOUD_MODEL_ID))
+    cols = [c[0] for c in cur.description]
+    users = [dict(zip(cols, r)) for r in await cur.fetchall()]
+
+    cur = await db.execute(
+        "SELECT p.user_id, u.email, p.grants, p.environment, COALESCE(p.purchased_at, p.recorded_at) AS bought_at "
+        "FROM purchases p LEFT JOIN users u ON u.id = p.user_id "
+        "WHERE p.status = 'granted' AND p.revoked_at IS NULL "
+        f"AND p.user_id NOT IN {excluded} ORDER BY bought_at DESC")
+    owners: dict[str, dict] = {}
+    for user_id, email, grants, environment, bought_at in await cur.fetchall():
+        try:
+            held = json.loads(grants or "[]")
+        except ValueError:
+            continue
+        if "unlock_apple_cloud" in held and user_id not in owners:
+            owners[user_id] = {"user_id": user_id, "email": email,
+                               "environment": environment, "bought_at": bought_at}
+
+    used = {u["user_id"] for u in users}
+    for u in users:
+        u["owns_pack"] = u["user_id"] in owners
+    return {"days": days, "model_id": APPLE_CLOUD_MODEL_ID,
+            "meetings": sum(u["meetings"] for u in users), "users": users,
+            "bought_not_used": [o for uid, o in owners.items() if uid not in used]}

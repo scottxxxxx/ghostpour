@@ -1031,6 +1031,16 @@
           <th>When</th><th>User</th><th>Product</th><th>Status</th><th>Price</th><th>Env</th><th>Source</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
+      <div class="card" style="padding:16px;grid-column:span 2">
+        <h4 style="margin:0 0 8px">Apple Cloud users <span id="apple-cloud-note" style="font-weight:400;color:var(--text-dim);font-size:0.8em">Shoulder Surf meetings the app reports on Apple Private Cloud Compute, last 30 d (raw events only last 30 d). Those meetings never touch GP, so this is what the app says it selected.</span></h4>
+        <div class="table-wrap" style="max-height:360px;overflow-y:auto"><table id="apple-cloud-users-table"><thead><tr>
+          <th>User</th><th>Meetings</th><th>Last used</th><th>Bought the pack</th>
+        </tr></thead><tbody></tbody></table></div>
+        <h4 style="margin:12px 0 8px">Bought it, no use in 30 d</h4>
+        <div class="table-wrap" style="max-height:240px;overflow-y:auto"><table id="apple-cloud-unused-table"><thead><tr>
+          <th>User</th><th>Bought</th><th>Env</th>
+        </tr></thead><tbody></tbody></table></div>
+      </div>
     </div>
   </div>
 
@@ -1635,6 +1645,7 @@ async function loadSubscriptions() {
     const events = evResp.ok ? (await evResp.json()).events : [];
     _renderSubscriptions(rep, events);
     _loadUnlocks();
+    _loadAppleCloudUsers();
   } catch (e) {
     document.getElementById('sub-kpis').innerHTML =
       `<div class="card" style="grid-column:span 4">Subscriptions error: ${e.message}</div>`;
@@ -1648,6 +1659,28 @@ async function _loadUnlocks() {
     if (!resp.ok) { kp.innerHTML = `<div class="card">Unlocks load failed (${resp.status})</div>`; return; }
     _renderUnlocks(await resp.json());
   } catch (e) { kp.innerHTML = '<div class="card">Unlocks load failed</div>'; }
+}
+
+async function _loadAppleCloudUsers() {
+  const note = document.getElementById('apple-cloud-note');
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/subscriptions/apple-cloud-users?days=30`, {headers:{'X-Admin-Key':adminKey}});
+    if (!resp.ok) { note.textContent = `Apple Cloud users load failed (${resp.status})`; return; }
+    _renderAppleCloudUsers(await resp.json());
+  } catch (e) { note.textContent = 'Apple Cloud users load failed'; }
+}
+
+function _renderAppleCloudUsers(d) {
+  const dim = (s) => `<span style="color:var(--text-dim)">${esc(s)}</span>`;
+  const who = (r) => r.email ? esc(r.email)
+    : r.user_id ? dim(r.user_id.slice(0, 8)) : dim(`signed out, device ${(r.device_id || '').slice(0, 8)}`);
+  const when = (s) => (s || '').slice(0, 16).replace('T', ' ');
+  document.querySelector('#apple-cloud-users-table tbody').innerHTML = (d.users || []).map(u =>
+    `<tr><td>${who(u)}</td><td>${u.meetings}</td><td>${esc(when(u.last_used))}</td><td>${u.owns_pack ? 'yes' : dim('no')}</td></tr>`
+  ).join('') || '<tr><td colspan="4" style="color:var(--text-dim)">No Apple Cloud meetings in this window</td></tr>';
+  document.querySelector('#apple-cloud-unused-table tbody').innerHTML = (d.bought_not_used || []).map(o =>
+    `<tr><td>${who(o)}</td><td>${esc(when(o.bought_at))}</td><td>${esc(o.environment || '')}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="color:var(--text-dim)">Nobody</td></tr>';
 }
 
 function _renderUnlocks(d) {
