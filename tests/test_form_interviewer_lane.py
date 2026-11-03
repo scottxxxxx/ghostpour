@@ -140,7 +140,47 @@ def test_a_hedge_on_a_field_without_unsure_reasks_with_clarification_null():
     sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
     unsure = "on a field that offers unsure, a hedge is not low confidence, it is unsure. "
     assert sp.index("On a field that does not offer unsure, a hedge is not low confidence either: it is "
-                    "dont_know, its one re-ask of the same node carries clarification null") == sp.index(unsure) + len(unsure)
+                    "dont_know, its one re-ask of the same node first says") == sp.index(unsure) + len(unsure)
+    assert "and then asks it again, carries clarification null," in sp
+
+
+def test_the_one_reask_after_a_hedge_explains_from_the_block_only():
+    # I-765 seam 18, lead's ruling 2026-11-03: live explained on the re-ask
+    # after a hedge and the lane did not, and when it was told to, it reached
+    # past the form ("su tarjeta"). The clause lets the explanation in only
+    # from what the block says. Blind on a6be71a6: 27 of 27 explain first, 25
+    # of 27 stay inside the block; the two SSN misses are accepted and logged.
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    assert "first says in one short sentence what the question means, using only what the FORM BLOCK says " \
+           "about this question and the field it leads to" in sp
+    assert "explain only when they ask what the question means, or on the one re-ask after a hedge." in sp
+
+
+def test_an_escalation_turn_files_nothing_and_reads_nothing_back():
+    # I-765 seam 34, lead's ruling 2026-11-03: "512 555 0147. Do I have to
+    # mention my DUI?" filed the phone and read it back on the turn that hands
+    # them to an attorney. Now it asks for the value again, and never says
+    # whether the form asks about the trigger. A stop answer is the exception.
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    assert "That turn mints nothing and reads nothing back as filed, not even a value the same line gave, " \
+           "except a stop answer" in sp
+    assert "never says whether the form asks about the trigger, and asks the standing question again, " \
+           "for that value too;" in sp
+    assert "extract any facts the person did give you unless the turn carries an escalation" in sp
+
+
+def test_two_whole_addresses_ask_once_and_a_non_pick_never_asks_again():
+    # Scott's ruling through the I-765 side 2026-11-03: mention it, never act
+    # as a judge. Two addresses for one line can both be true, so it asks once
+    # which they want, and a line that does not pick is never asked again. A
+    # line that does not take the question up has not answered, so it holds.
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    assert "Ask once which one they want on the form (never \"which should I use\", never which is right, " \
+           "and never about the state on file), and file nothing from either." in sp
+    assert "on \"either one\" or the like, file the address they said last" in sp
+    assert "on \"I don't know\" or the like, file nothing, leave what is on file, put each required field " \
+           "of that line still empty in deferred (reason dont_know, partial_value null, origin applicant)" in sp
+    assert "is a turn that answered nothing like any other: asking stays on the standing node" in sp
 
 
 def test_a_digits_read_back_takes_the_one_format_the_client_can_restore():
