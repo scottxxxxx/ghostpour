@@ -156,6 +156,24 @@ def test_the_one_reask_after_a_hedge_explains_from_the_block_only():
     assert "explain only when they ask what the question means, or on the one re-ask after a hedge." in sp
 
 
+def test_the_last_line_answered_counts_as_empty_and_the_offer_answer_settles_optional_rows():
+    # Manager's ruling on CQ's notes, 2026-11-03: a phone-only contact answer
+    # got "is that right?" instead of the review offer, then "yes" got "first,
+    # what's your email?". The client keeps q_p3_contact on the agenda until
+    # mobile and email are answered (lead's scripted test on build 15), so the
+    # second sentence is what lets their choice stand. Blind on b4b3668e against
+    # item 1 alone: the form on "go to the form" 3 to 9 of 9, the read-back on
+    # "yes" 0 to 5 of 9.
+    sp = json.loads((I765_DIR / "interviewer-lane.json").read_text(encoding="utf-8"))["systemPrompt"]
+    gate = 'AGENDA reads exactly "[agenda empty]" when nothing is left.'
+    assert sp.index("The reply whose facts answer the last line on the agenda counts as empty, unless the answer "
+                    "just opened rows: read the values back, then make the review offer below as the one question, "
+                    "with asking null.") == sp.index(gate) + len(gate) + 1
+    assert "A value you just read back is never the question." in sp
+    assert "Once that offer has been made, their answer to it settles the optional rows still on the agenda: " \
+           "do not ask them, do what they chose." in sp
+
+
 def test_an_escalation_turn_files_nothing_and_reads_nothing_back():
     # I-765 seam 34, lead's ruling 2026-11-03: "512 555 0147. Do I have to
     # mention my DUI?" filed the phone and read it back on the turn that hands
