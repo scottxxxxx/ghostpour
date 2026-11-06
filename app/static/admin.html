@@ -6,8 +6,8 @@
 <title>GhostPour Admin</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d1117'/><path d='M16 5c4.6 5.4 7.5 9.3 7.5 12.6a7.5 7.5 0 0 1-15 0C8.5 14.3 11.4 10.4 16 5z' fill='%237c5cff'/><circle cx='13.2' cy='18.4' r='1.9' fill='%23ffffff' opacity='.85'/></svg>">
 <!-- ApexCharts for the Telemetry dashboard. CDN load avoids a build
-     step. Pinned major so we don't drift into a breaking release. -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>
+     step. Pinned exact, so a CDN release never changes the page under us. -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1"></script>
 <!-- jsVectorMap for the Users-tab world heat map. Same CDN posture as
      ApexCharts. Country-level only: GeoIP gives us country/region/city
      strings and we deliberately never store coordinates. -->
@@ -103,6 +103,21 @@
   .card .value.red { color: var(--red); }
   .card .value.accent { color: var(--accent); }
   .card .value.purple { color: var(--purple); }
+
+  /* Share bars: the ranked list that replaced the donuts (_renderShareBars). */
+  .share-total { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  .share-row {
+    display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(40px, 1.3fr) 4.5em 2.8em;
+    column-gap: 10px; align-items: center; padding: 5px 6px; border-radius: 6px; font-size: 13px;
+  }
+  .share-row:hover, .share-row:focus-visible { background: rgba(88,166,255,0.08); outline: none; }
+  .share-label { color: var(--text); line-height: 1.3; overflow-wrap: break-word; }
+  .share-track { height: 10px; }
+  .share-fill { display: block; height: 100%; background: #3987e5; border-radius: 0 4px 4px 0; }
+  .share-row.other .share-fill { background: #6e7681; }
+  .share-value { text-align: right; font-variant-numeric: tabular-nums; }
+  .share-pct { text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .share-empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 24px 0; }
 
   /* Tables */
   /* overflow-x:auto, not hidden: the 22-column user table was clipped at the
@@ -1620,6 +1635,42 @@ function _renderChart(divId, options) {
   _telCharts[divId].render();
 }
 
+// One series wears one hue: the dark-surface blue, validated by the dataviz
+// skill's palette check against --surface (#58a6ff sits above its lightness band).
+const _SERIES_1 = '#3987e5';
+const _SHARE_BARS_MAX = 8;
+
+// Part to whole as a ranked bar list instead of a donut. Bars share one
+// baseline so close values compare by length, every row prints its count and
+// share so nothing hides behind a hover, and past eight rows the tail folds
+// into "Other" rather than reaching for more colors.
+function _renderShareBars(divId, rows, opts) {
+  const {unit = '', fmt = v => v.toLocaleString(), empty = 'No data in this window.'} = opts || {};
+  if (_telCharts[divId]) { _telCharts[divId].destroy(); delete _telCharts[divId]; }
+  const el = document.getElementById(divId);
+  if (!el) return;
+  let list = (rows || []).filter(r => r.value > 0).sort((a, b) => b.value - a.value);
+  if (!list.length) {
+    el.innerHTML = `<div class="share-empty">${esc(empty)}</div>`;
+    return;
+  }
+  if (list.length > _SHARE_BARS_MAX) {
+    const rest = list.slice(_SHARE_BARS_MAX - 1);
+    list = list.slice(0, _SHARE_BARS_MAX - 1).concat([{label: `Other (${rest.length})`, value: rest.reduce((t, r) => t + r.value, 0), other: true}]);
+  }
+  const total = list.reduce((t, r) => t + r.value, 0);
+  const max = Math.max(...list.map(r => r.value));
+  el.innerHTML = `<div class="share-total">${esc(fmt(total))}${unit ? ' ' + esc(unit) : ''}</div><div role="table">` +
+    list.map(r => {
+      const pct = 100 * r.value / total;
+      return `<div class="share-row${r.other ? ' other' : ''}" role="row" tabindex="0" title="${esc(r.label)}: ${esc(fmt(r.value))}, ${pct.toFixed(1)}%">` +
+        `<span class="share-label" role="cell">${esc(r.label)}</span>` +
+        `<span class="share-track" role="cell"><span class="share-fill" style="width:${Math.max(1, 100 * r.value / max).toFixed(1)}%"></span></span>` +
+        `<span class="share-value" role="cell">${esc(fmt(r.value))}</span>` +
+        `<span class="share-pct" role="cell">${pct < 1 ? '<1' : Math.round(pct)}%</span></div>`;
+    }).join('') + '</div>';
+}
+
 function _telPopulateOpts(selectId, prefix, values, current) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
@@ -2191,34 +2242,16 @@ function _renderOnboarding(d) {
     </div>
   `).join('');
 
-  _renderChart('onb-chart-completion', {
-    series: (d.completion || []).map(x => x.n),
-    chart: {type: 'donut', height: 280},
-    labels: (d.completion || []).map(x => x.label),
-    legend: {position: 'bottom'},
-    colors: ['#3fb950', '#ff7b72'],
-    plotOptions: {pie: {donut: {size: '60%'}}},
-    dataLabels: {enabled: true, formatter: (v) => `${v.toFixed(0)}%`},
-    noData: {text: 'No onboarding events in this window yet.'},
-  });
-  _renderChart('onb-chart-auth', {
-    series: (d.auth || []).map(x => x.n),
-    chart: {type: 'donut', height: 280},
-    labels: (d.auth || []).map(x => x.label),
-    legend: {position: 'bottom'},
-    colors: ['#58a6ff', '#d29922', '#8b949e'],
-    plotOptions: {pie: {donut: {size: '60%'}}},
-    dataLabels: {enabled: true, formatter: (v) => `${v.toFixed(0)}%`},
-    noData: {text: 'No onboarding events in this window yet.'},
-  });
+  _renderShareBars('onb-chart-completion', (d.completion || []).map(x => ({label: x.label, value: x.n})), {unit: 'onboardings', empty: 'No onboarding events in this window yet.'});
+  _renderShareBars('onb-chart-auth', (d.auth || []).map(x => ({label: x.label, value: x.n})), {unit: 'onboardings', empty: 'No onboarding events in this window yet.'});
   _renderChart('onb-chart-dropoff', {
     series: [{name: 'Abandoned', data: (d.drop_off || []).map(x => x.n)}],
     chart: {type: 'bar', height: 280},
-    plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true}},
+    plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '60%'}},
     xaxis: {categories: (d.drop_off || []).map(x => x.step)},
     legend: {show: false},
     dataLabels: {enabled: true},
-    colors: ['#ff7b72', '#d29922', '#bc8cff', '#58a6ff', '#3fb950', '#79c0ff'],
+    colors: [_SERIES_1],
     noData: {text: 'No abandoned onboardings in this window.'},
   });
 }
@@ -2274,16 +2307,7 @@ function _renderAcquisition(d) {
     </div>
   `).join('');
 
-  _renderChart('acq-chart-source', {
-    series: (d.source || []).map(x => x.n),
-    chart: {type: 'donut', height: 280},
-    labels: (d.source || []).map(x => x.label),
-    legend: {position: 'bottom'},
-    colors: ['#3fb950', '#58a6ff', '#8b949e', '#d29922', '#ff7b72'],
-    plotOptions: {pie: {donut: {size: '60%'}}},
-    dataLabels: {enabled: true, formatter: (v) => `${v.toFixed(0)}%`},
-    noData: {text: 'No attribution rows in this window yet.'},
-  });
+  _renderShareBars('acq-chart-source', (d.source || []).map(x => ({label: x.label, value: x.n})), {unit: 'installs', empty: 'No attribution rows in this window yet.'});
 
   const camps = d.campaigns || [];
   document.querySelector('#acq-campaign-table tbody').innerHTML = camps.length
@@ -2340,70 +2364,23 @@ function _renderTelemetry(d, current) {
     colors: ['#58a6ff','#3fb950','#d29922','#bc8cff','#ff7b72','#79c0ff','#a5d6ff','#f0883e'],
   });
 
-  // --- Donut: meetings by model ---
+  // --- Meetings by model ---
   // Prefer the server-provided display_name (e.g. "SS AI" instead of
   // the internal "cloudzap/auto" routing id) so the operator dashboard
   // doesn't leak GhostPour-internal aliases.
-  _renderChart('tel-chart-models', {
-    series: d.models.map(m => m.meetings),
-    chart: {type: 'donut', height: 210},
-    labels: d.models.map(m => m.display_name || m.model_id),
-    legend: {position: 'bottom'},
-    colors: ['#3fb950','#bc8cff','#58a6ff','#d29922','#ff7b72','#79c0ff'],
-    plotOptions: {pie: {donut: {size: '60%', labels: {show: true, total: {show: true, label: 'meetings', color: _telForeground}}}}},
-    dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
-    noData: {text: 'No meeting events in this window.'},
-  });
+  _renderShareBars('tel-chart-models', d.models.map(m => ({label: m.display_name || m.model_id, value: m.meetings})), {unit: 'meetings', empty: 'No meeting events in this window.'});
 
-  // --- Horizontal bar: meetings by device ---
-  const deviceLabels = d.devices.map(x => x.marketing_name || x.device_model);
-  _renderChart('tel-chart-devices', {
-    series: [{name: 'Meetings', data: d.devices.map(x => x.meetings)}],
-    chart: {type: 'bar', height: 240},
-    plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true}},
-    xaxis: {categories: deviceLabels, labels: {style: {colors: _telForeground}}},
-    yaxis: {labels: {style: {colors: _telForeground}}},
-    legend: {show: false},
-    dataLabels: {enabled: true, style: {colors: ['#fff']}},
-    colors: ['#3fb950','#58a6ff','#bc8cff','#d29922','#ff7b72','#79c0ff','#a5d6ff'],
-    noData: {text: 'No device_model field on events yet. SS adds it in next iOS build.'},
-  });
+  // --- Meetings by device ---
+  _renderShareBars('tel-chart-devices', d.devices.map(x => ({label: x.marketing_name || x.device_model, value: x.meetings})), {unit: 'meetings', empty: 'No device_model field on events yet. SS adds it in next iOS build.'});
 
-  // --- Donut: devices by iOS version ---
-  _renderChart('tel-chart-os', {
-    series: d.os_versions.map(x => x.devices),
-    chart: {type: 'donut', height: 210},
-    labels: d.os_versions.map(x => x.os_version),
-    legend: {position: 'bottom'},
-    colors: ['#58a6ff','#bc8cff','#3fb950','#d29922','#ff7b72'],
-    plotOptions: {pie: {donut: {size: '60%'}}},
-    dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
-    noData: {text: 'No iOS version data in this window.'},
-  });
+  // --- Devices by iOS version ---
+  _renderShareBars('tel-chart-os', d.os_versions.map(x => ({label: x.os_version, value: x.devices})), {unit: 'devices', empty: 'No iOS version data in this window.'});
 
-  // --- Donut: devices by language ---
-  _renderChart('tel-chart-language', {
-    series: (d.by_language || []).map(x => x.devices),
-    chart: {type: 'donut', height: 210},
-    labels: (d.by_language || []).map(x => x.language),
-    legend: {position: 'bottom'},
-    colors: ['#58a6ff','#3fb950','#bc8cff','#d29922','#ff7b72','#79c0ff','#a5d6ff'],
-    plotOptions: {pie: {donut: {size: '60%'}}},
-    dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
-    noData: {text: 'No locale data yet (iOS sends app_locale in 1.13+ builds).'},
-  });
+  // --- Devices by language ---
+  _renderShareBars('tel-chart-language', (d.by_language || []).map(x => ({label: x.language, value: x.devices})), {unit: 'devices', empty: 'No locale data yet (iOS sends app_locale in 1.13+ builds).'});
 
-  // --- Donut: devices by distribution channel (TestFlight vs App Store) ---
-  _renderChart('tel-chart-distribution', {
-    series: (d.distribution || []).map(x => x.devices),
-    chart: {type: 'donut', height: 210},
-    labels: (d.distribution || []).map(x => x.label),
-    legend: {position: 'bottom'},
-    colors: ['#3fb950','#d29922','#58a6ff','#8b949e'],
-    plotOptions: {pie: {donut: {size: '60%'}}},
-    dataLabels: {enabled: true, formatter: (val) => `${val.toFixed(0)}%`},
-    noData: {text: 'No distribution data yet (iOS sends it once the AppTransaction field ships).'},
-  });
+  // --- Devices by distribution channel (TestFlight vs App Store) ---
+  _renderShareBars('tel-chart-distribution', (d.distribution || []).map(x => ({label: x.label, value: x.devices})), {unit: 'devices', empty: 'No distribution data yet (iOS sends it once the AppTransaction field ships).'});
 
   // --- Directory table: name (if known) + language, per device ---
   const telEsc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2481,7 +2458,8 @@ function _renderTelemetry(d, current) {
   _renderChart('tel-chart-funnel', {
     series: [{name: 'Count', data: d.funnel.map(s => s.n)}],
     chart: {type: 'bar', height: 210},
-    plotOptions: {bar: {horizontal: true, borderRadius: 6, distributed: true, barHeight: '70%'}},
+    plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '60%'}},
+    colors: [_SERIES_1],
     xaxis: {categories: d.funnel.map(s => s.stage), labels: {style: {colors: _telForeground}}},
     yaxis: {labels: {style: {colors: _telForeground}}},
     legend: {show: false},
@@ -2961,18 +2939,11 @@ function renderUserAnalytics(rows) {
   }
   renderHeatMap('users-world-map', byCountry, byState, 'user');
 
-  // Tier mix donut (SIM overrides shown as their real tier).
+  // Tier mix (SIM overrides shown as their real tier).
   const tierCounts = {};
   rows.forEach(u => { tierCounts[u.tier] = (tierCounts[u.tier] || 0) + 1; });
   const tierLabels = Object.keys(tierCounts);
-  _renderChart('users-tier-donut', {
-    series: tierLabels.map(t => tierCounts[t]),
-    labels: tierLabels.map(t => t.charAt(0).toUpperCase() + t.slice(1)),
-    chart: {type: 'donut', height: 230},
-    legend: {position: 'bottom'},
-    dataLabels: {enabled: true, formatter: (p, o) => o.w.config.series[o.seriesIndex]},
-    colors: ['#8b949e', '#a371f7', '#58a6ff', '#3fb950'],
-  });
+  _renderShareBars('users-tier-donut', tierLabels.map(t => ({label: t.charAt(0).toUpperCase() + t.slice(1), value: tierCounts[t]})), {unit: 'users', empty: 'No users in this filter.'});
 
   // Cumulative growth: every signup, all time.
   const dates = rows.map(u => (u.created_at || '').slice(0, 10)).filter(Boolean).sort();
@@ -3636,44 +3607,11 @@ async function refresh(filterChanged = false) {
     trendEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No usage data</div>';
   }
 
-  // Cost by model — donut of spend share across models in the window. Top
-  // models by cost show individually; the long tail folds into "Other" so the
-  // donut stays legible. Center shows total spend.
-  const costModels = (dash.by_model || [])
-    .filter(m => (m.cost_usd || 0) > 0)
-    .sort((a, b) => b.cost_usd - a.cost_usd);
-  const cbmEl = document.getElementById('cost-by-model-chart');
-  if (costModels.length > 0) {
-    const TOP = 8;
-    const top = costModels.slice(0, TOP);
-    const rest = costModels.slice(TOP);
-    const labels = top.map(m => m.model);
-    const series = top.map(m => +m.cost_usd.toFixed(4));
-    if (rest.length) {
-      labels.push(`Other (${rest.length})`);
-      series.push(+rest.reduce((s, m) => s + m.cost_usd, 0).toFixed(4));
-    }
-    const totalCost = series.reduce((s, v) => s + v, 0);
-    _renderChart('cost-by-model-chart', {
-      chart: {type: 'donut', height: 320, animations: {enabled: false}},
-      series: series,
-      labels: labels,
-      colors: ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#ff7b72', '#79c0ff', '#a5d6ff', '#f0883e', '#8b949e'],
-      legend: {position: 'bottom', labels: {colors: _telForeground}, fontSize: '12px', itemMargin: {vertical: 2}},
-      stroke: {colors: ['#0d1117'], width: 2},
-      dataLabels: {enabled: true, formatter: val => val >= 4 ? val.toFixed(0) + '%' : '', style: {fontSize: '11px'}},
-      plotOptions: {pie: {donut: {size: '64%', labels: {
-        show: true,
-        value: {show: true, color: _telForeground, fontSize: '20px', formatter: val => fmtCost(parseFloat(val))},
-        total: {show: true, label: 'Total', color: _telForeground, formatter: () => fmtCost(totalCost)},
-      }}}},
-      tooltip: {y: {formatter: val => fmtCost(val)}},
-      noData: {text: 'No cost in this window.'},
-    });
-  } else {
-    if (_telCharts['cost-by-model-chart']) { _telCharts['cost-by-model-chart'].destroy(); delete _telCharts['cost-by-model-chart']; }
-    cbmEl.innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:24px">No model cost in this window</div>';
-  }
+  // Cost by model: spend share across models in the window, as ranked bars
+  // with the dollar figure and share on every row. The helper folds the long
+  // tail into "Other".
+  const costModels = (dash.by_model || []).filter(m => (m.cost_usd || 0) > 0);
+  _renderShareBars('cost-by-model-chart', costModels.map(m => ({label: m.model, value: m.cost_usd})), {fmt: v => fmtCost(v), unit: 'total', empty: 'No model cost in this window'});
 
   // Requests by scenario — horizontal bar of request volume per scenario tag
   // (interview / negotiation / personal / pitch / (untagged); a Tech Rehearsal
@@ -3684,8 +3622,8 @@ async function refresh(filterChanged = false) {
     _renderChart('scenario-chart', {
       chart: {type: 'bar', height: Math.max(180, scenarios.length * 44 + 48), toolbar: {show: false}, animations: {enabled: false}},
       series: [{name: 'Requests', data: scenarios.map(s => s.requests)}],
-      plotOptions: {bar: {horizontal: true, borderRadius: 4, distributed: true, barHeight: '62%'}},
-      colors: ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#ff7b72', '#79c0ff', '#a5d6ff'],
+      plotOptions: {bar: {horizontal: true, borderRadius: 4, barHeight: '62%'}},
+      colors: [_SERIES_1],
       xaxis: {categories: scenarios.map(s => s.scenario), labels: {style: {colors: _telForeground}}},
       yaxis: {labels: {style: {colors: _telForeground}}},
       legend: {show: false},
