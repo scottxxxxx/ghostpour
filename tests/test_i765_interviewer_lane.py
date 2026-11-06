@@ -158,7 +158,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 9
+    assert i765["server_only"] is True and i765["version"] == 10
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).
@@ -462,3 +462,34 @@ def test_the_last_line_answered_counts_as_empty_and_the_offer_answer_settles_opt
     assert "A value you just read back is never the question." in sp
     assert "Once that offer has been made, their answer to it settles the optional rows still on the agenda: " \
            "do not ask them, do what they chose." in sp
+
+
+def test_contact_asks_the_daytime_phone_only_and_the_offer_turn_carries_no_checkpoint():
+    """Manager's calls on the v9 wire proof, 2026-11-05 (Scott ruled mobile and
+    email stay unasked unless the person brings them up). On v9 the phone turn
+    asked mobile and email 21 of 21, 18 of 21 offers carried a part 3
+    checkpoint, 6 of 21 filed the daytime digits as the mobile, and a Spanish
+    "Sí" loop never chose. Blind on 8cba4fa9 against a9fdf0e0, on the lead's
+    phone-only request: mobile or email asked 9 of 12 to 0 of 12, 12 of 12 with
+    items 1 and 2 reverted; a second non-choice ends 12 of 12, 0 of 6 without
+    item 5; a yes still starts the read-back 12 of 12. The blind does not
+    reproduce the checkpoint or the daytime-as-mobile miss, so those two pins
+    are text only until the wire shows them gone."""
+    sp = json.load(open("config/remote/i765/interviewer-turn.json"))["systemPrompt"]
+    # Item 1: the contact question names the daytime phone only.
+    assert "THE CONTACT QUESTION IS THE EXCEPTION: it asks for the daytime phone only and never names the mobile or the email." in sp
+    assert "names the mobile and the email" not in sp
+    # Item 2: mobile and email never keep the line open and are asked only when brought up.
+    assert "The daytime phone alone answers the contact line, even while that line still lists the mobile and the email" in sp
+    assert "neither one is asked for unless the person brings it up." in sp
+    assert "A part is not done while its standing line still lists empty ids, other than the contact line's mobile and email;" in sp
+    # Item 3: a no to a different mobile is a stated none.
+    assert "a no to whether they have a different mobile is a stated none, \"\", never the daytime digits;" in sp
+    # Item 4: no part summary and no checkpoint on the offer turn.
+    assert "the reply that answers the last line on the agenda has no part summary and section_checkpoint null" in sp
+    # Item 5: a yes accepts the review; one re-offer, then the end screen that offers both.
+    assert "A yes to the offer, in any language, accepts the review." in sp
+    assert "If the next answer chooses neither again, interview_over is true" in sp
+    assert "it never says you are taking them to the form." in sp
+    # Nothing is user_stated unless they said that value.
+    assert "A value they did not say is never \"user_stated\"" in sp
