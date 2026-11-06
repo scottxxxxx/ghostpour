@@ -4086,6 +4086,20 @@ async def telemetry_rich(
         ORDER BY devices DESC
     """)
 
+    # --- Distinct devices by iOS major version -----------------------------
+    # The dashboard groups minor versions under their major. Summing the
+    # minor rows would count a device that updated 26.0.1 to 26.1 twice, so
+    # each major gets its own distinct count.
+    os_majors = await _all(f"""
+        SELECT CASE WHEN os_version IS NULL THEN 'unknown'
+                    ELSE substr(os_version, 1, instr(os_version || '.', '.') - 1) END AS major,
+               COUNT(DISTINCT device_id) AS devices
+        FROM telemetry_events
+        WHERE {where}
+        GROUP BY major
+        ORDER BY devices DESC
+    """)
+
     # --- Distinct devices by distribution channel ------------------------
     # TestFlight vs App Store, from StoreKit 2 AppTransaction.environment.
     # NULL means an older build that predates the field; label it so it
@@ -4281,6 +4295,7 @@ async def telemetry_rich(
         "by_language": by_language,
         "devices": devices,
         "os_versions": os_versions,
+        "os_majors": os_majors,
         "distribution": distribution,
         "by_location": by_location,
         "heatmap": heatmap,
