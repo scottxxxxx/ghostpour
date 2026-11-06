@@ -20,16 +20,17 @@
 <script src="https://cdn.jsdelivr.net/npm/jsvectormap@1.6/dist/maps/world.js"></script>
 <style>
   :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --border: #30363d;
-    --text: #e6edf3;
-    --text-dim: #8b949e;
-    --accent: #58a6ff;
-    --green: #3fb950;
-    --red: #f85149;
-    --orange: #d29922;
-    --purple: #bc8cff;
+    --bg: #0b1018;
+    --surface: #151c27;
+    --surface-hover: #1d2735;
+    --border: #293342;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --accent: #4c9aff;
+    --green: #34d399;
+    --red: #fb7185;
+    --orange: #fbbf24;
+    --purple: #a78bfa;
     /* Aliases for names the panels reach for but nobody ever defined. An
        undefined custom property makes the declaration invalid at computed
        value time, so background:var(--bg-card) painted NOTHING and the app
@@ -92,7 +93,7 @@
   /* Cards */
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
   .card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
     padding: 16px;
   }
   .card .label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
@@ -104,20 +105,55 @@
   .card .value.accent { color: var(--accent); }
   .card .value.purple { color: var(--purple); }
 
-  /* Share bars: the ranked list that replaced the donuts (_renderShareBars). */
-  .share-total { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+  /* Dashboard views (Telemetry, Users): KPI tiles, chart cards, ranked share
+     bars, the tier stack bar, insights. The KPI card classes were used here
+     with no rule behind them until 2026-11-06. */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 10px; }
+  @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .kpi-row { grid-template-columns: 1fr; } }
+  .kpi-row .card { padding: 20px; }
+  .card-label { font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+  .card-value { font-size: 26px; font-weight: 600; line-height: 1.15; }
+  .kpi-row .card-value { font-size: 38px; }
+  .card-hint { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
+  .kpi-minor { display: flex; flex-wrap: wrap; gap: 4px 24px; font-size: 13px; color: var(--text-dim); margin: 0 0 16px 2px; }
+  .kpi-minor b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .viz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
+  .viz-card { padding: 20px; }
+  .viz-card h4 { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
+  .share-total { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
+  .share-note { font-size: 12px; color: var(--text-dim); margin: -6px 0 10px; }
   .share-row {
     display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(40px, 1.3fr) 4.5em 2.8em;
-    column-gap: 10px; align-items: center; padding: 5px 6px; border-radius: 6px; font-size: 13px;
+    column-gap: 10px; align-items: center; padding: 6px; border-radius: 6px; font-size: 13px;
   }
-  .share-row:hover, .share-row:focus-visible { background: rgba(88,166,255,0.08); outline: none; }
+  .share-row:hover, .share-row:focus-visible { background: var(--surface-hover); outline: none; }
   .share-label { color: var(--text); line-height: 1.3; overflow-wrap: break-word; }
   .share-track { height: 10px; }
-  .share-fill { display: block; height: 100%; background: #3987e5; border-radius: 0 4px 4px 0; }
-  .share-row.other .share-fill { background: #6e7681; }
-  .share-value { text-align: right; font-variant-numeric: tabular-nums; }
+  .share-fill { display: block; height: 100%; background: #475569; border-radius: 0 4px 4px 0; }
+  .share-row.lead .share-fill { background: #3987e5; }
+  .share-row.other .share-fill { background: #334155; }
+  .share-value { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
   .share-pct { text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .share-empty { color: var(--text-dim); font-size: 13px; text-align: center; padding: 24px 0; }
+  details.share-group > summary { list-style: none; cursor: pointer; }
+  details.share-group > summary::-webkit-details-marker { display: none; }
+  details.share-group > summary .share-label::before { content: '\25B8'; display: inline-block; width: 1em; color: var(--text-dim); }
+  details.share-group[open] > summary .share-label::before { content: '\25BE'; }
+  .share-row.child .share-label { padding-left: 1.6em; color: var(--text-dim); }
+  .share-row.child .share-fill { background: #334155; }
+  .stack-bar { display: flex; gap: 2px; height: 14px; margin: 4px 0 12px; }
+  .stack-seg { height: 100%; min-width: 2px; }
+  .stack-seg:first-child { border-radius: 4px 0 0 4px; }
+  .stack-seg:last-child { border-radius: 0 4px 4px 0; }
+  .stack-seg:only-child { border-radius: 4px; }
+  .stack-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; vertical-align: baseline; }
+  .insight { padding: 12px 0; border-top: 1px solid var(--border); }
+  .insight:first-child { border-top: none; padding-top: 4px; }
+  .insight-title { font-size: 14px; font-weight: 600; }
+  .insight-body { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
+  .dq-head { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 16px 0 6px; }
+  .dq-row { font-size: 13px; color: var(--text-dim); padding: 3px 0; }
 
   /* Tables */
   /* overflow-x:auto, not hidden: the 22-column user table was clipped at the
@@ -928,7 +964,16 @@
       <p style="color:var(--text-dim);margin:6px 0 8px;font-size:12px">A start with no stop yet, in the last 6 hours. <b>live</b> = heard from inside the last 3 min (heartbeat) or 20 min (AutoSummary or a question, older builds); <b>paused</b> = the phone says so; <b>early</b> = too young for any signal; <b>quiet</b> = nothing heard, so paused, suspended or dead. Running time is GP's clock from the start ping; the phone's own clock shows in parentheses when it sent one.</p>
       <div id="live-meetings-body"></div>
     </div>
-    <div class="cards" id="tel-kpis"></div>
+    <div class="kpi-row" id="tel-kpis"></div>
+    <div class="kpi-minor" id="tel-kpis-minor"></div>
+    <div class="viz-grid">
+      <div class="card viz-card"><h4>Meetings by model</h4><div id="tel-chart-models"></div></div>
+      <div class="card viz-card"><h4>Devices by iOS version</h4><div id="tel-chart-os"></div></div>
+      <div class="card viz-card"><h4>Key insights</h4><div id="tel-insights"></div></div>
+      <div class="card viz-card"><h4>Meetings by device</h4><div id="tel-chart-devices"></div></div>
+      <div class="card viz-card"><h4>Devices by distribution</h4><div id="tel-chart-distribution"></div></div>
+      <div class="card viz-card" id="tel-card-language"><h4>Devices by language</h4><div id="tel-chart-language"></div></div>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));grid-auto-flow:dense;gap:12px;margin-top:12px">
       <div class="card" style="padding:12px 14px;grid-column:span 2">
         <h4 style="margin:0 0 8px">Daily active <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">(bars: devices that pinged that day; purple line: signed-in users; green dashed: users active in the 7 days ending that day; orange dashed: regular users, the green ones whose account existed before those 7 days.) From daily rollups (kept forever), so the trend outlives the 30-day raw purge. Not affected by the filters above</span></h4>
@@ -939,11 +984,6 @@
         <div id="tel-chart-new"></div>
       </div>
       <div class="card" style="padding:12px 14px;grid-column:span 2"><h4 style="margin:0 0 8px">App starts by version (daily)</h4><div id="tel-chart-versions"></div></div>
-      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Meetings by model</h4><div id="tel-chart-models"></div></div>
-      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Meetings by device</h4><div id="tel-chart-devices"></div></div>
-      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Devices by iOS version</h4><div id="tel-chart-os"></div></div>
-      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Devices by language</h4><div id="tel-chart-language"></div></div>
-      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Devices by distribution (TestFlight vs App Store)</h4><div id="tel-chart-distribution"></div></div>
       <div class="card" style="padding:12px 14px;grid-column:span 2">
         <h4 style="margin:0 0 8px">Users by location <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— heat by devices in the window; region detail beside. Per-user city shows in the Users table</span></h4>
         <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch">
@@ -1610,8 +1650,8 @@ const _telTheme = {
   mode: 'dark',
   palette: 'palette3',  // ApexCharts built-in vibrant palette
 };
-const _telForeground = '#c9d1d9';
-const _telGrid = '#30363d';
+const _telForeground = '#94a3b8';
+const _telGrid = '#293342';
 
 function _renderChart(divId, options) {
   if (_telCharts[divId]) {
@@ -1628,7 +1668,7 @@ function _renderChart(divId, options) {
       animations: {enabled: true, speed: 400, animateGradually: {enabled: false}},
       background: 'transparent',
     }, options.chart || {}),
-    grid: Object.assign({borderColor: _telGrid, strokeDashArray: 3}, options.grid || {}),
+    grid: Object.assign({borderColor: _telGrid, strokeDashArray: 0}, options.grid || {}),
     tooltip: Object.assign({theme: 'dark'}, options.tooltip || {}),
   }, options);
   _telCharts[divId] = new ApexCharts(el, merged);
@@ -1636,16 +1676,21 @@ function _renderChart(divId, options) {
 }
 
 // One series wears one hue: the dark-surface blue, validated by the dataviz
-// skill's palette check against --surface (#58a6ff sits above its lightness band).
+// skill's palette check against --surface (#4c9aff, the page accent, sits
+// above its lightness band). In the share bars the leading row wears it and
+// the rest stay muted, so the eye lands on the leader first.
 const _SERIES_1 = '#3987e5';
 const _SHARE_BARS_MAX = 8;
 
 // Part to whole as a ranked bar list instead of a donut. Bars share one
 // baseline so close values compare by length, every row prints its count and
 // share so nothing hides behind a hover, and past eight rows the tail folds
-// into "Other" rather than reaching for more colors.
+// into "Other" rather than reaching for more colors. A row may carry
+// `children`, which open under it (iOS majors over their minor versions), and
+// `hint`, which the hover title adds (a model's full id). `total` sets the
+// denominator when the rows can overlap and their sum would overstate it.
 function _renderShareBars(divId, rows, opts) {
-  const {unit = '', fmt = v => v.toLocaleString(), empty = 'No data in this window.'} = opts || {};
+  const {unit = '', fmt = v => v.toLocaleString(), empty = 'No data in this window.', total: given, note = ''} = opts || {};
   if (_telCharts[divId]) { _telCharts[divId].destroy(); delete _telCharts[divId]; }
   const el = document.getElementById(divId);
   if (!el) return;
@@ -1658,17 +1703,94 @@ function _renderShareBars(divId, rows, opts) {
     const rest = list.slice(_SHARE_BARS_MAX - 1);
     list = list.slice(0, _SHARE_BARS_MAX - 1).concat([{label: `Other (${rest.length})`, value: rest.reduce((t, r) => t + r.value, 0), other: true}]);
   }
-  const total = list.reduce((t, r) => t + r.value, 0);
+  const total = given || list.reduce((t, r) => t + r.value, 0);
   const max = Math.max(...list.map(r => r.value));
-  el.innerHTML = `<div class="share-total">${esc(fmt(total))}${unit ? ' ' + esc(unit) : ''}</div><div role="table">` +
-    list.map(r => {
-      const pct = 100 * r.value / total;
-      return `<div class="share-row${r.other ? ' other' : ''}" role="row" tabindex="0" title="${esc(r.label)}: ${esc(fmt(r.value))}, ${pct.toFixed(1)}%">` +
-        `<span class="share-label" role="cell">${esc(r.label)}</span>` +
-        `<span class="share-track" role="cell"><span class="share-fill" style="width:${Math.max(1, 100 * r.value / max).toFixed(1)}%"></span></span>` +
-        `<span class="share-value" role="cell">${esc(fmt(r.value))}</span>` +
-        `<span class="share-pct" role="cell">${pct < 1 ? '<1' : Math.round(pct)}%</span></div>`;
+  const row = (r, cls) => {
+    const pct = 100 * r.value / total;
+    const tip = `${r.label}${r.hint ? ` (${r.hint})` : ''}: ${fmt(r.value)}, ${pct.toFixed(1)}%`;
+    return `<div class="share-row${cls}" role="row" tabindex="0" title="${esc(tip)}">` +
+      `<span class="share-label" role="cell">${esc(r.label)}</span>` +
+      `<span class="share-track" role="cell"><span class="share-fill" style="width:${Math.max(1, 100 * r.value / max).toFixed(1)}%"></span></span>` +
+      `<span class="share-value" role="cell">${esc(fmt(r.value))}</span>` +
+      `<span class="share-pct" role="cell">${pct < 1 ? '<1' : Math.round(pct)}%</span></div>`;
+  };
+  el.innerHTML = `<div class="share-total">${esc(fmt(total))}${unit ? ' ' + esc(unit) : ''}</div>` +
+    (note ? `<div class="share-note">${esc(note)}</div>` : '') + '<div role="table">' +
+    list.map((r, n) => {
+      const cls = r.other ? ' other' : (n === 0 ? ' lead' : '');
+      const kids = (r.children || []).filter(c => c.value > 0).sort((a, b) => b.value - a.value);
+      if (kids.length < 2) return row(r, cls);
+      return `<details class="share-group"><summary>${row(r, cls)}</summary>${kids.map(c => row(c, ' child')).join('')}</details>`;
     }).join('') + '</div>';
+}
+
+// Composition of one population as a single 100% bar, with a legend that
+// carries every count and share. Segment colors come from the caller so an
+// ordered set (tiers) can wear an ordinal ramp and keep it across filters.
+function _renderStackBar(divId, rows, opts) {
+  const {unit = '', empty = 'No data in this window.', headline = ''} = opts || {};
+  if (_telCharts[divId]) { _telCharts[divId].destroy(); delete _telCharts[divId]; }
+  const el = document.getElementById(divId);
+  if (!el) return;
+  const list = (rows || []).filter(r => r.value > 0);
+  const total = list.reduce((t, r) => t + r.value, 0);
+  if (!total) {
+    el.innerHTML = `<div class="share-empty">${esc(empty)}</div>`;
+    return;
+  }
+  const pctOf = v => { const p = 100 * v / total; return p < 1 ? '<1' : String(Math.round(p)); };
+  el.innerHTML = `<div class="share-total">${esc(total.toLocaleString())}${unit ? ' ' + esc(unit) : ''}${headline ? ' · ' + esc(headline) : ''}</div>` +
+    `<div class="stack-bar" role="img" aria-label="${esc(list.map(r => `${r.label} ${pctOf(r.value)}%`).join(', '))}">` +
+    list.map(r => `<span class="stack-seg" style="flex:${r.value} 1 0;background:${r.color}" title="${esc(`${r.label}: ${r.value.toLocaleString()}, ${pctOf(r.value)}%`)}"></span>`).join('') +
+    '</div><div role="table">' +
+    list.map(r => `<div class="share-row" role="row" tabindex="0" style="grid-template-columns:minmax(0,1fr) 4.5em 2.8em">` +
+      `<span class="share-label" role="cell"><span class="stack-key" style="background:${r.color}"></span>${esc(r.label)}</span>` +
+      `<span class="share-value" role="cell">${esc(r.value.toLocaleString())}</span>` +
+      `<span class="share-pct" role="cell">${pctOf(r.value)}%</span></div>`).join('') + '</div>';
+}
+
+// Rule-driven findings for the Telemetry tab: each one is a share computed
+// from this payload with its denominator in the sentence, never a trend
+// (nothing here has a prior period to compare against).
+function _telInsights(d) {
+  const k = d.kpis || {};
+  const out = [];
+  const pct = (n, t) => Math.round(100 * n / t);
+  const meetings = (d.models || []).reduce((t, m) => t + m.meetings, 0);
+  const topModel = (d.models || []).filter(m => m.model_id !== 'unknown').sort((a, b) => b.meetings - a.meetings)[0];
+  if (topModel && meetings) {
+    out.push({title: `${topModel.display_name || topModel.model_id} runs ${pct(topModel.meetings, meetings)}% of meetings`,
+              body: `${topModel.meetings.toLocaleString()} of ${meetings.toLocaleString()} meetings started in the last ${d.days} days.`});
+  }
+  const topMajor = (d.os_majors || []).filter(r => r.major !== 'unknown').sort((a, b) => b.devices - a.devices)[0];
+  if (topMajor && k.distinct_devices) {
+    out.push({title: `iOS ${topMajor.major} is on ${pct(topMajor.devices, k.distinct_devices)}% of devices`,
+              body: `${topMajor.devices.toLocaleString()} of ${k.distinct_devices.toLocaleString()} active devices ran it in the window.`});
+  }
+  const devMeetings = (d.devices || []).reduce((t, x) => t + x.meetings, 0);
+  const topDevice = (d.devices || []).filter(x => x.device_model !== 'unknown').sort((a, b) => b.meetings - a.meetings)[0];
+  if (topDevice && devMeetings) {
+    out.push({title: `${topDevice.marketing_name || topDevice.device_model} is the top device`,
+              body: `${pct(topDevice.meetings, devMeetings)}% of meetings (${topDevice.meetings.toLocaleString()} of ${devMeetings.toLocaleString()}).`});
+  }
+  return out;
+}
+
+// What the breakdowns above cannot attribute, said once here instead of as an
+// empty card or a mystery row.
+function _telDataQuality(d) {
+  const out = [];
+  const n = (rows, key, val, field) => ((rows || []).find(r => r[key] === val) || {})[field] || 0;
+  const noModel = n(d.models, 'model_id', 'unknown', 'meetings');
+  if (noModel) out.push(`${noModel.toLocaleString()} meetings arrived without a model id.`);
+  const noDevice = n(d.devices, 'device_model', 'unknown', 'meetings');
+  if (noDevice) out.push(`${noDevice.toLocaleString()} meetings came from builds before 1.13, which don't send the device model.`);
+  const noOs = n(d.os_majors, 'major', 'unknown', 'devices');
+  if (noOs) out.push(`${noOs.toLocaleString()} devices sent no iOS version.`);
+  const noChannel = n(d.distribution, 'channel', 'unknown', 'devices');
+  if (noChannel) out.push(`${noChannel.toLocaleString()} devices run builds that don't report TestFlight or App Store.`);
+  if (!(d.by_language || []).length) out.push('No device has sent its language yet (iOS sends app_locale from 1.13).');
+  return out;
 }
 
 function _telPopulateOpts(selectId, prefix, values, current) {
@@ -2332,17 +2454,14 @@ function _renderTelemetry(d, current) {
   _telPopulateOpts('tel-device', 'All devices', d.options.device_models, current.device);
   _telPopulateOpts('tel-model', 'All models', d.options.model_ids, current.model);
 
-  // --- KPI cards ---
+  // --- KPI cards: the four that lead, then the counts that qualify them ---
   const k = d.kpis || {};
-  const fmtDur = (s) => s == null ? '—' : (s >= 60 ? `${Math.round(s / 60)}m ${Math.round(s) % 60}s` : `${Math.round(s)}s`);
+  const fmtDur = (s) => s == null ? 'n/a' : (s >= 60 ? `${Math.round(s / 60)}m ${Math.round(s) % 60}s` : `${Math.round(s)}s`);
   document.getElementById('tel-kpis').innerHTML = [
-    {label: 'Total events', value: k.total_events.toLocaleString(), hint: `last ${d.days}d`},
-    {label: 'Active devices', value: k.distinct_devices.toLocaleString(), hint: 'all users — signed in + anonymous'},
-    {label: 'Signed-in users', value: k.distinct_users.toLocaleString(), hint: 'subset; full registry on Users tab'},
-    {label: 'App starts', value: k.app_starts.toLocaleString()},
-    {label: 'Meetings started', value: k.meeting_starts.toLocaleString()},
-    {label: 'Meetings stopped', value: k.meeting_stops.toLocaleString(), hint: 'drop-off if < started'},
-    {label: 'Avg meeting duration', value: fmtDur(k.avg_duration_sec)},
+    {label: 'Meetings', value: (k.meeting_starts || 0).toLocaleString(), hint: `started, last ${d.days} days`},
+    {label: 'Active devices', value: (k.distinct_devices || 0).toLocaleString(), hint: 'signed in and anonymous'},
+    {label: 'Signed-in users', value: (k.distinct_users || 0).toLocaleString(), hint: 'full registry on the Users tab'},
+    {label: 'Avg meeting length', value: fmtDur(k.avg_duration_sec), hint: `over ${(k.meeting_stops || 0).toLocaleString()} stopped meetings`},
   ].map(c => `
     <div class="card">
       <div class="card-label">${c.label}</div>
@@ -2350,6 +2469,10 @@ function _renderTelemetry(d, current) {
       ${c.hint ? `<div class="card-hint">${c.hint}</div>` : ''}
     </div>
   `).join('');
+  document.getElementById('tel-kpis-minor').innerHTML =
+    `<span>App starts <b>${(k.app_starts || 0).toLocaleString()}</b></span>` +
+    `<span>Meetings stopped <b>${(k.meeting_stops || 0).toLocaleString()}</b></span>` +
+    `<span>Events <b>${(k.total_events || 0).toLocaleString()}</b></span>`;
 
   // --- Stacked area: app_starts by version ---
   _renderChart('tel-chart-versions', {
@@ -2368,19 +2491,39 @@ function _renderTelemetry(d, current) {
   // Prefer the server-provided display_name (e.g. "SS AI" instead of
   // the internal "cloudzap/auto" routing id) so the operator dashboard
   // doesn't leak GhostPour-internal aliases.
-  _renderShareBars('tel-chart-models', d.models.map(m => ({label: m.display_name || m.model_id, value: m.meetings})), {unit: 'meetings', empty: 'No meeting events in this window.'});
+  _renderShareBars('tel-chart-models', d.models.map(m => ({label: m.display_name || m.model_id, hint: m.display_name && m.display_name !== m.model_id ? m.model_id : '', value: m.meetings})), {unit: 'meetings', empty: 'No meeting events in this window.'});
 
   // --- Meetings by device ---
   _renderShareBars('tel-chart-devices', d.devices.map(x => ({label: x.marketing_name || x.device_model, value: x.meetings})), {unit: 'meetings', empty: 'No device_model field on events yet. SS adds it in next iOS build.'});
 
-  // --- Devices by iOS version ---
-  _renderShareBars('tel-chart-os', d.os_versions.map(x => ({label: x.os_version, value: x.devices})), {unit: 'devices', empty: 'No iOS version data in this window.'});
+  // --- Devices by iOS version: majors, each opening onto its releases ---
+  // Shares are of active devices. A device that updated inside the window
+  // counts under each version it ran, so the rows can add to more than 100%.
+  const osMajor = v => v === 'unknown' ? 'unknown' : String(v).split('.')[0];
+  const osRows = (d.os_majors || []).map(m => ({
+    label: m.major === 'unknown' ? 'Not reported' : `iOS ${m.major}`,
+    value: m.devices,
+    children: (d.os_versions || []).filter(x => osMajor(x.os_version) === m.major && x.os_version !== 'unknown').map(x => ({label: x.os_version, value: x.devices})),
+  }));
+  const osSum = osRows.reduce((t, r) => t + r.value, 0);
+  _renderShareBars('tel-chart-os', osRows, {unit: 'active devices', total: k.distinct_devices || osSum, empty: 'No iOS version data in this window.',
+    note: osSum > (k.distinct_devices || osSum) ? 'A device that updated iOS in the window counts under each version it ran.' : ''});
 
-  // --- Devices by language ---
+  // --- Devices by language (the card hides until a device sends one) ---
+  document.getElementById('tel-card-language').style.display = (d.by_language || []).length ? '' : 'none';
   _renderShareBars('tel-chart-language', (d.by_language || []).map(x => ({label: x.language, value: x.devices})), {unit: 'devices', empty: 'No locale data yet (iOS sends app_locale in 1.13+ builds).'});
 
   // --- Devices by distribution channel (TestFlight vs App Store) ---
   _renderShareBars('tel-chart-distribution', (d.distribution || []).map(x => ({label: x.label, value: x.devices})), {unit: 'devices', empty: 'No distribution data yet (iOS sends it once the AppTransaction field ships).'});
+
+  // --- Key insights and data quality ---
+  const ins = _telInsights(d);
+  const dq = _telDataQuality(d);
+  document.getElementById('tel-insights').innerHTML =
+    (ins.length ? ins.map(x => `<div class="insight"><div class="insight-title">${esc(x.title)}</div><div class="insight-body">${esc(x.body)}</div></div>`).join('')
+                : '<div class="share-empty">Not enough data in this window.</div>') +
+    '<div class="dq-head">Data quality</div>' +
+    (dq.length ? dq.map(x => `<div class="dq-row">${esc(x)}</div>`).join('') : '<div class="dq-row">Every breakdown here has full attribution.</div>');
 
   // --- Directory table: name (if known) + language, per device ---
   const telEsc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2943,7 +3086,16 @@ function renderUserAnalytics(rows) {
   const tierCounts = {};
   rows.forEach(u => { tierCounts[u.tier] = (tierCounts[u.tier] || 0) + 1; });
   const tierLabels = Object.keys(tierCounts);
-  _renderShareBars('users-tier-donut', tierLabels.map(t => ({label: t.charAt(0).toUpperCase() + t.slice(1), value: tierCounts[t]})), {unit: 'users', empty: 'No users in this filter.'});
+  // Free, Plus, Pro on one blue ramp that brightens with the tier (validated
+  // as an ordinal ramp on --surface); internal tiers stay slate.
+  const TIER_ORDER = ['free', 'plus', 'pro'];
+  const TIER_COLOR = {free: '#184f95', plus: '#256abf', pro: '#3987e5'};
+  const tierRows = TIER_ORDER.filter(t => tierCounts[t]).concat(tierLabels.filter(t => !TIER_ORDER.includes(t)).sort())
+    .map(t => ({label: t.charAt(0).toUpperCase() + t.slice(1), value: tierCounts[t], color: TIER_COLOR[t] || '#475569'}));
+  const tierTotal = tierRows.reduce((s, r) => s + r.value, 0);
+  const paid = (tierCounts.plus || 0) + (tierCounts.pro || 0);
+  _renderStackBar('users-tier-donut', tierRows, {unit: 'users', empty: 'No users in this filter.',
+    headline: tierTotal ? `paid (Plus and Pro) ${paid.toLocaleString()}, ${Math.round(100 * paid / tierTotal)}%` : ''});
 
   // Cumulative growth: every signup, all time.
   const dates = rows.map(u => (u.created_at || '').slice(0, 10)).filter(Boolean).sort();

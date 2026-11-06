@@ -304,3 +304,20 @@ def test_directory_prefers_display_name_when_present(client, tmp_db_path):
         headers={"X-Admin-Key": "test-admin-key"},
     ).json()
     assert "Test User" in [d.get("name") for d in data["directory"]]
+
+
+def test_os_majors_count_each_device_once_per_major(client):
+    # A device that updated 26.0.1 to 26.1 inside the window sits under both
+    # minor rows, so the major total cannot be the sum of its minors.
+    upgraded = _seed_event(client, os_version="26.0.1")
+    _seed_event(client, os_version="26.1", device_id=upgraded)
+    _seed_event(client, os_version="18.6.2")
+    _seed_event(client)  # no os_version
+    data = client.get(
+        "/webhooks/admin/telemetry/rich?days=30",
+        headers={"X-Admin-Key": "test-admin-key"},
+    ).json()
+    minors = {r["os_version"]: r["devices"] for r in data["os_versions"]}
+    majors = {r["major"]: r["devices"] for r in data["os_majors"]}
+    assert minors["26.0.1"] == 1 and minors["26.1"] == 1
+    assert majors == {"26": 1, "18": 1, "unknown": 1}
