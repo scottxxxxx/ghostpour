@@ -321,3 +321,24 @@ def test_os_majors_count_each_device_once_per_major(client):
     majors = {r["major"]: r["devices"] for r in data["os_majors"]}
     assert minors["26.0.1"] == 1 and minors["26.1"] == 1
     assert majors == {"26": 1, "18": 1, "unknown": 1}
+
+
+def test_daily_counts_and_the_prior_window_for_the_kpi_cards(client, tmp_db_path):
+    import sqlite3
+    a = _seed_event(client, event_type="meeting_start", meeting_id=str(uuid.uuid4()))
+    _seed_event(client, event_type="meeting_start", meeting_id=str(uuid.uuid4()), device_id=a)
+    old = _seed_event(client, event_type="meeting_start", meeting_id=str(uuid.uuid4()))
+    ten_days_ago = (datetime.now(timezone.utc) - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+    conn = sqlite3.connect(tmp_db_path)
+    conn.execute("UPDATE telemetry_events SET received_at = ? WHERE device_id = ?", (ten_days_ago, old))
+    conn.commit()
+    conn.close()
+    headers = {"X-Admin-Key": "test-admin-key"}
+    week = client.get("/webhooks/admin/telemetry/rich?days=7", headers=headers).json()
+    assert week["kpis"]["meeting_starts"] == 2
+    assert week["prior"] == {"meeting_starts": 1, "distinct_devices": 1}, "days 8 to 14 hold only the old device"
+    assert [(r["meetings"], r["devices"]) for r in week["daily"]] == [(2, 1)]
+    # Raw events are kept 30 days, so a 30-day window has no whole prior window.
+    month = client.get("/webhooks/admin/telemetry/rich?days=30", headers=headers).json()
+    assert month["prior"] is None
+    assert [(r["meetings"], r["devices"]) for r in month["daily"]] == [(1, 1), (2, 1)]

@@ -1435,6 +1435,9 @@ def _ttft_fields(
     }
 
 
+from app.services.retention import USAGE_LOG_RETENTION_DAYS as _USAGE_LOG_DAYS
+
+
 @router.get("/admin/dashboard")
 async def dashboard(
     request: Request,
@@ -1501,7 +1504,8 @@ async def dashboard(
             COALESCE(SUM(estimated_cost_usd), 0) as total_cost_usd,
             ROUND(AVG(response_time_ms), 0) as avg_latency_ms,
             MAX(response_time_ms) as max_latency_ms,
-            MIN(response_time_ms) as min_latency_ms
+            MIN(response_time_ms) as min_latency_ms,
+            COUNT(DISTINCT user_id) as window_users
            FROM usage_log
            WHERE request_timestamp >= date('now', ?)""" + app_clause,
         (f"-{days} days", *app_params),
@@ -1521,6 +1525,7 @@ async def dashboard(
         "max_latency_ms": row[8],
         "min_latency_ms": row[9],
     }
+    window_users = row[10]
 
     # --- Usage by provider ---
     # Time to first token rides alongside the wall-clock average: p50 and
@@ -1746,7 +1751,8 @@ async def dashboard(
             date(request_timestamp) as day,
             COUNT(*) as requests,
             COALESCE(SUM(estimated_cost_usd), 0) as cost,
-            SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as errors
+            SUM(CASE WHEN status = 'error' THEN 1 ELSE 0 END) as errors,
+            COUNT(DISTINCT user_id) as users
            FROM usage_log
            WHERE request_timestamp >= date('now', ?)""" + app_clause + """
            GROUP BY date(request_timestamp)
@@ -1754,9 +1760,24 @@ async def dashboard(
         (f"-{days} days", *app_params),
     )
     daily_usage = [
-        {"day": r["day"], "requests": r["requests"], "cost": round(r["cost"], 4), "errors": r["errors"]}
+        {"day": r["day"], "requests": r["requests"], "cost": round(r["cost"], 4), "errors": r["errors"],
+         "users": r["users"]}
         for r in await cursor.fetchall()
     ]
+
+    # Users who made a call in the window, and the same two numbers for the
+    # window before it, for the KPI cards' change chips. usage_log keeps 90
+    # days (anonymous form apps excepted), so a prior window past that is
+    # null rather than a short count.
+    prior_window = None
+    if 2 * days <= _USAGE_LOG_DAYS:
+        cursor = await db.execute(
+            """SELECT COALESCE(SUM(estimated_cost_usd), 0), COUNT(DISTINCT user_id) FROM usage_log
+               WHERE request_timestamp >= date('now', ?) AND request_timestamp < date('now', ?)""" + app_clause,
+            (f"-{2 * days} days", f"-{days} days", *app_params),
+        )
+        r = await cursor.fetchone()
+        prior_window = {"cost_usd": round(r[0], 4), "users": r[1]}
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -1785,6 +1806,8 @@ async def dashboard(
             "estimated_savings_usd": round(estimated_savings, 4),
         },
         "daily_usage": daily_usage,
+        "window_users": window_users,
+        "prior": prior_window,
     }
 
 
@@ -3934,6 +3957,11 @@ async def telemetry_summary(
     }
 
 
+# Raw telemetry_events retention (app/services/retention.py); a prior window
+# older than this cannot be counted from raw events.
+_TELEMETRY_RAW_DAYS = 30
+
+
 @router.get("/admin/telemetry/rich")
 async def telemetry_rich(
     request: Request,
@@ -4005,6 +4033,32 @@ async def telemetry_rich(
         WHERE {where}
     """)
     kpis = kpi_rows[0] if kpi_rows else {}
+
+    # --- Daily meetings and devices, and the window before this one ---------
+    # The KPI cards draw a trend line from the daily counts and a change chip
+    # from the prior window. Raw events are kept 30 days, so a prior window
+    # reaching past that would compare against a truncated count; it is null
+    # instead and the card says there is nothing to compare against.
+    daily_rows = await _all(f"""
+        SELECT date(received_at) AS day,
+               SUM(CASE WHEN event_type='meeting_start' THEN 1 ELSE 0 END) AS meetings,
+               COUNT(DISTINCT device_id) AS devices
+        FROM telemetry_events
+        WHERE {where}
+        GROUP BY day
+        ORDER BY day
+    """)
+    daily = [{"day": r["day"], "meetings": int(r["meetings"] or 0), "devices": r["devices"]} for r in daily_rows]
+    prior = None
+    if 2 * days <= _TELEMETRY_RAW_DAYS:
+        cur = await db.execute(f"""
+            SELECT SUM(CASE WHEN event_type='meeting_start' THEN 1 ELSE 0 END) AS meeting_starts,
+                   COUNT(DISTINCT device_id) AS distinct_devices
+            FROM telemetry_events
+            WHERE {where} AND received_at < datetime('now', ?)
+        """, (f"-{2 * days} days", *params[1:], f"-{days} days"))
+        r = await cur.fetchone()
+        prior = {"meeting_starts": int(r["meeting_starts"] or 0), "distinct_devices": r["distinct_devices"]}
 
     # --- Daily app_starts stacked by version -------------------------------
     series_rows = await _all(f"""
@@ -4296,6 +4350,8 @@ async def telemetry_rich(
         "devices": devices,
         "os_versions": os_versions,
         "os_majors": os_majors,
+        "daily": daily,
+        "prior": prior,
         "distribution": distribution,
         "by_location": by_location,
         "heatmap": heatmap,
