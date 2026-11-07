@@ -296,14 +296,21 @@ def _expected(today: datetime) -> dict:
         # excluded account (30 days and 5 users share a factor), so the
         # exclusion subquery is what keeps it out.
         "daily_usage": [
-            {"day": day(7), "requests": 10, "cost": 0.037, "errors": 1},
-            {"day": day(6), "requests": 10, "cost": 0.041, "errors": 1},
-            {"day": day(5), "requests": 10, "cost": 0.038, "errors": 1},
-            {"day": day(3), "requests": 10, "cost": 0.039, "errors": 1},
-            {"day": day(2), "requests": 10, "cost": 0.043, "errors": 1},
-            {"day": day(1), "requests": 10, "cost": 0.04, "errors": 1},
-            {"day": day(0), "requests": 10, "cost": 0.037, "errors": 1},
+            {"day": day(7), "requests": 10, "cost": 0.037, "errors": 1, "users": 1},
+            {"day": day(6), "requests": 10, "cost": 0.041, "errors": 1, "users": 1},
+            {"day": day(5), "requests": 10, "cost": 0.038, "errors": 1, "users": 1},
+            {"day": day(3), "requests": 10, "cost": 0.039, "errors": 1, "users": 1},
+            {"day": day(2), "requests": 10, "cost": 0.043, "errors": 1, "users": 1},
+            {"day": day(1), "requests": 10, "cost": 0.04, "errors": 1, "users": 1},
+            {"day": day(0), "requests": 10, "cost": 0.037, "errors": 1, "users": 1},
         ],
+        # Added 2026-11-07 for the Overview KPI cards, worked by hand from
+        # the seed: a day's rows all belong to user (day % 5), so each day
+        # has one user. Days 0 to 7 hold users 0 to 3 (4 is excluded); the
+        # prior window is days 8 to 14, the same four users, and its cost
+        # is the seed's cost formula summed over those days' rows.
+        "window_users": 4,
+        "prior": {"cost_usd": 0.2, "users": 4},
     }
 
 

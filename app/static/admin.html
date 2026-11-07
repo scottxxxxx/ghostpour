@@ -154,6 +154,40 @@
   .insight-body { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
   .dq-head { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin: 16px 0 6px; }
   .dq-row { font-size: 13px; color: var(--text-dim); padding: 3px 0; }
+  /* Usage analytics, the top of Overview (Scott's mockup, 2026-11-07). */
+  .ana-head { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 16px; }
+  .ana-head h3 { margin: 0; font-size: 24px; text-transform: none; letter-spacing: 0; color: var(--text); }
+  .ana-head span { color: var(--text-dim); font-size: 14px; }
+  .ana .card { background: linear-gradient(165deg, #182238 0%, #121a28 70%); border: 1px solid #263149; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+  .ana-kpi { position: relative; overflow: hidden; padding: 20px 20px 64px; min-height: 150px; }
+  .ana-kpi-top { display: flex; gap: 14px; align-items: flex-start; }
+  .ana-icon { flex: 0 0 48px; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; }
+  .ana-icon svg { width: 24px; height: 24px; }
+  .ana-kpi .card-label { font-size: 15px; font-weight: 600; color: var(--text); margin: 2px 0 2px; }
+  .ana-kpi .card-value { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ana-delta { margin-left: auto; text-align: right; font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .ana-chip { display: inline-block; font-size: 13px; font-weight: 700; padding: 3px 8px; border-radius: 8px; margin-bottom: 6px; }
+  .ana-chip.good { color: #34d399; background: rgba(52,211,153,.14); }
+  .ana-chip.bad { color: #fb7185; background: rgba(251,113,133,.14); }
+  .ana-chip.flat { color: var(--text-dim); background: rgba(148,163,184,.14); }
+  .ana-spark { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; width: 100%; }
+  .ana-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; align-items: stretch; }
+  @media (max-width: 1100px) { .ana-grid3 { grid-template-columns: 1fr; } }
+  .ana .viz-card h4 { font-size: 20px; font-weight: 700; }
+  .ana .share-track { height: 16px; }
+  .ana .share-fill { border-radius: 4px; }
+  .ana .share-row { padding: 9px 6px; }
+  .ana-glyph { display: inline-block; width: 18px; margin-right: 10px; color: var(--text-dim); vertical-align: -3px; }
+  .ana-cols { display: flex; align-items: flex-end; gap: 10px; height: 210px; padding: 8px 4px 0; border-bottom: 1px solid var(--border); }
+  .ana-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+  .ana-col-val { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ana-col-pct { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; }
+  .ana-col-bar { width: 70%; max-width: 44px; border-radius: 4px 4px 0 0; min-height: 2px; }
+  .ana-col-labels { display: flex; gap: 10px; padding: 6px 4px 0; }
+  .ana-col-labels span { flex: 1 1 0; text-align: center; font-size: 12px; color: var(--text-dim); min-width: 0; overflow-wrap: anywhere; }
+  .ana-take { display: flex; gap: 14px; padding: 14px 0; border-top: 1px solid var(--border); }
+  .ana-take:first-child { border-top: none; padding-top: 6px; }
+  .ana-take .ana-icon { flex-basis: 44px; width: 44px; height: 44px; border-radius: 12px; }
 
   /* Tables */
   /* overflow-x:auto, not hidden: the 22-column user table was clipped at the
@@ -415,6 +449,20 @@
   <div id="panel-error-banner" style="display:none;margin:8px 0;padding:10px 14px;border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:13px"></div>
   <div id="tab-overview" class="section active">
     <div id="tab-overview-state" class="panel-state"><span id="tab-overview-state-text"></span><button id="tab-overview-state-retry" class="refresh-btn" onclick="panelRetry('tab-overview')" style="display:none">Retry</button></div>
+    <div class="ana" id="ana">
+      <div class="ana-head"><h3>Usage Analytics</h3><span id="ana-sub"></span></div>
+      <div class="kpi-row" id="ana-kpis"></div>
+      <div class="ana-grid3">
+        <div class="card viz-card"><h4>Meetings by Model</h4><div id="ana-models"></div></div>
+        <div class="card viz-card"><h4>AI Cost by Model</h4><div id="ana-cost"></div></div>
+        <div class="card viz-card"><h4>Tier Mix</h4><div id="ana-tiers"></div></div>
+      </div>
+      <div class="ana-grid3">
+        <div class="card viz-card"><h4>Meetings by Device</h4><div id="ana-devices"></div></div>
+        <div class="card viz-card"><h4>Devices by iOS Version</h4><div id="ana-os"></div></div>
+        <div class="card viz-card"><h4>Key Takeaways</h4><div id="ana-takeaways"></div></div>
+      </div>
+    </div>
     <h3>Today</h3>
     <div class="cards" id="today-cards"></div>
     <h3 id="period-label">Last 7 Days</h3>
@@ -1690,7 +1738,7 @@ const _SHARE_BARS_MAX = 8;
 // `hint`, which the hover title adds (a model's full id). `total` sets the
 // denominator when the rows can overlap and their sum would overstate it.
 function _renderShareBars(divId, rows, opts) {
-  const {unit = '', fmt = v => v.toLocaleString(), empty = 'No data in this window.', total: given, note = ''} = opts || {};
+  const {unit = '', fmt = v => v.toLocaleString(), empty = 'No data in this window.', total: given, note = '', palette = null} = opts || {};
   if (_telCharts[divId]) { _telCharts[divId].destroy(); delete _telCharts[divId]; }
   const el = document.getElementById(divId);
   if (!el) return;
@@ -1705,12 +1753,13 @@ function _renderShareBars(divId, rows, opts) {
   }
   const total = given || list.reduce((t, r) => t + r.value, 0);
   const max = Math.max(...list.map(r => r.value));
-  const row = (r, cls) => {
+  const row = (r, cls, n) => {
     const pct = 100 * r.value / total;
+    const paint = palette && !r.other && n != null ? `;background:${palette[n % palette.length]}` : '';
     const tip = `${r.label}${r.hint ? ` (${r.hint})` : ''}: ${fmt(r.value)}, ${pct.toFixed(1)}%`;
     return `<div class="share-row${cls}" role="row" tabindex="0" title="${esc(tip)}">` +
-      `<span class="share-label" role="cell">${esc(r.label)}</span>` +
-      `<span class="share-track" role="cell"><span class="share-fill" style="width:${Math.max(1, 100 * r.value / max).toFixed(1)}%"></span></span>` +
+      `<span class="share-label" role="cell">${r.glyph || ''}${esc(r.label)}</span>` +
+      `<span class="share-track" role="cell"><span class="share-fill" style="width:${Math.max(1, 100 * r.value / max).toFixed(1)}%${paint}"></span></span>` +
       `<span class="share-value" role="cell">${esc(fmt(r.value))}</span>` +
       `<span class="share-pct" role="cell">${pct < 1 ? '<1' : Math.round(pct)}%</span></div>`;
   };
@@ -1719,9 +1768,184 @@ function _renderShareBars(divId, rows, opts) {
     list.map((r, n) => {
       const cls = r.other ? ' other' : (n === 0 ? ' lead' : '');
       const kids = (r.children || []).filter(c => c.value > 0).sort((a, b) => b.value - a.value);
-      if (kids.length < 2) return row(r, cls);
-      return `<details class="share-group"><summary>${row(r, cls)}</summary>${kids.map(c => row(c, ' child')).join('')}</details>`;
+      if (kids.length < 2) return row(r, cls, n);
+      return `<details class="share-group"><summary>${row(r, cls, n)}</summary>${kids.map(c => row(c, ' child')).join('')}</details>`;
     }).join('') + '</div>';
+}
+
+// --- Usage analytics (top of Overview, Scott's mockup of 2026-11-07) -------
+// Every number here is real: the trend lines are the window's daily counts
+// and a change chip only shows when the endpoint served the prior window
+// (null when that window is older than the data GP keeps).
+const _ANA_PALETTE = ['#4c9aff', '#a78bfa', '#34d399', '#fbbf24', '#38bdf8', '#f472b6', '#94a3b8'];
+const _ANA_ICONS = {
+  meetings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.6 0 4.5 1.8 4.5 4.5"/></svg>',
+  devices: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="15" height="11" rx="2"/><path d="M1.5 19h12"/><rect x="16" y="9" width="6" height="11" rx="1.5"/></svg>',
+  cost: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M15 8.5c-.6-1-1.7-1.5-3-1.5-1.8 0-3 .9-3 2.3 0 3.2 6 1.8 6 5 0 1.4-1.3 2.3-3 2.3-1.4 0-2.5-.6-3.1-1.6M12 5.5v13"/></svg>',
+  trend: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 6-6 4 4 8-8"/><path d="M15 6h6v6"/></svg>',
+  layers: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>',
+  tablet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M11 16.5h2"/></svg>',
+};
+
+// A filled trend line from a list of daily values, drawn to the card's width.
+function _anaSpark(values, color) {
+  const v = (values || []).map(x => +x || 0);
+  if (v.length < 2) return '';
+  const max = Math.max(...v, 1), w = 100, h = 40;
+  const pts = v.map((y, i) => [i * w / (v.length - 1), h - 4 - (h - 10) * y / max]);
+  // Smoothed through every point (Catmull-Rom as cubic Beziers), so the line
+  // still passes through each day's real value.
+  const f = n => n.toFixed(2);
+  let line = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    line += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  const id = 'g' + color.slice(1);
+  return `<svg class="ana-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
+    `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".45"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
+    `<path d="${line} L${w} ${h} L0 ${h} Z" fill="url(#${id})"/>` +
+    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+// The change chip: arrow, sign and percent, so it never leans on color.
+// goodWhenDown flips which direction is green (cost).
+function _anaDelta(cur, prev, days, goodWhenDown) {
+  if (prev == null) return `<div class="ana-delta">no prior ${days} days<br>to compare</div>`;
+  if (!prev) return `<div class="ana-delta">new in this window</div>`;
+  const pct = Math.round(100 * (cur - prev) / prev);
+  const cls = pct === 0 ? 'flat' : ((pct > 0) !== !!goodWhenDown ? 'good' : 'bad');
+  const arrow = pct > 0 ? '\u2191' : (pct < 0 ? '\u2193' : '\u2192');
+  return `<div class="ana-delta"><span class="ana-chip ${cls}">${arrow} ${pct > 0 ? '+' : ''}${pct}%</span><br>vs. prior ${days} days</div>`;
+}
+
+function _anaKpiCards(cards) {
+  return cards.map(c => `<div class="card ana-kpi">` +
+    `<div class="ana-kpi-top"><div class="ana-icon" style="background:${c.color}2e;color:${c.color}">${_ANA_ICONS[c.icon]}</div>` +
+    `<div><div class="card-label">${esc(c.label)}</div><div class="card-value">${esc(c.value)}</div></div>` +
+    `${c.delta}</div>${_anaSpark(c.series, c.color)}</div>`).join('');
+}
+
+// Vertical columns, largest first, past `max` the tail folds into Other.
+// Shares are of `total` (distinct devices), so a device that updated iOS in
+// the window counts under each version it ran.
+function _anaColumns(divId, rows, opts) {
+  const {total = 0, unit = '', max = 8, empty = 'No data in this window.'} = opts || {};
+  const el = document.getElementById(divId);
+  if (!el) return;
+  let list = (rows || []).filter(r => r.value > 0).sort((a, b) => b.value - a.value);
+  if (!list.length) { el.innerHTML = `<div class="share-empty">${esc(empty)}</div>`; return; }
+  if (list.length > max) {
+    const rest = list.slice(max - 1);
+    list = list.slice(0, max - 1).concat([{label: 'Other', value: rest.reduce((t, r) => t + r.value, 0), other: true}]);
+  }
+  const top = Math.max(...list.map(r => r.value));
+  const denom = total || list.reduce((t, r) => t + r.value, 0);
+  const pct = v => { const p = 100 * v / denom; return p < 1 ? '<1' : String(Math.round(p)); };
+  el.innerHTML = `<div class="share-total">${esc(denom.toLocaleString())}${unit ? ' ' + esc(unit) : ''}</div>` +
+    `<div class="ana-cols" role="img" aria-label="${esc(list.map(r => `${r.label} ${r.value}`).join(', '))}">` +
+    list.map((r, n) => `<div class="ana-col" title="${esc(`${r.label}: ${r.value}, ${pct(r.value)}%`)}">` +
+      `<div class="ana-col-val">${r.value.toLocaleString()}</div><div class="ana-col-pct">(${pct(r.value)}%)</div>` +
+      `<div class="ana-col-bar" style="height:${(78 * r.value / top).toFixed(1)}%;background:${r.other ? '#475569' : _ANA_PALETTE[n % _ANA_PALETTE.length]}"></div></div>`).join('') +
+    `</div><div class="ana-col-labels">${list.map(r => `<span>${esc(r.label)}</span>`).join('')}</div>`;
+}
+
+// Up to three findings, each a number from this window with its
+// denominator in the sentence. The trend one only when a prior window exists.
+function _anaTakeaways(tel, dash) {
+  const out = [];
+  const k = tel.kpis || {};
+  const pct = (n, t) => Math.round(100 * n / t);
+  const meetings = +k.meeting_starts || 0;
+  if (tel.prior && tel.prior.meeting_starts) {
+    const ch = pct(meetings - tel.prior.meeting_starts, tel.prior.meeting_starts);
+    out.push({icon: 'trend', color: '#34d399',
+      title: ch > 0 ? 'Usage is growing' : (ch < 0 ? 'Usage is down' : 'Usage is flat'),
+      body: `${meetings.toLocaleString()} meetings (${ch > 0 ? '+' : ''}${ch}%) against ${tel.prior.meeting_starts.toLocaleString()} in the prior ${tel.days} days.`});
+  }
+  const mTotal = (tel.models || []).reduce((t, m) => t + m.meetings, 0);
+  const topModel = (tel.models || []).filter(m => m.model_id !== 'unknown').sort((a, b) => b.meetings - a.meetings)[0];
+  if (topModel && mTotal) {
+    out.push({icon: 'layers', color: '#a78bfa',
+      title: `${topModel.display_name || topModel.model_id} drives most usage`,
+      body: `${pct(topModel.meetings, mTotal)}% of meetings (${topModel.meetings.toLocaleString()} of ${mTotal.toLocaleString()}).`});
+  }
+  const topMajor = (tel.os_majors || []).filter(r => r.major !== 'unknown').sort((a, b) => b.devices - a.devices)[0];
+  if (topMajor && k.distinct_devices) {
+    out.push({icon: 'phone', color: '#4c9aff',
+      title: `iOS ${topMajor.major} is on ${pct(topMajor.devices, k.distinct_devices)}% of devices`,
+      body: `${topMajor.devices.toLocaleString()} of ${k.distinct_devices.toLocaleString()} active devices ran it in the window.`});
+  }
+  const cost = (dash.by_model || []).filter(m => (m.cost_usd || 0) > 0).sort((a, b) => b.cost_usd - a.cost_usd);
+  const costTotal = cost.reduce((t, m) => t + m.cost_usd, 0);
+  if (out.length < 3 && cost.length && costTotal) {
+    out.push({icon: 'cost', color: '#fbbf24',
+      title: `${cost[0].model} is ${pct(cost[0].cost_usd, costTotal)}% of AI cost`,
+      body: `$${cost[0].cost_usd.toFixed(2)} of $${costTotal.toFixed(2)} in the window.`});
+  }
+  return out.slice(0, 3);
+}
+
+function _anaDeviceGlyph(code) {
+  return `<span class="ana-glyph">${_ANA_ICONS[/^iPad/.test(code || '') ? 'tablet' : 'phone']}</span>`;
+}
+
+// Paints the analytics block from the dashboard payload plus its own
+// telemetry fetch. A telemetry failure blanks only the telemetry cards.
+async function _renderAnalytics(dash, days, app) {
+  const el = document.getElementById('ana');
+  if (!el) return;
+  let tel = null;
+  try { tel = await adminFetch(`/webhooks/admin/telemetry/rich?days=${Math.min(90, +days || 30)}${app}`); }
+  catch (e) { console.error('[analytics] telemetry fetch failed:', e); }
+  const appVal = document.getElementById('app')?.value || '';
+  document.getElementById('ana-sub').textContent = `${appVal ? appVal + ' \u00b7 ' : ''}last ${days} days`;
+  const k = (tel && tel.kpis) || {};
+  const tp = tel && tel.prior, dp = dash.prior;
+  const daily = dash.daily_usage || [];
+  const tdaily = (tel && tel.daily) || [];
+  const cost = (dash.usage || {}).total_cost_usd || 0;
+  const na = 'n/a';
+  document.getElementById('ana-kpis').innerHTML = _anaKpiCards([
+    {label: 'Meetings', icon: 'meetings', color: '#4c9aff', value: tel ? (+k.meeting_starts || 0).toLocaleString() : na,
+     delta: tel ? _anaDelta(+k.meeting_starts || 0, tp && tp.meeting_starts, days) : '', series: tdaily.map(r => r.meetings)},
+    {label: 'Active Users', icon: 'users', color: '#a78bfa', value: (dash.window_users || 0).toLocaleString(),
+     delta: _anaDelta(dash.window_users || 0, dp && dp.users, days), series: daily.map(r => r.users)},
+    {label: 'Devices', icon: 'devices', color: '#2dd4bf', value: tel ? (+k.distinct_devices || 0).toLocaleString() : na,
+     delta: tel ? _anaDelta(+k.distinct_devices || 0, tp && tp.distinct_devices, days) : '', series: tdaily.map(r => r.devices)},
+    {label: 'Total AI Cost', icon: 'cost', color: '#8b5cf6', value: '$' + cost.toFixed(2),
+     delta: _anaDelta(cost, dp && dp.cost_usd, days, true), series: daily.map(r => r.cost)},
+  ]);
+  const money = v => '$' + v.toFixed(2);
+  _renderShareBars('ana-cost', (dash.by_model || []).map(m => ({label: m.model, hint: m.provider, value: m.cost_usd || 0})),
+    {fmt: money, unit: 'total', palette: _ANA_PALETTE, empty: 'No model cost in this window.'});
+  const TIERS = [['free', 'Free', '#4c9aff'], ['plus', 'Plus', '#a78bfa'], ['pro', 'Pro', '#34d399']];
+  const byTier = (dash.users || {}).by_tier || {};
+  const known = new Set(TIERS.map(t => t[0]));
+  const tierRows = TIERS.map(([id, label, color]) => ({label, value: byTier[id] || 0, color}))
+    .concat(Object.entries(byTier).filter(([id]) => !known.has(id)).map(([id, n]) => ({label: id.charAt(0).toUpperCase() + id.slice(1), value: n, color: '#64748b'})));
+  const paid = (byTier.plus || 0) + (byTier.pro || 0);
+  const tierTotal = tierRows.reduce((t, r) => t + r.value, 0);
+  _renderStackBar('ana-tiers', tierRows, {unit: 'users',
+    headline: tierTotal ? `paid ${paid} of ${tierTotal} (${Math.round(100 * paid / tierTotal)}%)` : '', empty: 'No users yet.'});
+  if (!tel) {
+    ['ana-models', 'ana-devices', 'ana-os', 'ana-takeaways'].forEach(id =>
+      document.getElementById(id).innerHTML = '<div class="share-empty">Telemetry did not load. Refresh to retry.</div>');
+    return;
+  }
+  _renderShareBars('ana-models', (tel.models || []).map(m => ({label: m.display_name || m.model_id, hint: m.model_id, value: m.meetings})),
+    {unit: 'meetings', palette: _ANA_PALETTE, empty: 'No meetings in this window.'});
+  _renderShareBars('ana-devices', (tel.devices || []).map(r => ({label: r.marketing_name, hint: r.device_model, value: r.meetings, glyph: _anaDeviceGlyph(r.device_model)})),
+    {unit: 'meetings', palette: ['#4c9aff'], empty: 'No meetings in this window.'});
+  _anaColumns('ana-os', (tel.os_versions || []).map(r => ({label: r.os_version === 'unknown' ? 'Not sent' : r.os_version, value: r.devices})),
+    {total: +k.distinct_devices || 0, unit: 'devices', empty: 'No devices in this window.'});
+  const take = _anaTakeaways(tel, dash);
+  document.getElementById('ana-takeaways').innerHTML = take.length ? take.map(t =>
+    `<div class="ana-take"><div class="ana-icon" style="background:${t.color}26;color:${t.color}">${_ANA_ICONS[t.icon]}</div>` +
+    `<div><div class="insight-title">${esc(t.title)}</div><div class="insight-body">${esc(t.body)}</div></div></div>`).join('')
+    : '<div class="share-empty">Nothing to call out yet.</div>';
 }
 
 // Composition of one population as a single 100% bar, with a legend that
@@ -3591,6 +3815,8 @@ async function refresh(filterChanged = false) {
   // Everything below paints from the dashboard payload alone; with it
   // missing, Overview and Models already show the error line and Retry.
   if (!dash) return;
+
+  _renderAnalytics(dash, days, app);
 
   const u = dash.usage, t = dash.today;
   document.getElementById('period-label').textContent = days == 1 ? 'Today (detailed)' : `Last ${days} Days`;

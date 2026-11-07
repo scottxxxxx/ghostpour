@@ -122,3 +122,63 @@ console.log(JSON.stringify([
                       "3 meetings came from builds before 1.13, which don't send the device model.",
                       "No device has sent its language yet (iOS sends app_locale from 1.13)."]
     assert out[1] == []
+
+
+# --- Usage analytics at the top of Overview (Scott's mockup, 2026-11-07) ---
+
+def test_delta_chip_carries_arrow_and_sign_and_flips_for_cost():
+    out = _run("""
+console.log(JSON.stringify([_anaDelta(118, 100, 7), _anaDelta(69, 100, 7, true), _anaDelta(130, 100, 7, true),
+                            _anaDelta(5, null, 30), _anaDelta(5, 0, 7)]));""", "_anaDelta")
+    assert '<span class="ana-chip good">↑ +18%</span><br>vs. prior 7 days' in out[0]
+    assert '<span class="ana-chip good">↓ -31%</span>' in out[1], "less cost is the good direction"
+    assert '<span class="ana-chip bad">↑ +30%</span>' in out[2]
+    assert "ana-chip" not in out[3] and "no prior 30 days" in out[3], "no prior window, no invented change"
+    assert "ana-chip" not in out[4] and "new in this window" in out[4]
+
+
+def test_takeaways_use_real_denominators_and_skip_the_trend_without_a_prior():
+    tail = """
+const tel = {days: 7, kpis: {meeting_starts: 20, distinct_devices: 10}, prior: PRIOR,
+  models: [{model_id: 'unknown', meetings: 9}, {model_id: 'cloudzap/auto', display_name: 'SS AI', meetings: 6}, {model_id: 'x', meetings: 5}],
+  os_majors: [{major: 'unknown', devices: 9}, {major: '26', devices: 7}]};
+const dash = {by_model: [{model: 'claude-sonnet-5-5', cost_usd: 3}, {model: 'gpt-5-mini', cost_usd: 1}]};
+console.log(JSON.stringify(_anaTakeaways(tel, dash)));"""
+    grown = _run(tail.replace("PRIOR", "{meeting_starts: 16, distinct_devices: 8}"), "_anaTakeaways")
+    assert [t["title"] for t in grown] == ["Usage is growing", "SS AI drives most usage", "iOS 26 is on 70% of devices"]
+    assert grown[0]["body"] == "20 meetings (+25%) against 16 in the prior 7 days."
+    assert grown[1]["body"] == "30% of meetings (6 of 20)."
+    flat = _run(tail.replace("PRIOR", "null"), "_anaTakeaways")
+    assert [t["title"] for t in flat] == ["SS AI drives most usage", "iOS 26 is on 70% of devices",
+                                          "claude-sonnet-5-5 is 75% of AI cost"]
+    assert flat[2]["body"] == "$3.00 of $4.00 in the window."
+
+
+def test_columns_fold_the_tail_and_share_of_distinct_devices():
+    out = _run("""
+const _ANA_PALETTE = ['#a', '#b', '#c'];
+_anaColumns('box', [{label: '26.1', value: 41}, {label: '18.5', value: 3}, {label: '26.0.1', value: 22}, {label: 'x', value: 1}, {label: 'y', value: 1}],
+            {total: 87, unit: 'devices', max: 4});
+console.log(JSON.stringify({html: node.innerHTML}));""", "_anaColumns")
+    html = out["html"]
+    assert re.findall(r'<div class="ana-col-labels">(.*?)</div>', html)[0] == \
+        "<span>26.1</span><span>26.0.1</span><span>18.5</span><span>Other</span>"
+    assert re.findall(r'class="ana-col-pct">\((.*?)%\)', html) == ["47", "25", "3", "2"]
+    assert 'background:#475569' in html, "Other wears the neutral, not a series hue"
+    assert '<div class="share-total">87 devices</div>' in html
+
+
+def test_share_bars_palette_paints_by_rank_and_leaves_other_neutral():
+    rows = [{"label": f"m{i}", "value": 20 - i} for i in range(10)]
+    html, labels, _, _ = _render(rows, "{palette: ['#p0', '#p1']}")
+    fills = re.findall(r'class="share-fill" style="width:[0-9.]+%(;background:#\w+)?"', html)
+    assert fills[:3] == [";background:#p0", ";background:#p1", ";background:#p0"]
+    assert fills[-1] == "", "the Other row keeps its class color"
+
+
+def test_analytics_sits_at_the_top_of_overview():
+    src = open(HTML).read()
+    overview = src[src.index('<div id="tab-overview"'):src.index('<h3>Today</h3>')]
+    for div in ("ana-kpis", "ana-models", "ana-cost", "ana-tiers", "ana-devices", "ana-os", "ana-takeaways"):
+        assert f'id="{div}"' in overview
+    assert "_renderAnalytics(dash, days, app);" in src

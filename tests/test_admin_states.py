@@ -118,6 +118,7 @@ function renderUserRows() { calls.push('renderUserRows'); }
 function renderUserAnalytics() { calls.push('renderUserAnalytics'); }
 function _renderChart(id) { calls.push('chart:' + id); }
 function _renderShareBars(id) { calls.push('chart:' + id); }
+function _renderAnalytics() { calls.push('analytics'); }
 function renderHeatMap(id) { calls.push('map:' + id); }
 function loadUsageByPlace() { calls.push('loadUsageByPlace'); }
 function showUserDetail() { calls.push('showUserDetail'); }
