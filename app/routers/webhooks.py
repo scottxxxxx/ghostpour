@@ -1851,8 +1851,15 @@ def _latency_stats(rows: list) -> dict:
     lat = sorted(r["response_time_ms"] for r in ok if r["response_time_ms"] is not None)
     n = len(lat)
     out_tokens = sum(r["output_tokens"] or 0 for r in ok)
-    in_tokens = sum(r["input_tokens"] or 0 for r in ok)
     cached = sum(r["cached_tokens"] or 0 for r in ok)
+    # Anthropic's input_tokens EXCLUDES cache reads (they arrive beside it
+    # as cache_read_input_tokens), while OpenAI's prompt_tokens includes its
+    # cached share. So the denominator adds the cache back for Anthropic
+    # rows only; dividing by input_tokens alone read 150% on the 7-day view
+    # (2026-11-08) and 559% on one day.
+    in_tokens = sum((r["input_tokens"] or 0)
+                    + ((r["cached_tokens"] or 0) if r.get("provider") == "anthropic" else 0)
+                    for r in ok)
     cost = sum(r["estimated_cost_usd"] or 0.0 for r in ok)
     total_ms = sum(lat)
     # Time to first token. Non-null ONLY on streaming Anthropic calls (SS
@@ -1996,7 +2003,7 @@ async def latency_trends(
     cursor = await db.execute(
         """SELECT request_timestamp, model, call_type, status, response_time_ms,
                   input_tokens, output_tokens, cached_tokens, estimated_cost_usd,
-                  ttft_ms
+                  ttft_ms, provider
            FROM usage_log
            WHERE request_timestamp >= ?""" + app_clause + """
            ORDER BY request_timestamp""",
@@ -2007,7 +2014,7 @@ async def latency_trends(
             "ts": r[0], "model": r[1], "call_type": r[2] or "(untyped)",
             "status": r[3], "response_time_ms": r[4], "input_tokens": r[5],
             "output_tokens": r[6], "cached_tokens": r[7], "estimated_cost_usd": r[8],
-            "ttft_ms": r[9],
+            "ttft_ms": r[9], "provider": r[10],
         }
         for r in await cursor.fetchall()
     ]

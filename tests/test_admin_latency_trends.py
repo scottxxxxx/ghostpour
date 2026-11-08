@@ -37,7 +37,8 @@ HTML = "app/static/admin.html"
 
 def _insert(db_path, user_id, *, ts, ms, status="success", model="model-a",
             call_type="chat", app_id="shouldersurf", input_tokens=100,
-            output_tokens=50, cached_tokens=0, cost=0.01, ttft_ms=None):
+            output_tokens=50, cached_tokens=0, cost=0.01, ttft_ms=None,
+            provider="anthropic"):
     # ttft_ms defaults to None because that is what every non-streaming row
     # carries in production; a test that wants a streaming row says so.
     conn = sqlite3.connect(db_path)
@@ -46,8 +47,8 @@ def _insert(db_path, user_id, *, ts, ms, status="success", model="model-a",
            (id, user_id, provider, model, input_tokens, output_tokens,
             estimated_cost_usd, request_timestamp, response_time_ms,
             status, error_message, call_type, cached_tokens, app_id, ttft_ms)
-           VALUES (?, ?, 'anthropic', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (str(uuid.uuid4()), user_id, model, input_tokens, output_tokens, cost,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (str(uuid.uuid4()), user_id, provider, model, input_tokens, output_tokens, cost,
          ts.isoformat(), ms, status, "boom" if status != "success" else None,
          call_type, cached_tokens, app_id, ttft_ms),
     )
@@ -255,13 +256,17 @@ def test_zero_tokens_and_zero_time_do_not_divide(client, tmp_db_path):
     assert b["p50"] == 0
 
 
-def test_cache_hit_ratio_is_cached_over_input(client, tmp_db_path):
+def test_cache_hit_ratio_is_cached_over_all_input(client, tmp_db_path):
+    # Anthropic reports cache reads BESIDE input_tokens, OpenAI inside
+    # prompt_tokens. The Anthropic row here has 3x as much cached as fresh
+    # input, the shape that read 150% on the live 7-day view (2026-11-08):
+    # cached 900 + 100 over all input (300 + 900) + 400 = 1000 / 1600.
     uid = _user(tmp_db_path)
     now = _now()
-    _insert(tmp_db_path, uid, ts=now, ms=100, input_tokens=300, cached_tokens=100)
-    _insert(tmp_db_path, uid, ts=now, ms=100, input_tokens=100, cached_tokens=0)
+    _insert(tmp_db_path, uid, ts=now, ms=100, input_tokens=300, cached_tokens=900)
+    _insert(tmp_db_path, uid, ts=now, ms=100, input_tokens=400, cached_tokens=100, provider="openai")
     b = _bucket(_get(client, "days=7&bucket=day"), now.isoformat()[:10])
-    assert b["cache_hit_ratio"] == pytest.approx(0.25)
+    assert b["cache_hit_ratio"] == pytest.approx(0.625)
 
 
 def test_an_empty_window_is_all_quiet_buckets_not_an_error(client, tmp_db_path):
