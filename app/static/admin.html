@@ -254,10 +254,9 @@
      nine where each tile keeps 150px, three by three below that, and two
      columns with the calls tile spanning both (1 + 8) on narrow screens. */
   .perf-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 16px; }
-  @media (min-width: 1520px) { .perf-kpis { grid-template-columns: repeat(9, minmax(0, 1fr)); } }
+  @media (min-width: 1100px) { .perf-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
   @media (max-width: 759px) {
     .perf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .perf-kpis .card:first-child { grid-column: 1 / -1; }
   }
   .perf-kpis .card .value { font-size: 22px; font-variant-numeric: normal; }
   .perf-kpis .card .value .cov { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 4px; }
@@ -277,6 +276,30 @@
   .perf-caption { margin: 8px 0 0; line-height: 1.5; }
   .perf-toggle { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; cursor: pointer; }
   .perf-toggle input:disabled ~ span { opacity: .5; }
+  .ana .perf-card h4 { font-size: 18px; font-weight: 700; }
+  .ana .perf-card { padding: 20px; }
+  .perf-glance { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+  .perf-glance > .card { margin-bottom: 0; }
+  .perf-lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+  @media (max-width: 1100px) { .perf-glance, .perf-lanes { grid-template-columns: 1fr; } }
+  .perf-lat-key { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; display: flex; gap: 6px; align-items: center; }
+  .perf-lat-key i { display: inline-block; width: 14px; height: 8px; border-radius: 2px; margin-left: 6px; }
+  .perf-lat-key i.p50, .perf-lat-p50 { background: #4c9aff; }
+  .perf-lat-key i.p95, .perf-lat-p95 { background: rgba(76,154,255,.28); }
+  .perf-lat-row { display: grid; grid-template-columns: minmax(0, 190px) minmax(0, 1fr) 92px; gap: 12px; align-items: center; padding: 8px 6px; border-radius: 8px; cursor: pointer; }
+  .perf-lat-row:hover, .perf-lat-row.sel { background: rgba(76,154,255,.08); }
+  @media (max-width: 560px) { .perf-lat-row { grid-template-columns: minmax(0, 1fr) 84px; } .perf-lat-track { grid-column: 1 / -1; grid-row: 2; } }
+  .perf-lat-name { display: flex; flex-direction: column; min-width: 0; }
+  .perf-lat-name .mono { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .perf-lat-name span:last-child { font-size: 11px; color: var(--text-dim); }
+  .perf-lat-track { position: relative; height: 14px; background: rgba(148,163,184,.08); border-radius: 4px; }
+  .perf-lat-track div { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+  .perf-lat-val { text-align: right; font-variant-numeric: tabular-nums; line-height: 1.25; }
+  .perf-lat-val b { font-size: 14px; display: block; }
+  .perf-lat-val span { font-size: 11px; color: var(--text-dim); }
+  .perf-more { margin: 0 0 16px; }
+  .perf-more > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-dim); padding: 10px 4px; }
+  .perf-more > summary:hover { color: var(--text); }
   .perf-empty { text-align: center; color: var(--text-dim); padding: 28px 12px; font-size: 13px; line-height: 1.5; }
   .perf-share { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
   .perf-share-row { display: grid; grid-template-columns: minmax(100px, 240px) 1fr 52px 80px; gap: 10px; align-items: center; font-size: 12px; }
@@ -679,8 +702,9 @@
   <!-- Performance. The section id stays tab-latency: the tab switch, the
        global Refresh loader and the panel isolation test all key on it. -->
   <div id="tab-latency" class="section">
+   <div class="ana">
     <div class="perf-controls">
-      <h3 style="margin:0">Performance</h3>
+      <div class="ana-head" style="margin:0"><h3>Performance</h3><span id="perf-ana-sub"></span></div>
       <div class="perf-controls-row">
         <select id="lat-days" class="period-select" onchange="loadLatency()" title="Window">
           <option value="7" selected>Last 7 days</option>
@@ -696,7 +720,9 @@
         <span class="perf-scope" id="perf-scope"></span>
       </div>
     </div>
+    <div class="kpi-row" id="perf-hero"></div>
     <div class="cards perf-kpis" id="perf-kpis"></div>
+    <div class="perf-glance">
     <div class="card perf-card">
       <div class="perf-card-head">
         <h4>Response time over time</h4>
@@ -705,10 +731,18 @@
       <div id="perf-main-chart"></div>
       <p class="perf-caption" id="perf-caption"></p>
     </div>
+    <div class="card perf-card"><h4>Key Takeaways</h4><div id="perf-takeaways"></div></div>
+    </div>
+    <div class="perf-lanes">
+      <div class="card perf-card"><div class="perf-card-head"><h4>Response time by query type</h4><span class="perf-sub">click a row to filter</span></div><div id="perf-lat-cts"></div></div>
+      <div class="card perf-card"><div class="perf-card-head"><h4>Response time by model</h4><span class="perf-sub">click a row to filter</span></div><div id="perf-lat-models"></div></div>
+    </div>
     <div class="card perf-card">
       <div class="perf-card-head"><h4>First token over time</h4><span class="perf-sub" id="perf-ttft-note"></span></div>
       <div id="perf-ttft-chart"></div>
     </div>
+    <details class="perf-more" id="perf-more">
+    <summary>Per-model and per-query-type trends and full tables</summary>
     <div class="card perf-card">
       <div class="perf-card-head"><h4>By model</h4><span class="perf-sub" id="perf-models-note"></span></div>
       <div id="perf-model-share" class="perf-share"></div>
@@ -720,11 +754,14 @@
       <div id="perf-cts-multiples" class="perf-multiples"></div>
       <div class="table-wrap perf-table-wrap"><table id="perf-cts-table"><thead></thead><tbody></tbody></table></div>
     </div>
+    </details>
     <!-- TypeSafe (Jev) judge. Same window and same app filter as the rest of
          the tab. Mode and breaker are process state, not per app, and the
          status line says so. -->
     <div class="card perf-card" id="jev-card">
       <div class="perf-card-head"><h4>Jev judge (TypeSafe)</h4><span class="perf-sub" id="jev-status"></span></div>
+      <details class="perf-more" id="jev-body" style="margin:0">
+      <summary id="jev-summary">Details</summary>
       <div class="cards jev-kpis" id="jev-kpis"></div>
       <p class="perf-caption" id="jev-caption"></p>
       <div class="perf-card-head"><h4>By judgment</h4><span class="perf-sub" id="jev-multiples-note"></span></div>
@@ -733,6 +770,7 @@
       <div class="table-wrap perf-table-wrap"><table id="jev-days-table"><thead></thead><tbody></tbody></table></div>
       <h4 style="margin-top:14px">Recent failures and skipped calls</h4>
       <div class="table-wrap perf-table-wrap"><table id="jev-failures-table"><thead></thead><tbody></tbody></table></div>
+      </details>
     </div>
     <div class="perf-secondary">
       <div class="card perf-card"><h4>Error rate</h4><div id="perf-chart-errors"></div></div>
@@ -740,6 +778,7 @@
       <div class="card perf-card"><h4>Streaming share</h4><div id="perf-chart-streaming"></div></div>
       <div class="card perf-card"><h4>Cost per call</h4><div id="perf-chart-cost"></div></div>
     </div>
+   </div>
   </div>
 
   <!-- Providers -->
@@ -4324,6 +4363,14 @@ function renderJevHealth(d) {
            ? `${s.marks.turns_with_a_mark} of ${s.marks.turns_judged} turns; ${s.marks.facts_marked} of ${s.marks.facts_checked} facts`
            : 'no fact judgments yet'),
   ].join('');
+  // An empty window folds the card to its status line and one sentence;
+  // anything recorded opens it.
+  const body = document.getElementById('jev-body');
+  if (body) body.open = !!s.attempts;
+  const summary = document.getElementById('jev-summary');
+  if (summary) summary.textContent = s.attempts
+    ? `${(s.attempts).toLocaleString()} judgments in this window`
+    : 'No Jev judgments in this window' + (p.mode === 'off' ? ' (the mode is off)' : '') + ', open for the empty tables';
   const o = s.outcomes || {};
   const cap = document.getElementById('jev-caption');
   if (cap) cap.textContent = s.attempts
@@ -4372,6 +4419,150 @@ function renderJevHealth(d) {
   }
 }
 
+// --- Performance at a glance (Scott, 2026-11-08: "do what you did to improve
+// the overview page"). The same cards as Usage Analytics: four headline
+// numbers with their own trend line and a change chip against the prior
+// window, takeaways that carry their denominators, and ranked latency bars
+// per model and query type. The detailed charts and tables are unchanged
+// below them, and the sparse per-group small multiples and the full tables
+// sit behind one disclosure.
+const _PERF_ICONS = {
+  calls: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12l1-8Z"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3.5 2"/></svg>',
+  tail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2.5h11M6.5 21.5h11"/><path d="M7.5 2.5c0 5 9 5.5 9 9.5s-9 4.5-9 9.5M16.5 2.5c0 2-1.5 3.2-3 4.2"/></svg>',
+  alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.8 2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4.5M12 17h.01"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="m8 12.5 2.7 2.7L16 9.8"/></svg>',
+};
+
+// Pure: a trend line that keeps gaps. A bucket with no calls has no
+// latency, so it is skipped rather than drawn at zero; x stays the bucket's
+// position in the window. Fewer than two points draws nothing.
+function _perfSpark(values, color) {
+  const v = (values || []).map((y, i) => [i, y]).filter(([, y]) => y != null && isFinite(y));
+  const span = (values || []).length - 1;
+  if (v.length < 2 || span < 1) return '';
+  const max = Math.max(...v.map(([, y]) => y), 1e-9), w = 100, h = 40;
+  const pts = v.map(([i, y]) => [i * w / span, h - 4 - (h - 10) * y / max]);
+  const f = n => n.toFixed(2);
+  let line = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    line += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  const gid = 'pg' + color.slice(1);
+  return `<svg class="ana-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".45"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
+    `<path d="${line} L${f(pts[pts.length - 1][0])} ${h} L${f(pts[0][0])} ${h} Z" fill="url(#${gid})"/>` +
+    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function _perfHeroCards(d) {
+  const c = d.current || {}, p = d.previous || {}, b = d.buckets || [];
+  const days = d.days;
+  const ms = v => (v == null ? '-' : fmtMs(Math.round(v)));
+  // A previous window with no calls has no latency to compare against, so
+  // its chip says so instead of inventing a change.
+  const prevOk = p.n > 0;
+  const delta = (cur, prev, goodWhenDown) => (cur == null ? '' : _anaDelta(cur, prevOk ? prev : null, days, goodWhenDown));
+  const cards = [
+    {label: 'Calls', value: fmt(c.n || 0), icon: 'calls', color: '#4c9aff',
+     delta: _anaDelta(c.n || 0, p.n == null ? null : p.n, days), series: b.map(x => x.n)},
+    {label: 'Median response', value: ms(c.p50), icon: 'clock', color: '#34d399',
+     delta: delta(c.p50, p.p50, true), series: b.map(x => x.p50)},
+    {label: 'Slow tail (p95)', value: ms(c.p95), icon: 'tail', color: '#a78bfa',
+     delta: delta(c.p95, p.p95, true), series: b.map(x => x.p95)},
+    {label: 'Cost per call', value: c.cost_per_call == null ? '-' : '$' + c.cost_per_call.toFixed(4), icon: 'cost', color: '#fbbf24',
+     delta: delta(c.cost_per_call, p.cost_per_call, true), series: b.map(x => x.cost_per_call)},
+  ];
+  return cards.map(k => `<div class="card ana-kpi">` +
+    `<div class="ana-kpi-top"><div class="ana-icon" style="background:${k.color}2e;color:${k.color}">${_PERF_ICONS[k.icon] || _ANA_ICONS[k.icon]}</div>` +
+    `<div><div class="card-label">${esc(k.label)}</div><div class="card-value">${esc(k.value)}</div></div>` +
+    `${k.delta}</div>${_perfSpark(k.series, k.color)}</div>`).join('');
+}
+
+// Pure: up to four findings for the window, each a number with its
+// denominator. A lane needs PERF_TAKE_MIN calls before it can be named the
+// slowest, so one 64-second call cannot headline the page.
+const PERF_TAKE_MIN = 5;
+function perfTakeaways(d) {
+  const out = [];
+  const c = d.current || {}, p = d.previous || {};
+  const cts = ((d.breakdown || {}).by_call_type || []).filter(r => r.n > 0);
+  const total = cts.reduce((t, r) => t + r.n, 0);
+  if (c.p50 != null && p.n > 0 && p.p50 != null && p.p50 !== c.p50) {
+    const faster = c.p50 < p.p50;
+    out.push({icon: 'trend', color: faster ? '#34d399' : '#fb7185',
+      title: faster ? 'Responses got faster' : 'Responses got slower',
+      body: `Median ${fmtMs(c.p50)} against ${fmtMs(p.p50)} in the prior ${d.days} days.`});
+  }
+  const slow = cts.filter(r => r.n >= PERF_TAKE_MIN && r.p95 != null).sort((a, b) => b.p95 - a.p95)[0];
+  if (slow) {
+    out.push({icon: 'tail', color: '#a78bfa', title: `${slow.call_type} is the slowest lane`,
+      body: `p95 ${fmtMs(slow.p95)}, median ${fmtMs(slow.p50)}, over ${fmt(slow.n)} calls.`});
+  }
+  const busy = cts.slice().sort((a, b) => b.n - a.n)[0];
+  if (busy && total) {
+    out.push({icon: 'layers', color: '#4c9aff', title: `${busy.call_type} is the busiest lane`,
+      body: `${Math.round(100 * busy.n / total)}% of calls (${fmt(busy.n)} of ${fmt(total)}), median ${fmtMs(busy.p50)}.`});
+  }
+  if (c.n || c.error_rate) {
+    const rate = c.error_rate || 0;
+    out.push(rate > 0
+      ? {icon: 'alert', color: '#fbbf24', title: `${(100 * rate).toFixed(1)}% of calls failed`,
+         body: 'Non-success rows over all rows in the window. The Errors tab has each one.'}
+      : {icon: 'check', color: '#34d399', title: 'No failed calls',
+         body: `0 errors in ${fmt(c.n)} successful calls.`});
+  }
+  return out;
+}
+
+// Ranked latency bars, one row per model or query type: the solid part is
+// the median, the faint extension runs out to p95, on one scale across the
+// rows so a slow lane is visibly longer. Sorted by calls; a click filters
+// the tab exactly like a table row.
+function _perfLatencyBars(divId, rows, which, opts) {
+  const {max = 10} = opts || {};
+  const el = document.getElementById(divId);
+  if (!el) return;
+  const list = (rows || []).filter(r => r.n > 0 && r.p50 != null).sort((a, b) => b.n - a.n);
+  if (!list.length) { el.innerHTML = '<div class="share-empty">No successful calls in this window under these filters.</div>'; return; }
+  const total = list.reduce((t, r) => t + r.n, 0);
+  const shown = list.slice(0, max);
+  const top = Math.max(...shown.map(r => r.p95 || r.p50)) || 1;
+  const w = v => (100 * v / top).toFixed(1);
+  const cur = document.getElementById(which === 'model' ? 'lat-model' : 'lat-call-type')?.value || '';
+  el.innerHTML = `<div class="perf-lat-key"><i class="p50"></i>median <i class="p95"></i>out to p95</div>` +
+    shown.map(r => {
+      const name = r[which];
+      const share = Math.round(100 * r.n / total);
+      return `<div class="perf-lat-row${name === cur ? ' sel' : ''}" data-name="${esc(name)}" onclick="perfPick('${which}', this.dataset.name)" ` +
+        `title="${esc(`${name}: median ${fmtMs(r.p50)}, p95 ${fmtMs(r.p95)}, ${r.n} calls (${share}%). Click to filter.`)}">` +
+        `<div class="perf-lat-name"><span class="mono">${esc(name)}</span><span>${fmt(r.n)} calls · ${share < 1 ? '<1' : share}%</span></div>` +
+        `<div class="perf-lat-track"><div class="perf-lat-p95" style="width:${w(r.p95 || r.p50)}%"></div><div class="perf-lat-p50" style="width:${w(r.p50)}%"></div></div>` +
+        `<div class="perf-lat-val"><b>${fmtMs(r.p50)}</b><span>p95 ${fmtMs(r.p95)}</span></div></div>`;
+    }).join('') +
+    (list.length > shown.length ? `<div class="share-note">${shown.length} of ${list.length} shown, all in the tables below</div>` : '');
+}
+
+function renderPerfGlance(d) {
+  const hero = document.getElementById('perf-hero');
+  if (hero) hero.innerHTML = _perfHeroCards(d);
+  const sub = document.getElementById('perf-ana-sub');
+  if (sub) {
+    const app = document.getElementById('app')?.value || '';
+    sub.textContent = `${app ? app + ' · ' : ''}last ${d.days} days, against the ${d.days} before`;
+  }
+  const take = perfTakeaways(d);
+  const tk = document.getElementById('perf-takeaways');
+  if (tk) tk.innerHTML = take.length ? take.map(t =>
+    `<div class="ana-take"><div class="ana-icon" style="background:${t.color}26;color:${t.color}">${_PERF_ICONS[t.icon] || _ANA_ICONS[t.icon]}</div>` +
+    `<div><div class="insight-title">${esc(t.title)}</div><div class="insight-body">${esc(t.body)}</div></div></div>`).join('')
+    : '<div class="share-empty">No calls in this window under these filters.</div>';
+  const bd = d.breakdown || {};
+  _perfLatencyBars('perf-lat-cts', bd.by_call_type || [], 'call_type');
+  _perfLatencyBars('perf-lat-models', bd.by_model || [], 'model');
+}
+
 function renderPerformance(d) {
   _perfState = d;
   const buckets = d.buckets || [];
@@ -4395,6 +4586,7 @@ function renderPerformance(d) {
     scope.textContent = `${from} to now UTC, ${d.bucket === 'hour' ? 'hourly' : 'daily'} buckets; deltas are against the ${d.days} days before that`;
   }
 
+  renderPerfGlance(d);
   renderPerfKpis(d);
   renderPerfMain();
   const cap = document.getElementById('perf-caption');
@@ -4438,11 +4630,9 @@ function renderPerfKpis(d) {
   const ttftValue = hasTtft
     ? `${ms(c.ttft_p50)}<span class="cov">· ${_latPct(c.ttft_coverage)} of calls</span>`
     : `<span style="font-size:16px;color:var(--text-dim)">none</span>`;
+  // Calls, p50, p95 and cost per call are the hero cards above
+  // (renderPerfGlance); this strip carries the vitals they do not.
   el.innerHTML =
-    _perfKpi('Successful calls', fmt(c.n), 'accent', _perfDeltaHtml(perfDelta(c.n, p.n, null), v => fmt(v)),
-      `${d.days}d window, ${d.bucket === 'hour' ? 'hourly' : 'daily'} buckets`) +
-    _perfKpi('p50 latency', ms(c.p50), '', _perfDeltaHtml(perfDelta(c.p50, p.p50, true), ms), 'median response, all calls') +
-    _perfKpi('p95 latency', ms(c.p95), '', _perfDeltaHtml(perfDelta(c.p95, p.p95, true), ms)) +
     _perfKpi('p99 latency', ms(c.p99), '', _perfDeltaHtml(perfDelta(c.p99, p.p99, true), ms)) +
     _perfKpi('First token p50', ttftValue, '', hasTtft ? _perfDeltaHtml(perfDelta(c.ttft_p50, p.ttft_p50, true), ms) : '',
       hasTtft ? `${fmt(c.ttft_n)} streaming calls; the rest never stream` : 'no streaming calls in this window, so no first-token data') +
@@ -4450,7 +4640,6 @@ function renderPerfKpis(d) {
       _perfDeltaHtml(perfDelta(c.error_rate, p.error_rate, true), pctAbs), 'non-success rows over all rows') +
     _perfKpi('Tokens/s', tps(c.tokens_per_second), '', _perfDeltaHtml(perfDelta(c.tokens_per_second, p.tokens_per_second, false), tps),
       'total-time: output tokens over the whole call') +
-    _perfKpi('Cost per call', fmtCost(c.cost_per_call), '', _perfDeltaHtml(perfDelta(c.cost_per_call, p.cost_per_call, true), v => '$' + v.toFixed(4))) +
     _perfKpi('Cache hit', _latPct(c.cache_hit_ratio), '', _perfDeltaHtml(perfDelta(c.cache_hit_ratio, p.cache_hit_ratio, false), pctAbs),
       'cached input tokens over all input tokens');
 }
@@ -4556,13 +4745,14 @@ function renderPerfMain() {
     fill = {type: 'solid', opacity: [0.18, 0.45, 1]};
   } else {
     series = [
-      {name: 'p50, median response', type: 'line', data: s.p50},
+      {name: 'p50, median response', type: 'area', data: s.p50},
       {name: 'p95', type: 'line', data: s.p95},
       {name: 'p99', type: 'line', data: s.p99},
     ];
     colors = [_PERF_C.p50, _PERF_C.p95, _PERF_C.p99];
-    stroke = {width: [2, 2, 1.5], curve: 'straight'};
-    fill = {type: 'solid', opacity: 1};
+    stroke = {width: [2.5, 2, 1.5], curve: 'smooth', dashArray: [0, 0, 4]};
+    fill = {type: ['gradient', 'solid', 'solid'], opacity: [1, 1, 1],
+            gradient: {shadeIntensity: 0, opacityFrom: 0.35, opacityTo: 0.02, stops: [0, 100]}};
     // First token is NOT drawn here any more (Scott, 2026-09-15): on an axis
     // sized for p99 a 1.5s first token sits flat against zero and cannot be
     // read. It has its own chart below, on its own scale (renderPerfTtft).
