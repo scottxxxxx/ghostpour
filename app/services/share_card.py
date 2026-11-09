@@ -648,6 +648,11 @@ def facts_from_share(row, bundle: dict, *, audio_count: int = 0, cta_text: str |
         "has_report": bool(rec.get("reportHTML") or rec.get("reportJSONData")),
         "share_language": _manifest_share_language(manifest),
         "source_language": rec.get("transcriptLanguage") if isinstance(rec.get("transcriptLanguage"), str) else None,
+        # The language the REPORT was written in, which is the language of
+        # every action the card quotes. Since #956 the phone's language picks
+        # it, so a Spanish meeting on an English phone has an English report
+        # (SS, 2026-11-09: "Dr. Karen Romero debe order throat cultures").
+        "report_language": rec.get("reportLanguage") if isinstance(rec.get("reportLanguage"), str) else None,
         "audio_count": audio_count,
     }
 
@@ -679,8 +684,12 @@ async def translate_card_facts(facts: dict, *, app_state, db, user, app_id: str 
     from app.services import translations as tr
 
     target = card_locale(facts.get("share_language"), facts.get("source_language"))
-    source = _lang(facts.get("source_language"))
-    if not facts.get("share_language") or target == source or user is None:
+    # The quoted text is the report's, so ITS language is the source. The
+    # transcript's language only decides the chrome: an es meeting with an
+    # en report read as es to es and shipped the English actions untouched,
+    # on a translated share and on a plain one alike.
+    source = _lang(facts.get("report_language") or facts.get("source_language"))
+    if target == source or user is None:
         return facts
 
     items = open_items(facts.get("actions") or [])[:2]

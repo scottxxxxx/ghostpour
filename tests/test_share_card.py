@@ -428,3 +428,39 @@ def test_every_language_and_the_floor_case_still_render():
     floor = _facts(title=None, date=None, duration_seconds=None, attendees=0, actions=[], sentiment=None,
                    sentiment_category=None, summary_line="", transcript_included=False, has_report=False)
     assert _px(render_card(floor)).size == (1200, 630)
+
+
+# --- the report's language, not the transcript's, is the source (SS, 2026-11-09) ---
+
+def test_facts_carry_the_report_language_beside_the_transcript_language():
+    bundle = {"meetings": [{"record": {"transcriptLanguage": "es-US", "reportLanguage": "en"},
+                            "report": {"actions": [{"task": "Order throat cultures"}]}}], "manifest": {}}
+    row = {"title": "Consulta", "meeting_date": "2026-11-09", "duration_seconds": 600,
+           "summary_line": "", "transcript_included": 0}
+    f = facts_from_share(row, bundle)
+    assert f["source_language"] == "es-US" and f["report_language"] == "en"
+
+
+@pytest.mark.asyncio
+async def test_a_spanish_meeting_with_an_english_report_translates_its_actions():
+    from app.services.share_card import translate_card_facts
+    from unittest.mock import AsyncMock, patch
+    from app.services import translations as tr
+    for share in ("es", None):
+        f = _tr_facts(share_language=share, source_language="es-US", report_language="en")
+        with patch.object(tr, "translate_group", AsyncMock(return_value=(
+                [{"id": "a0", "text": "Pedir cultivos de garganta"}], False))) as m:
+            out = await translate_card_facts(f, app_state=None, db=None, user=_FakeUser())
+        assert m.call_args.args[4:6] == ("en", "es"), share
+        assert out["actions"][0]["task"] == "Pedir cultivos de garganta"
+
+
+@pytest.mark.asyncio
+async def test_a_report_already_in_the_cards_language_costs_nothing():
+    from app.services.share_card import translate_card_facts
+    from unittest.mock import AsyncMock, patch
+    from app.services import translations as tr
+    with patch.object(tr, "translate_group", AsyncMock()) as m:
+        f = _tr_facts(share_language="es", source_language="en", report_language="es")
+        assert await translate_card_facts(f, app_state=None, db=None, user=_FakeUser()) is f
+        assert not m.called
