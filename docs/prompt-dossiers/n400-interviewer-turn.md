@@ -1,12 +1,12 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 64
+served_version: 65
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
 thinking: disabled
-reconciled: 2026-10-17 (v64)
+reconciled: 2026-11-10 (v65)
 ---
 
 # N-400 interviewer turn (n400_interviewer_turn)
@@ -2056,3 +2056,15 @@ Also in v63, from the case 0e731ec1 read (t_009, 2026-10-16): GP's evidence floo
 From Scott's device run via the auditor (case 766ab91c, 2026-10-17 ~04:58 UTC, node q_p2_lpr_date). He said "My social security number is 555-444-7781", which is 10 digits. The egress masker typed it as a phone-shaped stand-in ("555-555-0189"). The lane read back "5 5 5 5 5 5 0 1 8 9" as "noted", and no p2.ssn reached the case. v63's wrong-count rule had fired on his A-Number earlier in the same case. ⚠ My first account of why, that v63's clause "ten digits in phone groups are a phone number" made the lane treat the SSN as a phone, was WRONG: the prod read (usage_log raw_response, three calls on t_016) shows the lane filed p2.ssn "555550189", nine digits, the stand-in with one 5 dropped, and GP passed it because nine is a valid SSN count. The client's build 198 floor refused it. v64 retires that clause and the old count list (on v64's absent list, V64_RETIRED in the tests). It names every identifier (SSN exactly 9, A-Number 7 to 9, USCIS online account 12, phone 10) and says the field asked decides the identifier whatever shape the digits arrive in, with the SSN example said back as "Social Security numbers have 9 digits, I heard 10". An identifier not filed is never read back. Not probed live.
 
 v64 code, the same day, agreed with the auditor after the read. drop_identifiers_not_as_said: an SSN, A-Number, spouse A-Number or USCIS account fact is kept only when its digits equal EXACTLY one digit run (7 or more digits) in the words it cites, or in Spanish the reading of her number words. No trim, pad or merge. It acts only when it can read digits there, and phones are left out. reask_dropped_identifier: after this drop or the count-guard drop, the reply becomes a re-ask of that one identifier in each locale on the reply ("Social Security numbers have 9 digits, I heard 10, could you say it again?", in es and pt too), asking points at its node, and the checkpoint is cleared. _split_date_said: a date from her current line plus her previous one, every piece of the citation inside one of them, every component said, and the field tagged on either line by applicant_line_field_ids (or on the agenda without the key). The auditor's spec said the previous line; I took either line because t_014's "January 1st" was volunteered at the nationality question, so with build 203's key only the current line carries p2.lpr_date. Sabotage 5, 4, 2, 1 as predicted.
+
+## v65: a year that corrects the date she just gave keeps her day and month
+
+From Scott's build 216 walk via the N-400 team (case f58ab24a, 2026-11-10, 10:41 to 10:51 UTC), read from GP's live log, not from the client's account. Three defects, one prompt sentence and four pieces of code.
+
+The part confirmations. Parts 12, 1 and 2 were read back with the next part's question in the same reply; Part 3 and the second Part 2 read-back asked "Is that right?". Every bad one carried section_checkpoint with awaiting_confirmation false and `asking` on the next node. The cause is the client, read in its source: N400 App InterviewerEnvelope.swift still builds SECTION BOUNDARY as "summarize Part N in one sentence and open Part M in the same reply, without asking for confirmation", the v39 text Scott reversed on 2026-10-16, and the lane followed it over the prompt. Part 3's boundary was not sent that way, and it was confirmed. GP now rewrites that clause on the way in (confirm_part_boundary) so build 216 gets the current rule without a release, and refuses a checkpoint whose reply rides a question instead of asking for confirmation (checkpoint_rides_next_question, retried with CHECKPOINT_CONFIRM_REMINDER). drop_checkpoint_when_asking_set's awaiting_confirmation false exemption is left alone: it now runs only after a failed retry.
+
+Part 2 closed over the green card date. KNOWN FACTS held p2.lpr_date as a capture gap ("said earlier, not yet recorded, ask again, partial 2016"), the standing node was q_p2_lpr_date, and on "Male." the lane deferred the date with origin applicant and read Part 2 back. An applicant deferral settles its node for the agenda check, so nothing refused it. checkpoint_over_unasked_capture_gap refuses that checkpoint unless her words this turn put something off.
+
+The year correction (the prompt sentence). "January 1st, 2026", the lane rightly caught the impossible year, she said "2016", and the lane deferred a year only. v65 says the day and month stay hers and the whole date is minted and read back. The day guard would have moved that fact back to a deferral (the day is not in "2016."), so _date_carried gains year_corrected: her last line held this day and month with a different year, and this line is the year alone.
+
+Tests: tests/test_n400_walk216_part_confirm.py, 16, from the walk's real turn shapes. Five sabotages, each run alone with bytecode off: the boundary rewrite (3 red), the ride-along refusal (2), the capture-gap refusal (1), the year carry (2), the route's reminder choice (1), each exactly the tests expected. Not probed live, and the prompt sentence is unproven on the wire.

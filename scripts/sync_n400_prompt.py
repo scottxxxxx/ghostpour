@@ -864,6 +864,20 @@ VERSIONS = {
             "ten digits in phone groups are a phone number",
         ],
     },
+    65: {
+        # Scott's build 216 walk (case f58ab24a, 2026-11-10): "January 1st,
+        # 2026", then "2016", was deferred as a year only and she was told
+        # "we'll come back to the exact date". The rule sits right after A
+        # YEAR IS ONLY A YEAR, which it narrows; that rule and v64's must survive.
+        "block_anchor": "A YEAR IS ONLY A YEAR",
+        "once": "A YEAR THAT CORRECTS THE DATE SHE JUST GAVE IS NOT A YEAR ALONE",
+        "phrases": [
+            "she kept the day and the month and changed the year",
+            "never defer it as a year only and never say you will come back to it",
+            "A YEAR IS ONLY A YEAR: when she gives just a year",
+            "THE FIELD YOU ASKED DECIDES WHICH IDENTIFIER THE DIGITS ARE",  # v64, must survive
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
