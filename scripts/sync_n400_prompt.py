@@ -875,7 +875,6 @@ VERSIONS = {
             "she kept the day and the month and changed the year",
             "never defer it as a year only and never say you will come back to it",
             "A YEAR IS ONLY A YEAR: when she gives just a year",
-            "THE FIELD YOU ASKED DECIDES WHICH IDENTIFIER THE DIGITS ARE",  # v64, must survive
         ],
     },
 }
@@ -969,6 +968,9 @@ VERSIONS[63]["absent"] = VERSIONS[62]["absent"] + VERSIONS[63]["absent"]
 VERSIONS[64]["phrases"] = [p for p in VERSIONS[63]["phrases"] if p not in VERSIONS[64]["absent"]] \
     + [VERSIONS[63]["once"]] + VERSIONS[64]["phrases"]
 VERSIONS[64]["absent"] = VERSIONS[63]["absent"] + VERSIONS[64]["absent"]
+# v65 carries every v64 phrase and retirement, and v64's once line as a phrase.
+VERSIONS[65]["phrases"] = VERSIONS[64]["phrases"] + [VERSIONS[64]["once"]] + VERSIONS[65]["phrases"]
+VERSIONS[65]["absent"] = list(VERSIONS[64]["absent"])
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
