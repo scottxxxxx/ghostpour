@@ -877,6 +877,24 @@ VERSIONS = {
             "A YEAR IS ONLY A YEAR: when she gives just a year",
         ],
     },
+    66: {
+        # Scott, 2026-11-10, case 245e6428: Part 12's interpreter "no" was
+        # read back alone and the "?" ended the app's before-we-begin. Only a
+        # part of two or more questions is confirmed. It replaces the v39 era
+        # "a part with a single question ... is read back" sentence, which must
+        # be gone, and narrows EVERY PART IS CONFIRMED in place.
+        "block_anchor": "SECTION CHECKPOINTS",
+        "once": "ONLY A PART THAT ASKED HER TWO OR MORE QUESTIONS IS READ BACK",
+        "phrases": [
+            "is never read back or confirmed: file her answer, set section_checkpoint to null",
+            "even when SECTION BOUNDARY is present or tells you to read the part back",
+            "EVERY PART OF TWO OR MORE QUESTIONS IS CONFIRMED BEFORE THE NEXT ONE OPENS",
+        ],
+        "absent": [
+            "A part with a single question (the fee reduction) is read back and confirmed like any other part",
+            "EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS",
+        ],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -971,6 +989,11 @@ VERSIONS[64]["absent"] = VERSIONS[63]["absent"] + VERSIONS[64]["absent"]
 # v65 carries every v64 phrase and retirement, and v64's once line as a phrase.
 VERSIONS[65]["phrases"] = VERSIONS[64]["phrases"] + [VERSIONS[64]["once"]] + VERSIONS[65]["phrases"]
 VERSIONS[65]["absent"] = list(VERSIONS[64]["absent"])
+# v66 narrows "EVERY PART IS CONFIRMED" in place, so the phrase that pinned
+# its old wording is replaced by the v66 phrase, not carried.
+VERSIONS[66]["phrases"] = [p for p in VERSIONS[65]["phrases"] + [VERSIONS[65]["once"]]
+                           if not p.startswith("EVERY PART IS CONFIRMED BEFORE")] + VERSIONS[66]["phrases"]
+VERSIONS[66]["absent"] = list(VERSIONS[65]["absent"]) + VERSIONS[66]["absent"]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

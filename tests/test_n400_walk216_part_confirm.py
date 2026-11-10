@@ -73,16 +73,20 @@ def test_the_walk_216_boundary_is_rewritten_to_confirm_the_part():
     out = confirm_part_boundary(CALL, BOUNDARY_216)["section_boundary"]
     assert "without asking for confirmation" not in out
     assert out == ("the standing question is the last in Part 2 About you; when it is answered, "
-                   "read Part 2 back and ask if it is complete and correct (section_checkpoint "
-                   "awaiting_confirmation true, asking null); Part 3 Your appearance opens only "
-                   "after her yes, never in the same reply")
+                   "if Part 2 asked her two or more questions, read it back and ask if it is "
+                   "complete and correct (section_checkpoint awaiting_confirmation true, asking null) "
+                   "and Part 3 Your appearance opens only after her yes, never in the same reply; "
+                   "if Part 2 asked her only one question, do not read it back: section_checkpoint "
+                   "null, and ask Part 3 Your appearance's first question in this reply")
 
 
 def test_the_conditional_boundary_keeps_its_rows_clause():
     out = confirm_part_boundary(CALL, BOUNDARY_216_P12)["section_boundary"]
     assert "unless her answer opens more rows in it" in out
-    assert "when it is answered and opens none, read Part 12 back and ask if it is complete and correct" in out
-    assert out.endswith("Part 1 Your eligibility opens only after her yes, never in the same reply")
+    assert "when it is answered and opens none, if Part 12 asked her two or more questions, read it back" in out
+    # Scott, 2026-11-10: the interpreter "no" alone is one question, never read back.
+    assert out.endswith("if Part 12 asked her only one question, do not read it back: "
+                        "section_checkpoint null, and ask Part 1 Your eligibility's first question in this reply")
 
 
 def test_other_lanes_and_other_boundary_text_are_untouched():
@@ -112,8 +116,11 @@ def test_a_read_back_that_asks_is_right_is_not_refused_even_with_asking_set():
     client draws that as a card; it is a confirmation, not a ride-along."""
     text = _turn(section_checkpoint={"part": 3, "section": "Part 3", "awaiting_confirmation": True},
                  asking={"node_id": "q_p2_lpr_date"},
-                 facts=[{"field_id": "p3.ethnicity", "value": "not_hispanic"}],
-                 reply={"en": "That's Part 3: not Hispanic or Latino, White. Is that right?"})
+                 # The real t_011 carried height, weight, eyes and hair; Part 3 is many questions.
+                 facts=[{"field_id": "p3.ethnicity", "value": "not_hispanic"},
+                        {"field_id": "p3.race", "value": "white"},
+                        {"field_id": "p3.eye_color", "value": "brown"}],
+                 reply={"en": "That's Part 3: not Hispanic or Latino, White, brown eyes. Is that right?"})
     assert checkpoint_is_refused(text, AGENDA, KNOWN, "White") is None
 
 
@@ -231,7 +238,7 @@ def test_the_route_sends_the_rewritten_boundary_to_the_model(client, free_user):
     r, sent = _send(client, free_user, [ok], section_boundary=BOUNDARY_216)
     assert r.status_code == 200 and len(sent) == 1
     assert "without asking for confirmation" not in sent[0]
-    assert "read Part 2 back and ask if it is complete and correct" in sent[0]
+    assert "if Part 2 asked her two or more questions, read it back and ask if it is complete and correct" in sent[0]
 
 
 def test_the_route_retries_a_ride_along_with_the_confirm_reminder(client, free_user):

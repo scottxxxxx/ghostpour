@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 65
+served_version: 66
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
@@ -2068,3 +2068,13 @@ Part 2 closed over the green card date. KNOWN FACTS held p2.lpr_date as a captur
 The year correction (the prompt sentence). "January 1st, 2026", the lane rightly caught the impossible year, she said "2016", and the lane deferred a year only. v65 says the day and month stay hers and the whole date is minted and read back. The day guard would have moved that fact back to a deferral (the day is not in "2016."), so _date_carried gains year_corrected: her last line held this day and month with a different year, and this line is the year alone.
 
 Tests: tests/test_n400_walk216_part_confirm.py, 16, from the walk's real turn shapes. Five sabotages, each run alone with bytecode off: the boundary rewrite (3 red), the ride-along refusal (2), the capture-gap refusal (1), the year carry (2), the route's reminder choice (1), each exactly the tests expected. Not probed live, and the prompt sentence is unproven on the wire.
+
+## v66: only a part of two or more questions is read back
+
+Scott's ruling, 2026-11-10, relayed by the N-400 team from case 245e6428 (build 216), read in GP's live log: Part 13's preparer "no" was filed and the lane went on with no checkpoint; Part 12's interpreter "no" alone was read back ("That's Part 12: no interpreter used. Is that right?"), and that "?" ended the app's before-we-begin with the documents question left without buttons. His words: a section with two or more questions "should be the determinator as to whether we ask for a section confirmation."
+
+The prompt replaces the v39 era sentence that read a single-question part back ("the fee reduction ... is read back and confirmed like any other part") with ONLY A PART THAT ASKED HER TWO OR MORE QUESTIONS IS READ BACK, and EVERY PART IS CONFIRMED is narrowed in place to parts of two or more questions. Both old lines are in v66's absent list.
+
+Code in the same PR. The boundary rewrite (confirm_part_boundary) carries the same condition, since GP cannot count the part's questions when the boundary arrives. checkpoint_on_one_question_part refuses a checkpoint on a part with exactly one answered field (KNOWN FACTS plus this response's settled ids; a capture gap is not an answer) and retries with ONE_QUESTION_PART_REMINDER: file, checkpoint null, ask the next part. It runs before the capture-gap and rides-next-question refusals, so a one-question part is never sent back to be confirmed. Counted in fields because the agenda lists only open nodes; a gate "no" is one field, and every two-question part has at least two.
+
+Tests: tests/test_n400_walk245_one_question_part.py, 8, from the walk's real t_003. Not probed live; unproven on the wire.

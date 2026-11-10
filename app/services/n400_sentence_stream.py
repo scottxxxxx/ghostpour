@@ -552,8 +552,13 @@ class ReleaseController:
     """
 
     def __init__(self, *, locale: str, agenda: str | None,
-                 known_facts: str | None, turn_id: str | None = None) -> None:
+                 known_facts: str | None, turn_id: str | None = None,
+                 call_type: str | None = None) -> None:
         self.locale = (locale or "en").lower()
+        # The I-765 lane streams through this controller too. Scott's
+        # one-question-part ruling (2026-11-10) is N-400's, so it applies only
+        # when the lane says it is N-400.
+        self.call_type = call_type
         self.agenda = agenda
         self.known_facts = known_facts
         self.turn_id = turn_id
@@ -647,7 +652,8 @@ class ReleaseController:
     def _checkpoint_refused(self) -> bool:
         from app.services.n400_interviewer_guard import checkpoint_is_refused
         partial = json.dumps(self.parser.partial_object(), ensure_ascii=False)
-        return checkpoint_is_refused(partial, self.agenda, self.known_facts) is not None
+        return checkpoint_is_refused(partial, self.agenda, self.known_facts,
+                                     one_question_rule=self.call_type == "n400_interviewer_turn") is not None
 
     def _buffer(self, reason: str) -> None:
         if self.buffered_reason:

@@ -231,7 +231,12 @@ def test_both_refusal_reasons_are_reachable_through_one_entry_point():
     empty_part = _resp(section_checkpoint={"part": 13})
     assert checkpoint_is_refused(empty_part, AGENDA, KNOWN)["reason"].startswith(
         "section_checkpoint claimed a part with no confirmed fact")
-    ok = _resp(section_checkpoint={"part": 6})
+    # Part 6 with one field on file is a one-question part (Scott, 2026-11-10):
+    # the third reason. With a second field it is a part that is confirmed.
+    one = _resp(section_checkpoint={"part": 6})
+    assert checkpoint_is_refused(one, AGENDA, KNOWN)["code"] == "one_question_part"
+    ok = _resp(section_checkpoint={"part": 6},
+               facts=[{"field_id": "p6.child1.child_dob", "value": "2015-03-02"}])
     assert checkpoint_is_refused(ok, AGENDA, KNOWN) is None
 
 

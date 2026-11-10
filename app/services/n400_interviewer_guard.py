@@ -2529,14 +2529,84 @@ def confirm_part_boundary(call_type: str | None, section_boundary: object) -> di
     if call_type != "n400_interviewer_turn" or not isinstance(section_boundary, str):
         return {}
     new, n = _STALE_BOUNDARY.subn(
-        r"read Part \1 back and ask if it is complete and correct (section_checkpoint "
-        r"awaiting_confirmation true, asking null); Part \2\3 opens only after her yes, "
-        r"never in the same reply",
+        r"if Part \1 asked her two or more questions, read it back and ask if it is "
+        r"complete and correct (section_checkpoint awaiting_confirmation true, asking null) "
+        r"and Part \2\3 opens only after her yes, never in the same reply; if Part \1 asked "
+        r"her only one question, do not read it back: section_checkpoint null, and ask "
+        r"Part \2\3's first question in this reply",
         section_boundary)
     if not n:
         return {}
     logger.info("n400_boundary_rewritten from=retired_no_confirmation")
     return {"section_boundary": new}
+
+
+# --- only a part of two or more questions is read back ----------------------
+#
+# Scott, 2026-11-10, on case 245e6428: "we do not have to do a section confirm
+# for the question about using an interpreter ... since it is a section with
+# >= 2 questions, that should be the determinator as to whether we ask for a
+# section confirmation." That walk filed Part 13's preparer "no" and went on
+# with no checkpoint, then read Part 12 back over the interpreter "no" alone
+# ("That's Part 12: no interpreter used. Is that right?"), and that "?" ended
+# the app's before-we-begin with the documents question left without buttons.
+REFUSED_ONE_QUESTION_PART = "one_question_part"
+ONE_QUESTION_PART_REASON = (
+    "a part where she answered only one question was read back; only a part "
+    "of two or more questions is confirmed"
+)
+
+
+def part_answer_count(turn: dict, part: int, known_facts: str | None) -> int:
+    """How many fields of `part` she has answered, this response's included.
+
+    Counted in FIELDS, the nearest thing on the wire to questions: the agenda
+    lists only nodes still open, so an asked node is gone from it by the time
+    its part closes. A gate answered "no" is one field and one question; a part
+    that asked two questions has at least two. KNOWN FACTS is one turn stale
+    (see `checkpoint_reads_back_nothing`), so this response's settled ids are
+    added; a capture gap is not an answer, through `_ids_settled_in_this_response`.
+    """
+    ids = set(known_fact_parts(known_facts).get(part, set()))
+    for fid in _ids_settled_in_this_response(turn):
+        m = re.match(r"p(\d+)\.", fid)
+        if m and int(m.group(1)) == part:
+            ids.add(fid)
+    return len(ids)
+
+
+def checkpoint_on_one_question_part(text: str, known_facts: str | None) -> dict | None:
+    """Info when a checkpoint reads back a part she answered one question in.
+
+    None when KNOWN FACTS is absent, the same as the other KNOWN FACTS checks,
+    and when the part has nothing at all (that is `checkpoint_reads_back_nothing`'s
+    refusal, which runs first).
+    """
+    if not known_facts:
+        return None
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict) or not isinstance(cp.get("part"), int):
+        return None
+    if part_answer_count(turn, cp["part"], known_facts) != 1:
+        return None
+    return {"part": cp["part"], "code": REFUSED_ONE_QUESTION_PART,
+            "reason": ONE_QUESTION_PART_REASON}
+
+
+ONE_QUESTION_PART_REMINDER = (
+    "\n\nSTOP. Your last response read back a part she answered only one "
+    "question in. Only a part of two or more questions is read back and "
+    "confirmed. File her answer, set section_checkpoint to null, and ask the "
+    "next part's first question in this same reply, with asking set to it. Do "
+    "not say \"that's Part\" and do not ask \"Is that right?\". Reply with "
+    "the JSON object only."
+)
 
 
 REFUSED_RIDES_NEXT_QUESTION = "rides_next_question"
@@ -2665,15 +2735,24 @@ def checkpoint_reminder(info: dict) -> str:
     """The retry note that names what was actually wrong."""
     if info.get("code") == REFUSED_RIDES_NEXT_QUESTION:
         return CHECKPOINT_CONFIRM_REMINDER
+    if info.get("code") == REFUSED_ONE_QUESTION_PART:
+        return ONE_QUESTION_PART_REMINDER
     return CHECKPOINT_REMINDER
 
 
 def checkpoint_is_refused(text: str, agenda: str | None,
                           known_facts: str | None,
-                          user_content: str | None = None) -> dict | None:
-    """Any refusal reason, agenda contradiction first."""
+                          user_content: str | None = None,
+                          one_question_rule: bool = True) -> dict | None:
+    """Any refusal reason, agenda contradiction first.
+
+    The one-question check runs before the capture-gap and rides-next-question
+    checks, so a one-question part is never sent back to be confirmed.
+    `one_question_rule` is False for a lane that is not N-400 (the I-765
+    lane shares the sentence stream); the ruling is N-400's."""
     return (checkpoint_contradicts_agenda(text, agenda)
             or checkpoint_reads_back_nothing(text, known_facts)
+            or (checkpoint_on_one_question_part(text, known_facts) if one_question_rule else None)
             or checkpoint_over_unasked_capture_gap(text, agenda, known_facts, user_content)
             or checkpoint_rides_next_question(text))
 

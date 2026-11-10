@@ -5557,6 +5557,7 @@ async def _handle_n400_sentence_stream(body, request, *, run_tail) -> StreamingR
         locale=str(md.get("locale") or body.locale or "en"),
         agenda=md.get("agenda"), known_facts=md.get("known_facts"),
         turn_id=str(md.get("turn_id") or ""),
+        call_type=md.get("call_type"),
     )
     queue: asyncio.Queue = asyncio.Queue()
 
