@@ -563,7 +563,7 @@
       "description": "Aplicaciones de proposito general, equilibrio entre latencia y calidad, la mayoria de cargas de trabajo en produccion",
       "inputCostPerMillion": 0.4,
       "outputCostPerMillion": 2.4,
-      "contextWindow": "1M",
+      "contextWindow": "129K",
       "weights": "Open",
       "supportsImages": true,
       "requiredParams": "model, messages",
@@ -584,7 +584,7 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552,
+      "estimatedAvailableTokens": 128000,
       "supportsReasoning": false
     },
     "qwen-flash": {
@@ -613,7 +613,7 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552,
+      "estimatedAvailableTokens": 996928,
       "supportsReasoning": false
     },
     "deepseek-v4-flash": {
@@ -642,7 +642,7 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552,
+      "estimatedAvailableTokens": 998976,
       "supportsReasoning": true,
       "reasoningLevels": [
         "default",
@@ -676,7 +676,7 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552,
+      "estimatedAvailableTokens": 998976,
       "supportsReasoning": true,
       "reasoningLevels": [
         "default",
@@ -723,7 +723,7 @@
       "description": "Razonamiento complejo, flujos de trabajo empresariales, tareas de alta importancia",
       "inputCostPerMillion": 1.2,
       "outputCostPerMillion": 6.0,
-      "contextWindow": "262K",
+      "contextWindow": "258K",
       "weights": "Open",
       "supportsImages": true,
       "requiredParams": "model, messages",
@@ -744,7 +744,7 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 261120,
+      "estimatedAvailableTokens": 257024,
       "supportsReasoning": false
     },
     "qwen3.7-max": {
@@ -773,7 +773,7 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552,
+      "estimatedAvailableTokens": 990784,
       "supportsReasoning": true,
       "reasoningLevels": [
         "default",
@@ -807,7 +807,7 @@
         "meetingGuidance": "yes"
       },
       "splitModelSummary": true,
-      "estimatedAvailableTokens": 1047552,
+      "estimatedAvailableTokens": 990784,
       "supportsReasoning": true,
       "reasoningLevels": [
         "default",

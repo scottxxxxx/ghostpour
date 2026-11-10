@@ -4258,6 +4258,11 @@ async function loadLatency() {
   const daysEl = document.getElementById('lat-days');
   const bucketEl = document.getElementById('lat-bucket');
   if (!daysEl || !bucketEl) return;
+  // A select can come back with no option chosen (live log 2026-11-10,
+  // twice from Scott's Mac: days=&bucket= and a 422). Not reproduced, so
+  // fall back to the defaults rather than send an empty window.
+  if (!['7', '30', '90'].includes(daysEl.value)) daysEl.value = '7';
+  if (!['hour', 'day'].includes(bucketEl.value)) bucketEl.value = 'day';
   const days = daysEl.value;
   // Hourly buckets over 30 or 90 days are 720 to 2160 points of mostly
   // one-call hours, which reads as noise, so the hour option is only

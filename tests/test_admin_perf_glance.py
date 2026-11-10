@@ -105,3 +105,24 @@ def test_glance_sits_above_the_detail_and_the_strip_drops_the_hero_numbers():
     strip = _extract("renderPerfKpis")
     assert "'Successful calls'" not in strip and "'p50 latency'" not in strip and "'Cost per call'" not in strip
     assert "renderPerfGlance(d);" in _extract("renderPerformance")
+
+
+def test_an_unselected_window_falls_back_to_the_defaults_instead_of_a_422():
+    # Live log 2026-11-10: GET latency-trends?days=&bucket= from the dashboard,
+    # 422 int_parsing, twice. The request must never carry an empty window.
+    js = r"""
+const els = {};
+const mk = (id, value) => (els[id] = {id, value, disabled: false, innerHTML: '',
+  classList: {add() {}, remove() {}}, querySelector: () => ({disabled: false})});
+mk('lat-days', ''); mk('lat-bucket', ''); mk('lat-model', ''); mk('lat-call-type', '');
+mk('app', ''); mk('tab-latency', ''); mk('perf-kpis', '');
+const document = {getElementById: id => els[id] || null};
+const BASE = ''; const adminKey = 'k';
+let url = null;
+const fetch = async u => { url = u; return {ok: false, status: 0}; };
+""" + _extract("loadLatency") + r"""
+loadLatency().then(() => console.log(JSON.stringify({url, days: els['lat-days'].value, bucket: els['lat-bucket'].value})));
+"""
+    out = _node(js)
+    assert out["url"] == "/webhooks/admin/latency-trends?days=7&bucket=day"
+    assert (out["days"], out["bucket"]) == ("7", "day"), "the selects show what was sent"
