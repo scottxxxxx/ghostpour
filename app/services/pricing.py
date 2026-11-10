@@ -213,16 +213,25 @@ class PricingService:
 
         # --- Cached token handling (provider-specific field names) ---
 
-        # OpenAI: cached tokens are included in prompt_tokens,
-        # reported in prompt_tokens_details.cached_tokens
-        cached_input = (
+        # The two usage shapes count a cache read in opposite ways.
+        # OpenAI (prompt_tokens_details.cached_tokens) and Gemini
+        # (cachedContentTokenCount) report it INSIDE the prompt count, so the
+        # cached part comes out of the full-price input. Anthropic
+        # (cache_read_input_tokens) reports it BESIDE input_tokens, which
+        # already excludes it, so nothing comes out. Treating Anthropic like
+        # OpenAI billed a cached Sonnet 5 call's fresh input as free (clamped
+        # at 0) for every cached token, measured 2026-11-09 at up to about
+        # $5.80 of $22.14 over 30 days. Keyed on the FIELD, not the provider:
+        # an Anthropic call that falls back to OpenRouter keeps
+        # provider="anthropic" and comes back in the OpenAI shape.
+        included_cached = (
             usage.get("prompt_tokens_details.cached_tokens")  # OpenAI (flattened)
-            or usage.get("cache_read_input_tokens")  # Anthropic
             or usage.get("cachedContentTokenCount")  # Gemini
             or 0
         )
+        cached_input = included_cached or usage.get("cache_read_input_tokens") or 0
 
-        cache_creation = usage.get("cache_creation_input_tokens", 0)  # Anthropic
+        cache_creation = usage.get("cache_creation_input_tokens") or 0  # Anthropic
 
         # Reasoning tokens (OpenAI o-series, DeepSeek reasoner)
         reasoning_tokens = (
@@ -232,10 +241,7 @@ class PricingService:
 
         # --- Billable token calculation ---
 
-        # For OpenAI: cached tokens are IN prompt_tokens, charged at cache rate
-        # For Anthropic: cache_read is separate from input_tokens
-        # Safe approach: subtract cached from input for billable count
-        billable_input = max(0, raw_input - cached_input)
+        billable_input = max(0, raw_input - included_cached)
         billable_output = raw_output
 
         result["billable_input_tokens"] = billable_input
@@ -257,7 +263,8 @@ class PricingService:
             output_cost = raw_output * output_cost_per_token
 
         total_input_cost = input_cost + cached_cost + creation_cost
-        full_price_input = raw_input * input_cost_per_token
+        # Every prompt token at the full rate, whichever shape counted it.
+        full_price_input = (billable_input + cached_input + cache_creation) * input_cost_per_token
         cached_savings = full_price_input - total_input_cost
 
         result["input_cost"] = round(total_input_cost, 8)

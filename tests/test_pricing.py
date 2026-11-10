@@ -54,6 +54,8 @@ def test_cached_tokens_reduce_cost():
 
 
 def test_anthropic_cache_fields():
+    # Anthropic's input_tokens already EXCLUDES cache reads and writes, so the
+    # 1000 fresh tokens all bill at the full rate and the cache sits beside them.
     svc = _make_service(SAMPLE_PRICES)
     usage = {
         "cache_read_input_tokens": 300,
@@ -61,12 +63,34 @@ def test_anthropic_cache_fields():
     }
     cost = svc.calculate_cost("anthropic", "claude-sonnet-4-6", usage, 1000, 500)
 
-    assert cost["billable_input_tokens"] == 700  # 1000 - 300 cached
-    # Input: 700 * full + 300 * cache_read + 100 * cache_creation
+    assert cost["billable_input_tokens"] == 1000
     expected_input = (
-        700 * 0.000003 + 300 * 0.0000003 + 100 * 0.00000375
+        1000 * 0.000003 + 300 * 0.0000003 + 100 * 0.00000375
     )
     assert cost["input_cost"] == round(expected_input, 8)
+    # Full price is all 1400 prompt tokens, so the read saves 300 * 0.9 of
+    # the rate and the write costs 100 * 0.25 extra.
+    assert cost["cached_savings"] == round(300 * 0.0000027 - 100 * 0.00000075, 8)
+
+
+def test_anthropic_cache_read_larger_than_fresh_input_still_bills_the_fresh_input():
+    # The shape that hid it: a cached Sonnet call is mostly cache. 50 fresh
+    # tokens against 900 read used to clamp to 0 billable.
+    svc = _make_service(SAMPLE_PRICES)
+    cost = svc.calculate_cost("anthropic", "claude-sonnet-4-6",
+                              {"cache_read_input_tokens": 900}, 50, 0)
+    assert cost["billable_input_tokens"] == 50
+    assert cost["input_cost"] == round(50 * 0.000003 + 900 * 0.0000003, 8)
+
+
+def test_anthropic_fallback_through_openrouter_bills_in_the_openai_shape():
+    # The fallback keeps provider="anthropic" but its usage counts the cache
+    # INSIDE prompt_tokens, so the field decides, not the provider.
+    svc = _make_service(SAMPLE_PRICES)
+    cost = svc.calculate_cost("anthropic", "claude-sonnet-4-6",
+                              {"prompt_tokens_details.cached_tokens": 900}, 950, 0)
+    assert cost["billable_input_tokens"] == 50
+    assert cost["input_cost"] == round(50 * 0.000003 + 900 * 0.0000003, 8)
 
 
 def test_reasoning_tokens():
