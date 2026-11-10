@@ -201,8 +201,9 @@ def test_a_volunteered_none_files_its_gate_no_in_the_same_response():
 
 
 def test_every_part_is_read_back_and_confirmed_before_the_next_opens():
-    """Scott, 2026-10-16, reversing the 2026-09-26 one-review ruling."""
-    i = _PROMPT.index("EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS")
+    """Scott, 2026-10-16, reversing the 2026-09-26 one-review ruling; narrowed
+    2026-11-10 to parts that asked two or more questions."""
+    i = _PROMPT.index("EVERY PART OF TWO OR MORE QUESTIONS IS CONFIRMED BEFORE THE NEXT ONE OPENS")
     rule = _PROMPT[i - 400:i + 1400]
     assert "Then ask whether it is right, and STOP" in rule
     assert "`awaiting_confirmation` true, `asking` is null" in rule
