@@ -159,7 +159,7 @@
   .ana-head h3 { margin: 0; font-size: 24px; text-transform: none; letter-spacing: 0; color: var(--text); }
   .ana-head span { color: var(--text-dim); font-size: 14px; }
   .ana .card { background: linear-gradient(165deg, #182238 0%, #121a28 70%); border: 1px solid #263149; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
-  .ana-kpi { position: relative; overflow: hidden; padding: 20px 20px 64px; min-height: 150px; }
+  .ana-kpi { position: relative; overflow: hidden; padding: 20px 20px 96px; min-height: 182px; }
   .ana-kpi-top { display: flex; gap: 14px; align-items: flex-start; }
   .ana-icon { flex: 0 0 48px; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; }
   .ana-icon svg { width: 24px; height: 24px; }
@@ -170,7 +170,20 @@
   .ana-chip.good { color: #34d399; background: rgba(52,211,153,.14); }
   .ana-chip.bad { color: #fb7185; background: rgba(251,113,133,.14); }
   .ana-chip.flat { color: var(--text-dim); background: rgba(148,163,184,.14); }
-  .ana-spark { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; width: 100%; }
+  .ana-spark { position: absolute; left: 0; right: 0; bottom: 0; height: 88px; }
+  .ana-spark .spark-peak { height: 14px; padding: 0 12px; text-align: right; font-size: 10px; line-height: 14px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .ana-spark .spark-plot { position: relative; height: 56px; }
+  .ana-spark svg { display: block; width: 100%; height: 100%; }
+  .ana-spark .spark-rule { stroke: var(--text-dim); stroke-opacity: .35; stroke-width: 1; stroke-dasharray: 3 3; }
+  .ana-spark .spark-axis { display: flex; justify-content: space-between; height: 18px; padding: 0 12px; font-size: 10px; line-height: 18px; color: var(--text-dim); }
+  .spark-col { position: absolute; top: 0; bottom: 0; }
+  .spark-col::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px solid var(--text-dim); opacity: 0; }
+  .spark-dot { position: absolute; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; box-shadow: 0 0 0 2px #121a28; opacity: 0; z-index: 2; }
+  .spark-tip { position: absolute; bottom: calc(100% + 16px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; padding: 4px 8px; border-radius: 6px; background: #0b1220; border: 1px solid #263149; color: var(--text); opacity: 0; pointer-events: none; z-index: 3; font-variant-numeric: tabular-nums; }
+  .spark-l .spark-tip { left: 0; transform: none; }
+  .spark-r .spark-tip { left: auto; right: 0; transform: none; }
+  .spark-col:hover::after { opacity: .5; }
+  .spark-col:hover .spark-dot, .spark-col:hover .spark-tip { opacity: 1; }
   .ana-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; align-items: stretch; }
   @media (max-width: 1100px) { .ana-grid3 { grid-template-columns: 1fr; } }
   .ana .viz-card h4 { font-size: 20px; font-weight: 700; }
@@ -1828,25 +1841,95 @@ const _ANA_ICONS = {
   tablet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M11 16.5h2"/></svg>',
 };
 
-// A filled trend line from a list of daily values, drawn to the card's width.
-function _anaSpark(values, color) {
-  const v = (values || []).map(x => +x || 0);
-  if (v.length < 2) return '';
-  const max = Math.max(...v, 1), w = 100, h = 40;
-  const pts = v.map((y, i) => [i * w / (v.length - 1), h - 4 - (h - 10) * y / max]);
-  // Smoothed through every point (Catmull-Rom as cubic Beziers), so the line
-  // still passes through each day's real value.
-  const f = n => n.toFixed(2);
-  let line = `M${f(pts[0][0])} ${f(pts[0][1])}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
-    line += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+// The window's days as YYYY-MM-DD, oldest first. GP's daily queries group
+// by date and so skip a day with nothing in it; drawn as-is, the remaining
+// days would stretch across the card and a quiet day would vanish. Fill
+// every day from `days` ago through today (UTC, the same clock the SQL uses).
+function _anaDays(days, today) {
+  const end = today ? new Date(today + 'T00:00:00Z') : new Date();
+  const out = [];
+  for (let i = +days || 0; i >= 0; i--) {
+    const d = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() - i));
+    out.push(d.toISOString().slice(0, 10));
   }
-  const id = 'g' + color.slice(1);
-  return `<svg class="ana-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
-    `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".45"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
-    `<path d="${line} L${w} ${h} L0 ${h} Z" fill="url(#${id})"/>` +
-    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+  return out;
+}
+
+// [{key, v}] for every day in the window, 0 for a day GP left out.
+function _anaFill(rows, field, days, today) {
+  const by = {};
+  (rows || []).forEach(r => { by[r.day] = +r[field] || 0; });
+  return _anaDays(days, today).map(k => ({key: k, v: by[k] || 0}));
+}
+
+function _anaN(n, noun) { return `${Math.round(n).toLocaleString()} ${noun}${Math.round(n) === 1 ? '' : 's'}`; }
+
+// "Nov 3" for a day, "Nov 3 14:00" for an hourly bucket.
+function _sparkWhen(key) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}))?/.exec(String(key || ''));
+  if (!m) return String(key || '');
+  const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1];
+  return `${mon} ${+m[3]}` + (m[4] != null ? ` ${m[4]}:00` : '');
+}
+
+// Pure: an SVG path through every point with no overshoot. Monotone cubic
+// (Fritsch and Carlson): each segment stays between its two days' values, so
+// a dip or a bump on the card is always a real day, never the curve swinging
+// past one. Two points draw a straight line.
+function _monoPath(pts) {
+  const f = n => n.toFixed(2), n = pts.length;
+  if (n < 2) return '';
+  const d = [], m = new Array(n).fill(0);
+  for (let k = 0; k < n - 1; k++) d.push((pts[k + 1][1] - pts[k][1]) / (pts[k + 1][0] - pts[k][0]));
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let k = 1; k < n - 1; k++) m[k] = d[k - 1] * d[k] <= 0 ? 0 : (d[k - 1] + d[k]) / 2;
+  for (let k = 0; k < n - 1; k++) {
+    if (d[k] === 0) { m[k] = 0; m[k + 1] = 0; continue; }
+    const a = m[k] / d[k], b = m[k + 1] / d[k], s = a * a + b * b;
+    if (s > 9) { const t = 3 / Math.sqrt(s); m[k] = t * a * d[k]; m[k + 1] = t * b * d[k]; }
+  }
+  let line = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+  for (let k = 0; k < n - 1; k++) {
+    const [x0, y0] = pts[k], [x1, y1] = pts[k + 1], h = (x1 - x0) / 3;
+    line += ` C${f(x0 + h)} ${f(y0 + m[k] * h)} ${f(x1 - h)} ${f(y1 - m[k + 1] * h)} ${f(x1)} ${f(y1)}`;
+  }
+  return line;
+}
+
+// The card's trend strip, readable: the line runs from zero (bottom) to the
+// window's peak (dashed rule, labelled), the first and last day sit under
+// it, and hovering a day shows its date and value. `points` is [{key, v}];
+// a null v is a gap (an hour with no calls has no latency), never a zero.
+// `fmtv` formats one value with its unit, e.g. v => v + ' meetings'.
+function _trendSpark(points, color, fmtv, label) {
+  const all = points || [], span = all.length - 1;
+  const v = all.map((p, i) => [i, p.v]).filter(([, y]) => y != null && isFinite(y));
+  if (v.length < 2 || span < 1) return '';
+  const fv = fmtv || (x => String(x));
+  const max = Math.max(...v.map(([, y]) => +y), 1e-9), w = 100, h = 40;
+  const Y = y => h - 4 - (h - 10) * y / max;
+  const pts = v.map(([i, y]) => [i * w / span, Y(+y)]);
+  const line = _monoPath(pts);
+  const f = n => n.toFixed(2);
+  const gid = 'sg' + color.slice(1) + (label || '').replace(/\W/g, '');
+  const peak = Math.max(...v.map(([, y]) => +y));
+  const first = _sparkWhen(all[0].key), last = _sparkWhen(all[span].key);
+  const cols = all.map((p, i) => {
+    const has = p.v != null && isFinite(p.v);
+    const at = i / span * 100, side = at < 25 ? 'l' : (at > 75 ? 'r' : 'c');
+    return `<div class="spark-col spark-${side}" style="left:${f(at - 50 / span)}%;width:${f(100 / span)}%">` +
+      (has ? `<i class="spark-dot" style="top:${f(Y(+p.v) / h * 100)}%;background:${color}"></i>` : '') +
+      `<span class="spark-tip">${esc(_sparkWhen(p.key))}: ${esc(has ? fv(+p.v) : 'no data')}</span></div>`;
+  }).join('');
+  return `<div class="ana-spark" role="img" aria-label="${esc((label ? label + ', ' : '') + first + ' to ' + last + ', peak ' + fv(peak))}">` +
+    `<div class="spark-peak">peak ${esc(fv(peak))}</div>` +
+    `<div class="spark-plot"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".45"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
+    `<line x1="0" x2="${w}" y1="${f(Y(peak))}" y2="${f(Y(peak))}" class="spark-rule" vector-effect="non-scaling-stroke"/>` +
+    `<path d="${line} L${f(pts[pts.length - 1][0])} ${h} L${f(pts[0][0])} ${h} Z" fill="url(#${gid})"/>` +
+    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>` +
+    `${cols}</div>` +
+    `<div class="spark-axis"><span>${esc(first)}</span><span>${esc(last)}</span></div></div>`;
 }
 
 // The change chip: arrow, sign and percent, so it never leans on color.
@@ -1864,7 +1947,7 @@ function _anaKpiCards(cards) {
   return cards.map(c => `<div class="card ana-kpi">` +
     `<div class="ana-kpi-top"><div class="ana-icon" style="background:${c.color}2e;color:${c.color}">${_ANA_ICONS[c.icon]}</div>` +
     `<div><div class="card-label">${esc(c.label)}</div><div class="card-value">${esc(c.value)}</div></div>` +
-    `${c.delta}</div>${_anaSpark(c.series, c.color)}</div>`).join('');
+    `${c.delta}</div>${_trendSpark(c.series, c.color, c.fmtv, c.label)}</div>`).join('');
 }
 
 // Vertical columns, largest first, past `max` the tail folds into Other.
@@ -1949,13 +2032,13 @@ async function _renderAnalytics(dash, days, app) {
   const na = 'n/a';
   document.getElementById('ana-kpis').innerHTML = _anaKpiCards([
     {label: 'Meetings', icon: 'meetings', color: '#4c9aff', value: tel ? (+k.meeting_starts || 0).toLocaleString() : na,
-     delta: tel ? _anaDelta(+k.meeting_starts || 0, tp && tp.meeting_starts, days) : '', series: tdaily.map(r => r.meetings)},
+     delta: tel ? _anaDelta(+k.meeting_starts || 0, tp && tp.meeting_starts, days) : '', series: _anaFill(tdaily, 'meetings', days), fmtv: x => _anaN(x, 'meeting')},
     {label: 'Active Users', icon: 'users', color: '#a78bfa', value: (dash.window_users || 0).toLocaleString(),
-     delta: _anaDelta(dash.window_users || 0, dp && dp.users, days), series: daily.map(r => r.users)},
+     delta: _anaDelta(dash.window_users || 0, dp && dp.users, days), series: _anaFill(daily, 'users', days), fmtv: x => _anaN(x, 'user')},
     {label: 'Devices', icon: 'devices', color: '#2dd4bf', value: tel ? (+k.distinct_devices || 0).toLocaleString() : na,
-     delta: tel ? _anaDelta(+k.distinct_devices || 0, tp && tp.distinct_devices, days) : '', series: tdaily.map(r => r.devices)},
+     delta: tel ? _anaDelta(+k.distinct_devices || 0, tp && tp.distinct_devices, days) : '', series: _anaFill(tdaily, 'devices', days), fmtv: x => _anaN(x, 'device')},
     {label: 'Total AI Cost', icon: 'cost', color: '#8b5cf6', value: '$' + cost.toFixed(2),
-     delta: _anaDelta(cost, dp && dp.cost_usd, days, true), series: daily.map(r => r.cost)},
+     delta: _anaDelta(cost, dp && dp.cost_usd, days, true), series: _anaFill(daily, 'cost', days), fmtv: x => '$' + x.toFixed(2)},
   ]);
   const money = v => '$' + v.toFixed(2);
   _renderShareBars('ana-cost', (dash.by_model || []).map(m => ({label: m.model, hint: m.provider, value: m.cost_usd || 0})),
@@ -4439,28 +4522,6 @@ const _PERF_ICONS = {
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="m8 12.5 2.7 2.7L16 9.8"/></svg>',
 };
 
-// Pure: a trend line that keeps gaps. A bucket with no calls has no
-// latency, so it is skipped rather than drawn at zero; x stays the bucket's
-// position in the window. Fewer than two points draws nothing.
-function _perfSpark(values, color) {
-  const v = (values || []).map((y, i) => [i, y]).filter(([, y]) => y != null && isFinite(y));
-  const span = (values || []).length - 1;
-  if (v.length < 2 || span < 1) return '';
-  const max = Math.max(...v.map(([, y]) => y), 1e-9), w = 100, h = 40;
-  const pts = v.map(([i, y]) => [i * w / span, h - 4 - (h - 10) * y / max]);
-  const f = n => n.toFixed(2);
-  let line = `M${f(pts[0][0])} ${f(pts[0][1])}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
-    line += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
-  }
-  const gid = 'pg' + color.slice(1);
-  return `<svg class="ana-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">` +
-    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".45"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
-    `<path d="${line} L${f(pts[pts.length - 1][0])} ${h} L${f(pts[0][0])} ${h} Z" fill="url(#${gid})"/>` +
-    `<path d="${line}" fill="none" stroke="${color}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
-}
-
 function _perfHeroCards(d) {
   const c = d.current || {}, p = d.previous || {}, b = d.buckets || [];
   const days = d.days;
@@ -4471,18 +4532,18 @@ function _perfHeroCards(d) {
   const delta = (cur, prev, goodWhenDown) => (cur == null ? '' : _anaDelta(cur, prevOk ? prev : null, days, goodWhenDown));
   const cards = [
     {label: 'Calls', value: fmt(c.n || 0), icon: 'calls', color: '#4c9aff',
-     delta: _anaDelta(c.n || 0, p.n == null ? null : p.n, days), series: b.map(x => x.n)},
+     delta: _anaDelta(c.n || 0, p.n == null ? null : p.n, days), series: b.map(x => ({key: x.bucket, v: x.n})), fmtv: x => _anaN(x, 'call')},
     {label: 'Median response', value: ms(c.p50), icon: 'clock', color: '#34d399',
-     delta: delta(c.p50, p.p50, true), series: b.map(x => x.p50)},
+     delta: delta(c.p50, p.p50, true), series: b.map(x => ({key: x.bucket, v: x.p50})), fmtv: x => 'median ' + ms(x)},
     {label: 'Slow tail (p95)', value: ms(c.p95), icon: 'tail', color: '#a78bfa',
-     delta: delta(c.p95, p.p95, true), series: b.map(x => x.p95)},
+     delta: delta(c.p95, p.p95, true), series: b.map(x => ({key: x.bucket, v: x.p95})), fmtv: x => 'p95 ' + ms(x)},
     {label: 'Cost per call', value: c.cost_per_call == null ? '-' : '$' + c.cost_per_call.toFixed(4), icon: 'cost', color: '#fbbf24',
-     delta: delta(c.cost_per_call, p.cost_per_call, true), series: b.map(x => x.cost_per_call)},
+     delta: delta(c.cost_per_call, p.cost_per_call, true), series: b.map(x => ({key: x.bucket, v: x.cost_per_call})), fmtv: x => '$' + x.toFixed(4) + ' a call'},
   ];
   return cards.map(k => `<div class="card ana-kpi">` +
     `<div class="ana-kpi-top"><div class="ana-icon" style="background:${k.color}2e;color:${k.color}">${_PERF_ICONS[k.icon] || _ANA_ICONS[k.icon]}</div>` +
     `<div><div class="card-label">${esc(k.label)}</div><div class="card-value">${esc(k.value)}</div></div>` +
-    `${k.delta}</div>${_perfSpark(k.series, k.color)}</div>`).join('');
+    `${k.delta}</div>${_trendSpark(k.series, k.color, k.fmtv, k.label)}</div>`).join('');
 }
 
 // Pure: up to four findings for the window, each a number with its
