@@ -2031,6 +2031,7 @@ async def _chat_impl(
             assemble_prompt,
         )
         from app.services.spanish_numerals import numeral_variables as _numeral_variables
+        from app.services.n400_interviewer_guard import confirm_part_boundary as _confirm_part_boundary
         call_type = body.get_meta("call_type")
         if call_type:
             try:
@@ -2052,7 +2053,12 @@ async def _chat_impl(
                     # reading of the number words in the utterance, beside
                     # it, never in place of it (app/services/spanish_numerals.py).
                     variables={**dict(body.metadata or {}), **_numeral_variables(
-                        call_type, body.get_meta("locale"), body.user_content)},
+                        call_type, body.get_meta("locale"), body.user_content),
+                        # The N-400 client's pre-2026-10-16 boundary text told
+                        # the lane to skip the part confirmation; rewritten so
+                        # shipped builds get the current rule (walk 216).
+                        **_confirm_part_boundary(
+                            call_type, body.get_meta("section_boundary"))},
                 )
             except MissingPromptVariables as exc:
                 # 422, not a silent send. A config that says which values it
@@ -4775,24 +4781,25 @@ async def _chat_impl(
             # dropped so nothing downstream can credit a completion that
             # never happened.
             from app.services.n400_interviewer_guard import (
-                CHECKPOINT_REMINDER, checkpoint_is_refused,
+                checkpoint_is_refused, checkpoint_reminder,
                 drop_contradicted_checkpoint, mark_checkpoint_refused,
             )
             _agenda = body.get_meta("agenda")
             _known = body.get_meta("known_facts")
-            _bad_cp = checkpoint_is_refused(response.text, _agenda, _known)
+            _said = body.get_meta("user_input") or _n400_utterance
+            _bad_cp = checkpoint_is_refused(response.text, _agenda, _known, _said)
             if _bad_cp is not None:
                 _cp_turn = body.get_meta("turn_id")
                 logger.warning(
                     "n400_checkpoint_refused turn_id=%s part=%s reason=%s",
                     _cp_turn, _bad_cp["part"], _bad_cp["reason"])
                 _cp_body = body.model_copy(update={
-                    "user_content": (body.user_content or "") + CHECKPOINT_REMINDER})
+                    "user_content": (body.user_content or "") + checkpoint_reminder(_bad_cp)})
                 _cp_retry = await route_with_fallback(
                     provider_router, _cp_body, db, request.app.state.settings,
                 )
                 _cp_text = _strip_json_code_fence(_cp_retry.text or "") if _cp_retry else ""
-                _cp_ok = bool(_cp_text and checkpoint_is_refused(_cp_text, _agenda, _known) is None)
+                _cp_ok = bool(_cp_text and checkpoint_is_refused(_cp_text, _agenda, _known, _said) is None)
                 await _log_guard_retry(
                     usage_tracker, db, user.id, _cp_body, _cp_retry, start,
                     "checkpoint", resolved=_cp_ok, app_id=app_id)

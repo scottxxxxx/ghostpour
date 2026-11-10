@@ -1772,6 +1772,18 @@ def _date_carried(year: str, month: int, day: int, said: str,
         if _whole_date_in(year, month, day, line):
             return back, "whole"
     said_plain = _plain(said)
+    # "year_corrected" (Scott's build 216 walk, case f58ab24a, 2026-11-10): she
+    # said "January 1st, 2026.", the lane caught that 2026 could not be her
+    # green card year, and she answered "2016." That is the year of the date
+    # she had just given, so the date is her day and month with the new year.
+    # Only her LAST line, only when it held this day and month with a
+    # DIFFERENT year, and only when what she says now is the year alone.
+    if recent and _year_said(year, _fold(said)) and not _any_day_spoken(said) \
+            and not re.search(rf"\b(?:{_month_forms()})\b", said_plain):
+        last = recent[0][1]
+        if _day_and_month_in(month, day, last) and not _year_said(year, _fold(last)) \
+                and re.search(r"\b(?:19|20)\d{2}\b", _years_as_digits(last)):
+            return 1, "year_corrected"
     names_month = bool(re.search(rf"\b(?:{_month_forms(month)})\b", said_plain))
     if not names_month or _any_day_spoken(said):
         return None
@@ -2496,11 +2508,174 @@ def checkpoint_reads_back_nothing(text: str, known_facts: str | None) -> dict | 
             "reason": NOTHING_RECORDED_REASON}
 
 
+# --- the client's boundary text, from before 2026-10-16 ----------------------
+#
+# N400 App InterviewerEnvelope.swift (the v39 boundary, Scott 2026-09-26) still
+# sends "summarize Part N in one sentence and open Part M <title> in the same
+# reply, without asking for confirmation". Scott reversed that ruling on
+# 2026-10-16 (EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS) and the prompt
+# moved; the client string did not. The lane followed the client: build 216,
+# case f58ab24a, Parts 12, 1 and 2 were read back with the next part's question
+# riding along, and Part 3, the one boundary that text did not reach, was
+# confirmed. Rewritten on the way in so builds already in her hands get the
+# current rule without a release.
+_STALE_BOUNDARY = re.compile(
+    r"summarize Part (\d+) in one sentence and open Part (\d+)(.*?) in the same reply, "
+    r"without asking for confirmation\s*$")
+
+
+def confirm_part_boundary(call_type: str | None, section_boundary: object) -> dict:
+    """{"section_boundary": rewritten} when the client sent the retired clause, else {}."""
+    if call_type != "n400_interviewer_turn" or not isinstance(section_boundary, str):
+        return {}
+    new, n = _STALE_BOUNDARY.subn(
+        r"read Part \1 back and ask if it is complete and correct (section_checkpoint "
+        r"awaiting_confirmation true, asking null); Part \2\3 opens only after her yes, "
+        r"never in the same reply",
+        section_boundary)
+    if not n:
+        return {}
+    logger.info("n400_boundary_rewritten from=retired_no_confirmation")
+    return {"section_boundary": new}
+
+
+REFUSED_RIDES_NEXT_QUESTION = "rides_next_question"
+RIDES_NEXT_QUESTION_REASON = (
+    "a part read-back asked the next question in the same reply instead of "
+    "asking her to confirm the part"
+)
+
+
+def checkpoint_rides_next_question(text: str) -> dict | None:
+    """Info when a part read-back carries the next question instead of "is that right?".
+
+    EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS (Scott, 2026-10-16):
+    the read-back ends on its confirmation ask, with `asking` null. Scott's
+    build 216 walk (case f58ab24a, 2026-11-10) read back Parts 12, 1 and 2
+    and opened the next part in the same breath, three boundaries of five,
+    and he asked "Why does it sometimes ask to confirm and other times
+    not?" Every one carried the checkpoint with awaiting_confirmation FALSE
+    and `asking` on the next node, the September shape, which
+    `drop_checkpoint_when_asking_set` deliberately keeps. The cause was the
+    client's SECTION BOUNDARY text still saying "without asking for
+    confirmation" (now rewritten on the way in, see `confirm_part_boundary`);
+    this is the floor for when the lane does it anyway.
+
+    Keyed on the REPLY as well as `asking`, the same way and for the same
+    reason as `drop_checkpoint_when_asking_set`: a read-back that ends on
+    "is that right?" with `asking` set (walk 216 t_011) is a confirmation
+    the client draws as a card, and is not refused here.
+    """
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict) or not isinstance(cp.get("part"), int):
+        return None
+    asking = turn.get("asking")
+    if not _asking_is_set(asking):
+        return None
+    if any(asks_for_confirmation(t) for t in _reply_texts(turn.get("reply"))):
+        return None
+    return {"part": cp["part"],
+            "asking": asking.get("node_id") if isinstance(asking, dict) else asking,
+            "code": REFUSED_RIDES_NEXT_QUESTION,
+            "reason": RIDES_NEXT_QUESTION_REASON}
+
+
+CHECKPOINT_CONFIRM_REMINDER = (
+    "\n\nSTOP. Your last response read a part back and asked a question from "
+    "the next part in the same reply. Every part is confirmed before the next "
+    "one opens, whatever SECTION BOUNDARY says. Read that part back and end "
+    "the reply on \"Is that right?\" (\"¿Es correcto?\", \"Está correto?\"), "
+    "with section_checkpoint for that part, awaiting_confirmation true, and "
+    "asking null. Ask nothing from the next part. Reply with the JSON object only."
+)
+
+# The client's capture-gap line in KNOWN FACTS (N400 App
+# InterviewerEnvelope.captureGapKnownFactValue): she said something toward
+# this field, it was never recorded, and the client wants it asked again.
+CAPTURE_GAP_KNOWN_FACT = "said earlier, not yet recorded, ask again"
+
+# Words that put a question off. Only these let an applicant-origin deferral
+# of a capture-gap field stand on the turn it is written.
+_PUT_OFF = re.compile(
+    r"\b(?:later|check|look it up|find it|don t know|do not know|not sure|no idea|"
+    r"don t remember|can t remember|skip|come back|"
+    r"despues|luego|mas tarde|verificar|revisar|buscar|no se|no estoy segur[oa]|no recuerdo|no me acuerdo|"
+    r"depois|mais tarde|conferir|nao sei|nao tenho certeza|nao lembro)\b")
+
+REFUSED_CAPTURE_GAP_DEFERRED = "capture_gap_deferred_unasked"
+CAPTURE_GAP_DEFERRED_REASON = (
+    "the read-back closed a part over a field the app asked to be asked again, "
+    "deferred in her name on an answer that did not put it off"
+)
+
+
+def checkpoint_over_unasked_capture_gap(text: str, agenda: str | None,
+                                        known_facts: str | None,
+                                        user_content: str | None) -> dict | None:
+    """Info when a checkpoint's part is "settled" only by a deferral she never made.
+
+    Walk 216 (case f58ab24a, t_008): KNOWN FACTS held "p2.lpr_date: said
+    earlier, not yet recorded, ask again, partial 2016" and the standing node
+    was q_p2_lpr_date. She had just said "Male." The lane deferred the date
+    with origin "applicant" and read Part 2 back; the green card date was
+    asked only after Part 3. FINISH A PART BEFORE MOVING ON. An applicant
+    deferral settles its node for `checkpoint_contradicts_agenda`, so this
+    is the case that check cannot see: the deferral is the lane's, written
+    in her name. It stands only when her words this turn put something off.
+    """
+    if not known_facts:
+        return None
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(turn, dict):
+        return None
+    cp = turn.get("section_checkpoint")
+    if not isinstance(cp, dict) or not isinstance(cp.get("part"), int):
+        return None
+    if _PUT_OFF.search(_plain(user_content or "")):
+        return None
+    part = cp["part"]
+    by_node = agenda_field_ids(agenda)
+    nodes_of_part = {n for n, p in agenda_parts(agenda).items() if p == part}
+    facts = {f.get("field_id") for f in (turn.get("facts") or []) if isinstance(f, dict)}
+    open_nodes = set()
+    for d in turn.get("deferred") or []:
+        if not isinstance(d, dict) or deferral_origin(d) == DEFERRAL_ORIGIN_CAPTURE_GAP:
+            continue
+        fid = d.get("field_id")
+        if not fid or fid in facts or CAPTURE_GAP_KNOWN_FACT not in _known_line(known_facts, fid):
+            continue
+        open_nodes |= {n for n in nodes_of_part if fid in by_node.get(n, set())}
+    if not open_nodes:
+        return None
+    return {"part": part, "open_nodes": sorted(open_nodes),
+            "code": REFUSED_CAPTURE_GAP_DEFERRED,
+            "reason": CAPTURE_GAP_DEFERRED_REASON}
+
+
+def checkpoint_reminder(info: dict) -> str:
+    """The retry note that names what was actually wrong."""
+    if info.get("code") == REFUSED_RIDES_NEXT_QUESTION:
+        return CHECKPOINT_CONFIRM_REMINDER
+    return CHECKPOINT_REMINDER
+
+
 def checkpoint_is_refused(text: str, agenda: str | None,
-                          known_facts: str | None) -> dict | None:
-    """Either refusal reason, agenda contradiction first."""
+                          known_facts: str | None,
+                          user_content: str | None = None) -> dict | None:
+    """Any refusal reason, agenda contradiction first."""
     return (checkpoint_contradicts_agenda(text, agenda)
-            or checkpoint_reads_back_nothing(text, known_facts))
+            or checkpoint_reads_back_nothing(text, known_facts)
+            or checkpoint_over_unasked_capture_gap(text, agenda, known_facts, user_content)
+            or checkpoint_rides_next_question(text))
 
 
 def mark_checkpoint_refused(text: str, info: dict, retried: bool,
