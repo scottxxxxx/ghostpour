@@ -55,23 +55,73 @@ def test_takeaways_skip_the_trend_without_prior_calls_and_report_a_failure_rate(
     assert out[-1]["title"] == "1.3% of calls failed"
 
 
+_SPARK = ("_sparkWhen", "_monoPath", "_trendSpark")
+
+
 def test_spark_skips_an_empty_bucket_instead_of_drawing_zero():
     out = _run("""
-console.log(JSON.stringify({gap: _perfSpark([4000, null, 1000], '#4c9aff'), one: _perfSpark([null, 5, null], '#4c9aff')}));""",
-               "_perfSpark")
+const P = vs => vs.map((v, i) => ({key: '2026-11-0' + (i + 1), v}));
+console.log(JSON.stringify({gap: _trendSpark(P([4000, null, 1000]), '#4c9aff'), one: _trendSpark(P([null, 5, null]), '#4c9aff')}));""",
+               *_SPARK)
     line = re.findall(r'<path d="(M[^"]*)" fill="none"', out["gap"])[0]
     # Two points, at the window's first and last x: 4000 is the max (y 6),
     # 1000 a quarter of it (y 28.5). One segment, nothing at the middle x.
     assert line.startswith("M0.00 6.00 C") and line.endswith(" 100.00 28.50")
     assert line.count(" C") == 1
+    assert "Nov 2: no data" in out["gap"], "the gap hour says so on hover, not 0"
     assert out["one"] == "", "one point is not a trend"
+
+
+def _curve_ys(path, samples=50):
+    """Every y the drawn curve reaches, sampled along each cubic segment."""
+    nums = [float(x) for x in re.findall(r"-?\d+\.\d+", path)]
+    x0, y0, rest = nums[0], nums[1], nums[2:]
+    segs = []
+    for k in range(0, len(rest), 6):
+        c1y, c2y, ey = rest[k + 1], rest[k + 3], rest[k + 5]
+        ys = [(1 - t) ** 3 * y0 + 3 * (1 - t) ** 2 * t * c1y + 3 * (1 - t) * t * t * c2y + t ** 3 * ey
+              for t in (i / samples for i in range(samples + 1))]
+        segs.append((y0, ey, ys))
+        y0 = ey
+    return segs
+
+
+def test_curve_never_swings_past_a_day():
+    # A spike between flat days is where Catmull-Rom overshot: the old line
+    # dipped below the quiet days on either side of the peak.
+    out = _run("""
+const P = [3, 3, 20, 3, 3, 9, 0, 0].map((v, i) => ({key: '2026-11-0' + (i + 1), v}));
+console.log(JSON.stringify({s: _trendSpark(P, '#4c9aff', v => v + ' meetings', 'Meetings')}));""", *_SPARK)["s"]
+    line = re.findall(r'<path d="(M[^"]*)" fill="none"', out)[0]
+    for a, b, ys in _curve_ys(line):
+        lo, hi = min(a, b), max(a, b)
+        assert all(lo - 1e-6 <= y <= hi + 1e-6 for y in ys), (a, b, min(ys), max(ys))
+
+
+def test_strip_labels_the_window_the_peak_and_every_day():
+    out = _run("""
+const P = [3, 0, 20].map((v, i) => ({key: '2026-11-0' + (i + 3), v}));
+console.log(JSON.stringify({s: _trendSpark(P, '#4c9aff', v => v + ' meetings', 'Meetings')}));""", *_SPARK)["s"]
+    assert '<div class="spark-axis"><span>Nov 3</span><span>Nov 5</span></div>' in out
+    assert '<div class="spark-peak">peak 20 meetings</div>' in out
+    tips = re.findall(r'<span class="spark-tip">(.*?)</span>', out)
+    assert tips == ["Nov 3: 3 meetings", "Nov 4: 0 meetings", "Nov 5: 20 meetings"]
+    assert 'aria-label="Meetings, Nov 3 to Nov 5, peak 20 meetings"' in out
+
+
+def test_overview_fills_the_days_gp_left_out():
+    out = _run("""
+console.log(JSON.stringify(_anaFill([{day: '2026-11-04', meetings: 5}, {day: '2026-11-07', meetings: 2}], 'meetings', 3, '2026-11-07')));""",
+               "_anaDays", "_anaFill")
+    assert out == [{"key": "2026-11-04", "v": 5}, {"key": "2026-11-05", "v": 0},
+                   {"key": "2026-11-06", "v": 0}, {"key": "2026-11-07", "v": 2}]
 
 
 def test_hero_chips_flip_for_latency_and_cost_and_go_quiet_without_a_prior():
     tail = """
 const _PERF_ICONS = {}; const _ANA_ICONS = {};
 console.log(JSON.stringify({html: _perfHeroCards(D)}));"""
-    funcs = ("_anaDelta", "_perfSpark", "_perfHeroCards")
+    funcs = ("_anaDelta", "_anaN") + _SPARK + ("_perfHeroCards",)
     html = _run(f"const D = {_D};" + tail, *funcs)["html"]
     chips = re.findall(r'<span class="ana-chip (\w+)">(.*?)</span>', html)
     assert chips == [("good", "↑ +26%"), ("good", "↓ -33%"), ("bad", "↑ +1%"), ("good", "↓ -30%")]
