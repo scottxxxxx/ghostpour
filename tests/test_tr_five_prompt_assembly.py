@@ -99,17 +99,16 @@ def test_unknown_kind_uses_defaults_without_double_space():
     assert "{{" not in r
     assert "  The user will play" not in r
     assert "conversation. The user will play" in r
-    # NOTE "the The other person" is intentional: the client template reads
-    # "the counterpart is the {counterpart}" and TR's table value is
-    # "The other person" — the pre-cutover wire is byte-identical, so we
-    # preserve the quirk rather than "fix" behavior mid-port.
-    assert "the counterpart is the The other person" in r
+    # The port kept "the counterpart is the The other person" byte for byte;
+    # TR asked for it fixed (2026-11-09), so the article is gone.
+    assert "the counterpart is: The other person" in r
+    assert "the The other person" not in r
 
 
 def test_debrief_job_interview_framing_and_scorecard_contract():
     r = _asm("tr_debrief", kind="jobInterview")["system_prompt"]
     assert "debriefing a job interview answer or exchange" in r
-    assert "The counterpart is the Interviewer." in r
+    assert "The counterpart is: Interviewer." in r
     # the five score names are load-bearing enum keys — keep English, in order
     assert '"Clarity"|"Empathy"|"Confidence"|"Boundaries"|"Risk"' in r
     assert "Use exactly those five score names, in that order." in r
@@ -120,7 +119,7 @@ def test_debrief_job_interview_framing_and_scorecard_contract():
 def test_rewrite_job_interview_framing():
     r = _asm("tr_rewrite", kind="jobInterview")["system_prompt"]
     assert "use STAR framing when it's a behavioral answer" in r
-    assert "The counterpart is the Interviewer." in r
+    assert "The counterpart is: Interviewer." in r
     assert '"rewritten"' in r and '"why"' in r
 
 
@@ -208,7 +207,7 @@ def test_compare_reality_config_and_contract_guards():
         "ONE coaching line encouraging a fuller recap",
         "fewer grounded sections always beat padded ones",
         # output contract
-        '"delta": one of "landed" | "drifted" | "missed" | "unplanned"',
+        '"delta": one of "landed" | "mixed" | "drifted" | "missed" | "new"',
         '"next_best_focus"',
         "2-4 word noun phrase",
 
@@ -225,7 +224,7 @@ def test_compare_reality_config_and_contract_guards():
     cfgs = {"techrehearsal/compare-reality": cfg}
     job = assemble_prompt("tr_compare_reality", "BLOB", cfgs, scenario_kind="jobInterview")
     assert "comparing a real job interview against their rehearsal" in job["system_prompt"]
-    assert "The counterpart is the Interviewer." in job["system_prompt"]
+    assert "The counterpart is: Interviewer." in job["system_prompt"]
     # 8192 since 2026-08-19: at 4096 its worst observed call spent 2,059
     # tokens thinking and landed at 95% of cap. See test_tr_token_ceilings.
     assert "temperature" not in job and job["max_tokens"] == 8192
