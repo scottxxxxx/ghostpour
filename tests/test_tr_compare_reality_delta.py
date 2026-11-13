@@ -55,13 +55,19 @@ def test_the_schema_block_carries_the_definitions_too():
     the guidance paragraph twenty lines up."""
     p = _prompt()
     assert "missed = never came up at all" in p
-    assert "INCLUDING a topic that came up and was delivered poorly" in p
+    assert "INCLUDING a topic delivered poorly" in p
+    assert "mixed = came up and held in part" in p
 
 
-def test_the_enum_still_has_exactly_four_values():
-    """Tightened, not split. A fifth value would be a decode risk on every
-    shipped build for a distinction the existing four already carry."""
+def test_the_enum_is_the_five_the_client_decodes():
+    """Split after all (TR round 8, 2026-11-12): a topic that half landed
+    came back DRIFTED beside its own praise. The client decodes `delta` as a
+    plain String and reads `mixed` and `new` since round 8 (Section.isMixed,
+    Section.isNew in TR's CompareRealityClient.swift), so the new values are
+    not a decode risk. `unplanned` is retired for `new`, which the client
+    renders the same way."""
     p = _prompt()
-    assert '"landed" | "drifted" | "missed" | "unplanned"' in p
+    assert '"landed" | "mixed" | "drifted" | "missed" | "new"' in p
+    assert '"unplanned"' not in p
     for absent in ("fumbled\"", "\"failed\"", "\"botched\""):
         assert absent not in p
