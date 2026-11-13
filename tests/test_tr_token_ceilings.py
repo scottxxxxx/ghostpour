@@ -256,6 +256,6 @@ def test_every_raised_config_declares_a_new_version():
     never done, so the number has to move with the value."""
     expected = {"mock-interview": 17, "match-analysis": 17,
                 "jd-analysis": 15, "compare-reality": 12,
-                "response-analysis": 21}
+                "response-analysis": 22}
     for slug, version in expected.items():
         assert _config(slug)["version"] == version, slug
