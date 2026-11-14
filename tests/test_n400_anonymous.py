@@ -89,9 +89,12 @@ def _state(r):
 def test_the_shipped_doc_carries_both_dials():
     import json
     doc = json.load(open("config/remote/n400/budget.json"))
-    assert doc["anonymous"]["per_application_usd"] == 2
-    assert doc["anonymous"]["per_install_lifetime_usd"] == 10
-    assert doc["anonymous"]["daily_all_installs_usd"] == 50
+    # 4x on 2026-11-13 (Scott): a full interview measured $2.50 to $3.85 at
+    # $0.028 to $0.030 a turn, so $2 ran out before the purchase point.
+    assert doc["anonymous"]["per_application_usd"] == 8
+    assert doc["anonymous"]["per_install_lifetime_usd"] == 40
+    assert doc["anonymous"]["per_ip_usd"] == 8
+    assert doc["anonymous"]["daily_all_installs_usd"] == 200
 
 
 def test_an_anonymous_n400_install_is_served_under_its_allowance(client, tmp_db_path):

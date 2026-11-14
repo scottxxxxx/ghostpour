@@ -135,10 +135,12 @@ def test_a_turn_stores_the_servers_key_never_the_clients(client, tmp_db_path):
     assert rows == [(network_key(HOME),)]
 
 
-def test_the_shipped_doc_sets_two_dollars_over_thirty_days():
+def test_the_shipped_doc_sets_eight_dollars_over_thirty_days():
+    """$2 until 2026-11-13, then 4x with the other anonymous dials (Scott),
+    so one household's interview no longer shuts out the next install."""
     import json
     a = json.load(open("config/remote/n400/budget.json"))["anonymous"]
-    assert a["per_ip_usd"] == 2 and a["per_ip_window_days"] == 30
+    assert a["per_ip_usd"] == 8 and a["per_ip_window_days"] == 30
 
 
 def test_the_ip_sum_never_reads_usage_log(client, tmp_db_path):

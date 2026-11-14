@@ -88,10 +88,12 @@ def test_i765_budget_is_flat_on_its_own_document_like_n400s():
     assert entry["budget"]["config_slug"] == "i765/budget"
     assert entry["budget"]["own_account_meter"] is True
     assert entry["budget"]["monthly_cost_limit_usd"] == -1
-    # The shipped document is n400's with the name swapped and nothing else.
-    assert SHIPPED["anonymous"]["per_application_usd"] == SHIPPED_N400["anonymous"]["per_application_usd"] == 2
-    assert SHIPPED["anonymous"]["per_install_lifetime_usd"] == SHIPPED_N400["anonymous"]["per_install_lifetime_usd"] == 10
-    assert SHIPPED["anonymous"]["daily_all_installs_usd"] == SHIPPED_N400["anonymous"]["daily_all_installs_usd"] == 50
+    # Shipped as n400's document with the name swapped. N-400's anonymous
+    # dials went 4x on 2026-11-13 (Scott); I-765's were not part of that
+    # ruling and stay where they shipped.
+    assert SHIPPED["anonymous"]["per_application_usd"] == 2
+    assert SHIPPED["anonymous"]["per_install_lifetime_usd"] == 10
+    assert SHIPPED["anonymous"]["daily_all_installs_usd"] == 50
     # Read off the edge log, not predicted: the renamed build (client e42a4ae)
     # sends "Forms%20Helper/1 CFNetwork/...", from CFBundleName, although
     # PRODUCT_NAME is still "I-765 Helper" (2026-10-21).
