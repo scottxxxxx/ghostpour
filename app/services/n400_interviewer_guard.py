@@ -253,6 +253,20 @@ def replace_settled_question(text: str, agenda: str | None, locale: str | None) 
     # Nor a node this response made moot: a "no" gate's follow-up (t_004,
     # Scott's run f0a763cc, she heard the account NUMBER asked after saying
     # she had no account).
+    # A follow-up the answer opened is not a question about the settled node.
+    # Steven's case 515e9bb1 (2026-11-13), twice: t_014 "Yes, can you take out
+    # the Ottilie part?" opened a new-name clarification and he heard the USCIS
+    # account question instead; "Yes" to trips was answered with the fee
+    # question. A clarification is always kept. A gate answered YES opens a
+    # follow-up the agenda cannot list yet (it runs a turn behind), so its
+    # reply is kept unless the spoken question is the gate's own asked again
+    # (the #1204 word matcher, so a paraphrase still counts). Every other
+    # settled node swaps as before: f0a763cc t_004 and bf7aed58 t_017 spoke
+    # questions off the agenda after a "no" or a filled node, and the swap was
+    # right there.
+    if turn.get("clarification"):
+        info["question_kept"] = "clarification"
+        return json.dumps(turn, ensure_ascii=False), None
     moot = moot_nodes_in_this_response(turn, agenda)
     nxt = next(((n, ids, q) for n, ids, q in _agenda_lines(agenda)
                 if n != info.get("node_id") and not ids & filled and n not in moot and q), None)
@@ -265,6 +279,14 @@ def replace_settled_question(text: str, agenda: str | None, locale: str | None) 
     split = _split_trailing_question(spoken or "")
     if split is None:
         return text, None
+    lines = _agenda_lines(agenda)
+    settled = [l for l in lines if l[0] == info.get("node_id")]
+    yes_gate = any(isinstance(f, dict) and f.get("field_id") in set(info.get("field_ids") or [])
+                   and str(f.get("value", "")).strip().lower() in ("yes", "sí", "si", "sim", "true")
+                   for f in turn.get("facts") or []) and len(info.get("field_ids") or []) == 1
+    if yes_gate and settled and _best_spoken_line(split[1], settled, lines) is None:
+        info["question_kept"] = "yes_gate_follow_up"
+        return json.dumps(turn, ensure_ascii=False), None
     new = (split[0] + nxt[2]).strip()
     if isinstance(reply, dict):
         reply[key] = new
@@ -341,6 +363,10 @@ def fill_null_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
     if not isinstance(turn, dict) or turn.get("asking") is not None:
         return text, None
     if turn.get("section_checkpoint") or turn.get("interview_over"):
+        return text, None
+    # A clarification is the question she is answering; the client binds her
+    # answer to its field_id, and an agenda line here would bind it elsewhere.
+    if turn.get("clarification"):
         return text, None
     if not _reply_ends_on_question(turn.get("reply")):
         return text, None
