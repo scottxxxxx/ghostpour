@@ -895,6 +895,15 @@ VERSIONS = {
             "EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS",
         ],
     },
+    67: {
+        # The auditor, 2026-11-13: the client compresses volunteer_fields into
+        # grouped ids (p4.prior_address1-4.{street,unit,city}); one line says
+        # how to read them. A field catalog appendix was drafted and dropped.
+        "block_anchor": "VOLUNTEER FIELDS, when present",
+        "once": "A grouped id stands for every id it expands to",
+        "phrases": ["A fact always names one expanded id, never the grouped form."],
+        "absent": ["FIELD CATALOG"],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -994,6 +1003,8 @@ VERSIONS[65]["absent"] = list(VERSIONS[64]["absent"])
 VERSIONS[66]["phrases"] = [p for p in VERSIONS[65]["phrases"] + [VERSIONS[65]["once"]]
                            if not p.startswith("EVERY PART IS CONFIRMED BEFORE")] + VERSIONS[66]["phrases"]
 VERSIONS[66]["absent"] = list(VERSIONS[65]["absent"]) + VERSIONS[66]["absent"]
+VERSIONS[67]["phrases"] = VERSIONS[66]["phrases"] + [VERSIONS[66]["once"]] + VERSIONS[67]["phrases"]
+VERSIONS[67]["absent"] = list(VERSIONS[66]["absent"])
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

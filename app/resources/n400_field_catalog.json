@@ -1,0 +1,2190 @@
+{
+ "_source": "form_definition_n400_tx.json revision ed-01/20/25",
+ "fields": [
+  {
+   "field_id": "p1.eligibility_basis",
+   "part": 1,
+   "options": [
+    "general_provision",
+    "spouse_usc",
+    "vawa",
+    "spouse_employed_abroad",
+    "military_hostilities",
+    "military_one_year",
+    "other"
+   ]
+  },
+  {
+   "field_id": "p1.eligibility_other",
+   "part": 1
+  },
+  {
+   "field_id": "p1.a_number",
+   "part": 1
+  },
+  {
+   "field_id": "p1.first_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.middle_name",
+   "part": 2
+  },
+  {
+   "field_id": "p1.last_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.has_middle_name",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p2.has_other_names",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p2.other_name1_first_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.other_name1_middle_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.other_name1_last_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.has_second_other_name",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p2.other_name2_first_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.other_name2_middle_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.other_name2_last_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.name_change_requested",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p2.new_name_first_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.new_name_middle_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.new_name_last_name",
+   "part": 2
+  },
+  {
+   "field_id": "p2.has_uscis_account",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p2.uscis_account_number",
+   "part": 2
+  },
+  {
+   "field_id": "p1.date_of_birth",
+   "part": 2
+  },
+  {
+   "field_id": "p2.country_of_birth",
+   "part": 2
+  },
+  {
+   "field_id": "p2.country_of_nationality",
+   "part": 2
+  },
+  {
+   "field_id": "p2.gender",
+   "part": 2,
+   "options": [
+    "male",
+    "female"
+   ]
+  },
+  {
+   "field_id": "p2.lpr_date",
+   "part": 2
+  },
+  {
+   "field_id": "p2.parent_citizen_before_18",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p2.disability_exemption",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p2.ssn",
+   "part": 2
+  },
+  {
+   "field_id": "p2.ssa_card_requested",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p2.ssa_disclosure_consent",
+   "part": 2,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p3.ethnicity",
+   "part": 3,
+   "options": [
+    "hispanic",
+    "not_hispanic"
+   ]
+  },
+  {
+   "field_id": "p3.race_american_indian",
+   "part": 3,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p3.race_asian",
+   "part": 3,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p3.race_black",
+   "part": 3,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p3.race_pacific_islander",
+   "part": 3,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p3.race_white",
+   "part": 3,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p3.height_feet",
+   "part": 3
+  },
+  {
+   "field_id": "p3.height_inches",
+   "part": 3
+  },
+  {
+   "field_id": "p3.weight_pounds",
+   "part": 3
+  },
+  {
+   "field_id": "p3.eye_color",
+   "part": 3,
+   "options": [
+    "brown",
+    "blue",
+    "green",
+    "hazel",
+    "gray",
+    "black",
+    "pink",
+    "maroon",
+    "other"
+   ]
+  },
+  {
+   "field_id": "p3.hair_color",
+   "part": 3,
+   "options": [
+    "bald",
+    "sandy",
+    "red",
+    "white",
+    "gray",
+    "blond",
+    "brown",
+    "black",
+    "other"
+   ]
+  },
+  {
+   "field_id": "p4.current_address.street",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.unit",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.city",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.state",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.postal_code",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.country",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.in_care_of",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.province",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.foreign_postal_code",
+   "part": 4
+  },
+  {
+   "field_id": "p4.current_address.from",
+   "part": 4
+  },
+  {
+   "field_id": "p1.interview_field_office",
+   "part": 1,
+   "options": [
+    " Alaska - USCIS Anchorage Field Office",
+    " Alabama - USCIS Montgomery Field Office",
+    " Arkansas - USCIS Fort Smith Field Office",
+    " Arizona - USCIS Phoenix Field Office",
+    " Arizona - USCIS Tuscon Field Office",
+    " California - USCIS Fresno Field Office",
+    " California - USCIS Imperial Field Office",
+    " California - USCIS Los Angeles County Field Offi",
+    " California - USCIS Los Angeles Field Office",
+    " California - USCIS Sacramento Field Office",
+    " California - USCIS San Bernardino Field Office",
+    " California - USCIS San Diego Field Office",
+    " California - USCIS San Fernando Valley Field Office",
+    " California - USCIS San Francisco Field Office",
+    " California - USCIS San Jose Field Office",
+    " California - USCIS Santa Ana Field Office",
+    " California - USCIS Western Region Office",
+    " Colorado - USCIS Denver Field Office",
+    " Connecticut - USCIS Hartford Office",
+    " Florida - USCIS Fort Myers Field Office",
+    " Florida - USCIS Hialeah Field Office",
+    " Florida - USCIS Jacksonville Field Office",
+    " Florida - USCIS Kendall Field Office",
+    " Florida - USCIS Miami Field Office",
+    " Florida - USCIS Oakland Park Field Office",
+    " Florida - USCIS Orlando Field Office",
+    " Florida - USCIS Southeast Region Office",
+    " Florida - USCIS Tampa Field Office",
+    " Florida - USCIS West Palm Beach Field Office",
+    " Georgia - USCIS Atlanta Field Office",
+    " Guam - USCIS Guam Field Office",
+    " Hawaii - USCIS Honolulu Field Office",
+    " Iowa - USCIS Des Moines Field Office",
+    " Idaho - USCIS Boise Field Office",
+    " Illinois - USCIS Chicago Field Office",
+    " Indiana - USCIS Indianapolis Field Office",
+    " Kansas - USCIS National Benefits Center",
+    " Kansas - USCIS Wichita Field Office",
+    " Kentucky - USCIS Louisville Field Office",
+    " Louisiana - USCIS New Orleans Field Office",
+    " Massachusetts - USCIS Boston Field Office",
+    " Massachusetts - USCIS Lawrence Field Office",
+    " Maryland - USCIS Baltimore Field Office",
+    " Maine - USCIS Portland Field Office",
+    " Michigan - USCIS Detroit Field Office",
+    " Minnesota - USCIS St Paul Field Office",
+    " Missouri - USCIS Kansas City Field Office",
+    " Missouri - USCIS National Benefits Center",
+    " Missouri - USCIS St Louis Field Office",
+    " Montana - USCIS Helena Field Office",
+    " North Carolina - USCIS Charlotte Field Office",
+    " North Carolina - USCIS Raleigh Field Office",
+    " Nebraska - USCIS Omaha Field Office",
+    " New Hampshire - USCIS Manchester Field Office",
+    " New Jersey - USCIS Mount Laurel Field Office",
+    " New Jersey - USCIS Newark Field Office",
+    " New Mexico - USCIS Albuquerque Field Office",
+    " Nevada - USCIS Las Vegas Field Office",
+    " Nevada - USCIS Reno Field Office",
+    " New York - USCIS Albany Field Office",
+    " New York - USCIS Brooklyn Field Office",
+    " New York - USCIS Buffalo Field Office",
+    " New York - USCIS Long Island Field Office",
+    " New York - USCIS New York City District Office",
+    " New York - USCIS Queens Field Office",
+    " New York - USCJS Syracuse Field Office",
+    " Ohio - USCIS Cincinnati Field Office",
+    " Ohio - USCIS Cleveland Field Office",
+    " Ohio - USCIS Columbus Field Office",
+    " Oregon - USCIS Portland Field Office",
+    " Pennsylvania - USCIS Philadelphia Field Office",
+    " Pennsylvania - USCIS Pittsburgh Field Office",
+    " Rhode Island - USCIS Providence Field Office",
+    " South Carolina - USCIS Charleston Field Office",
+    " South Carolina - USCIS Greer Field Office",
+    " Tennessee - USCIS Memphis Field Office",
+    " Tennessee - USCIS Nashville Field Office",
+    " Texas - USCIS Central Region Office",
+    " Texas - USCIS Dallas Field Office",
+    " Texas - USCIS El Paso Field Office",
+    " Texas - USCIS Harlingen Field Office",
+    " Texas - USCIS Houston Field Office",
+    " Texas - USCIS San Antonio Field Office",
+    " Texas - USCIS Texas Service Center",
+    " Utah - USCIS Salt Lake City Field Office",
+    " Virginia - USCIS Norfolk Field Office",
+    " Virginia - USCIS Potomac Service Center",
+    " Virginia - USCIS Washington Field Office",
+    " Virgin Islands - USCIS Charlotte Amalie VI Field Office",
+    " Vermont - USCIS Northeast Regional Office",
+    " Vermont - USCIS St Albans Field Office",
+    " Vermont - USCIS Vermont Service Center",
+    " Washington - USCIS Seattle Field Office",
+    " Washington - USCIS Spokane Field Office",
+    " Washington - USCIS Yakima Field Office",
+    " Wisconsin - USCIS Milwaukee Field Office"
+   ]
+  },
+  {
+   "field_id": "p4.mailing_same",
+   "part": 4,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p4.mailing_address.street",
+   "part": 4
+  },
+  {
+   "field_id": "p4.mailing_address.unit",
+   "part": 4
+  },
+  {
+   "field_id": "p4.mailing_address.city",
+   "part": 4
+  },
+  {
+   "field_id": "p4.mailing_address.state",
+   "part": 4
+  },
+  {
+   "field_id": "p4.mailing_address.postal_code",
+   "part": 4
+  },
+  {
+   "field_id": "p4.mailing_address.country",
+   "part": 4
+  },
+  {
+   "field_id": "p4.mailing_address.in_care_of",
+   "part": 4
+  },
+  {
+   "field_id": "p4.mailing_address.province",
+   "part": 4
+  },
+  {
+   "field_id": "p4.mailing_address.foreign_postal_code",
+   "part": 4
+  },
+  {
+   "field_id": "p4.has_prior_address1",
+   "part": 4,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p4.prior_address1.street",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address1.unit",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address1.city",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address1.state",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address1.postal_code",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address1.country",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address1.from",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address1.to",
+   "part": 4
+  },
+  {
+   "field_id": "p4.has_prior_address2",
+   "part": 4,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p4.prior_address2.street",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address2.unit",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address2.city",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address2.state",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address2.postal_code",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address2.country",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address2.from",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address2.to",
+   "part": 4
+  },
+  {
+   "field_id": "p4.has_prior_address3",
+   "part": 4,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p4.prior_address3.street",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address3.unit",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address3.city",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address3.state",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address3.postal_code",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address3.country",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address3.from",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address3.to",
+   "part": 4
+  },
+  {
+   "field_id": "p4.has_prior_address4",
+   "part": 4,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p4.prior_address4.street",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address4.unit",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address4.city",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address4.state",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address4.postal_code",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address4.country",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address4.from",
+   "part": 4
+  },
+  {
+   "field_id": "p4.prior_address4.to",
+   "part": 4
+  },
+  {
+   "field_id": "p5.marital_status",
+   "part": 5,
+   "options": [
+    "single",
+    "married",
+    "divorced",
+    "widowed",
+    "annulled",
+    "separated"
+   ]
+  },
+  {
+   "field_id": "p5.times_married",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_armed_forces",
+   "part": 5,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p5.spouse_first_name",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_middle_name",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_last_name",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_has_middle_name",
+   "part": 5,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p5.spouse_date_of_birth",
+   "part": 5
+  },
+  {
+   "field_id": "p5.marriage_date",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_address_same",
+   "part": 5,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p5.spouse_address.street",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_address.unit",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_address.city",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_address.state",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_address.postal_code",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_citizen_how",
+   "part": 5,
+   "options": [
+    "by_birth",
+    "other"
+   ]
+  },
+  {
+   "field_id": "p5.spouse_citizen_date",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_has_a_number",
+   "part": 5,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p5.spouse_a_number",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_times_married",
+   "part": 5
+  },
+  {
+   "field_id": "p5.spouse_employer",
+   "part": 5
+  },
+  {
+   "field_id": "p6.total_children",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child1.child_name",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child1.date_of_birth",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child1.residence",
+   "part": 6,
+   "options": [
+    "resides_with_me",
+    "not_with_me",
+    "unknown_missing"
+   ]
+  },
+  {
+   "field_id": "p6.child1.relationship",
+   "part": 6,
+   "options": [
+    "biological",
+    "stepchild",
+    "adopted"
+   ]
+  },
+  {
+   "field_id": "p6.child1.supported",
+   "part": 6,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p6.child2.child_name",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child2.date_of_birth",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child2.residence",
+   "part": 6,
+   "options": [
+    "resides_with_me",
+    "not_with_me",
+    "unknown_missing"
+   ]
+  },
+  {
+   "field_id": "p6.child2.relationship",
+   "part": 6,
+   "options": [
+    "biological",
+    "stepchild",
+    "adopted"
+   ]
+  },
+  {
+   "field_id": "p6.child2.supported",
+   "part": 6,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p6.child3.child_name",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child3.date_of_birth",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child3.residence",
+   "part": 6,
+   "options": [
+    "resides_with_me",
+    "not_with_me",
+    "unknown_missing"
+   ]
+  },
+  {
+   "field_id": "p6.child3.relationship",
+   "part": 6,
+   "options": [
+    "biological",
+    "stepchild",
+    "adopted"
+   ]
+  },
+  {
+   "field_id": "p6.child3.supported",
+   "part": 6,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p6.child4.child_name",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child4.date_of_birth",
+   "part": 6
+  },
+  {
+   "field_id": "p6.child4.residence",
+   "part": 6,
+   "options": [
+    "resides_with_me",
+    "not_with_me",
+    "unknown_missing"
+   ]
+  },
+  {
+   "field_id": "p6.child4.relationship",
+   "part": 6,
+   "options": [
+    "biological",
+    "stepchild",
+    "adopted"
+   ]
+  },
+  {
+   "field_id": "p6.child4.supported",
+   "part": 6,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p7.employer1.employer_name",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer1.city",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer1.state",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer1.postal_code",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer1.country",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer1.occupation",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer1.from",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer1.to",
+   "part": 7
+  },
+  {
+   "field_id": "p7.has_job2",
+   "part": 7,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p7.employer2.employer_name",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer2.city",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer2.state",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer2.postal_code",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer2.country",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer2.occupation",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer2.from",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer2.to",
+   "part": 7
+  },
+  {
+   "field_id": "p7.has_job3",
+   "part": 7,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p7.employer3.employer_name",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer3.city",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer3.state",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer3.postal_code",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer3.country",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer3.occupation",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer3.from",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer3.to",
+   "part": 7
+  },
+  {
+   "field_id": "p7.has_job4",
+   "part": 7,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p7.employer4.employer_name",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer4.city",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer4.state",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer4.postal_code",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer4.country",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer4.occupation",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer4.from",
+   "part": 7
+  },
+  {
+   "field_id": "p7.employer4.to",
+   "part": 7
+  },
+  {
+   "field_id": "p8.has_trips",
+   "part": 8,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p8.trip1.countries",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip1.date_left",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip1.date_returned",
+   "part": 8
+  },
+  {
+   "field_id": "p8.has_trip2",
+   "part": 8,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p8.trip2.countries",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip2.date_left",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip2.date_returned",
+   "part": 8
+  },
+  {
+   "field_id": "p8.has_trip3",
+   "part": 8,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p8.trip3.countries",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip3.date_left",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip3.date_returned",
+   "part": 8
+  },
+  {
+   "field_id": "p8.has_trip4",
+   "part": 8,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p8.trip4.countries",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip4.date_left",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip4.date_returned",
+   "part": 8
+  },
+  {
+   "field_id": "p8.has_trip5",
+   "part": 8,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p8.trip5.countries",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip5.date_left",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip5.date_returned",
+   "part": 8
+  },
+  {
+   "field_id": "p8.has_trip6",
+   "part": 8,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p8.trip6.countries",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip6.date_left",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip6.date_returned",
+   "part": 8
+  },
+  {
+   "field_id": "p8.has_trip7",
+   "part": 8,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p8.trip7.countries",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip7.date_left",
+   "part": 8
+  },
+  {
+   "field_id": "p8.trip7.date_returned",
+   "part": 8
+  },
+  {
+   "field_id": "p10.fee_reduction_requested",
+   "part": 10,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p10.household_income",
+   "part": 10
+  },
+  {
+   "field_id": "p10.household_size",
+   "part": 10
+  },
+  {
+   "field_id": "p10.earners_count",
+   "part": 10
+  },
+  {
+   "field_id": "p10.head_of_household",
+   "part": 10,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p10.head_of_household_name",
+   "part": 10
+  },
+  {
+   "field_id": "p11.daytime_phone",
+   "part": 11
+  },
+  {
+   "field_id": "p11.mobile_phone",
+   "part": 11
+  },
+  {
+   "field_id": "p11.email",
+   "part": 11
+  },
+  {
+   "field_id": "p12.has_interpreter",
+   "part": 12,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p12.interpreter_first_name",
+   "part": 12
+  },
+  {
+   "field_id": "p12.interpreter_last_name",
+   "part": 12
+  },
+  {
+   "field_id": "p12.interpreter_language",
+   "part": 12
+  },
+  {
+   "field_id": "p12.interpreter_has_org",
+   "part": 12,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p12.interpreter_org",
+   "part": 12
+  },
+  {
+   "field_id": "p12.interpreter.daytime_phone",
+   "part": 12
+  },
+  {
+   "field_id": "p12.interpreter.mobile_phone",
+   "part": 12
+  },
+  {
+   "field_id": "p12.interpreter.email",
+   "part": 12
+  },
+  {
+   "field_id": "p13.has_preparer",
+   "part": 13,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p13.preparer_first_name",
+   "part": 13
+  },
+  {
+   "field_id": "p13.preparer_last_name",
+   "part": 13
+  },
+  {
+   "field_id": "p13.preparer_has_org",
+   "part": 13,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p13.preparer_org",
+   "part": 13
+  },
+  {
+   "field_id": "p13.preparer.daytime_phone",
+   "part": 13
+  },
+  {
+   "field_id": "p13.preparer.mobile_phone",
+   "part": 13
+  },
+  {
+   "field_id": "p13.preparer.email",
+   "part": 13
+  },
+  {
+   "field_id": "p9.claimed_citizen",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.registered_or_voted",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.overdue_taxes",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.nonresident_tax",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.claimed_citizen.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.registered_or_voted.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.overdue_taxes.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.nonresident_tax.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.communist_party",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.terrorist_group",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.group_weapon",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.group_kidnapping",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.group_association",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.communist_party.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.terrorist_group.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.group_weapon.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.group_kidnapping.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.group_association.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.participated_torture",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.participated_genocide",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.killing",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.injuring",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.sexual_contact",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.religious_persecution",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.persecution_harm",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.participated_torture.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.participated_genocide.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.killing.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.injuring.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.sexual_contact.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.religious_persecution.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.persecution_harm.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.military_police_unit",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.armed_group",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.detention_facility",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.group_used_weapon",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.weapons_trafficking",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.weapons_training",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.child_soldier_recruit",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.child_hostilities",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.military_police_unit.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.armed_group.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.detention_facility.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.group_used_weapon.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.used_weapon",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.used_weapon.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.threatened_weapon",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.threatened_weapon.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.weapons_trafficking.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.weapons_training.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.child_soldier_recruit.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.child_hostilities.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrested_ever",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.crime_not_arrested",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.prostitution",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.drugs",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.polygamy",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.marriage_fraud",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.smuggling",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.illegal_gambling",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.child_support",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.benefit_misrepresentation",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.probation_completed",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.crime_not_arrested.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.prostitution.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.drugs.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.polygamy.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.marriage_fraud.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.smuggling.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.illegal_gambling.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.child_support.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.benefit_misrepresentation.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest1.offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest1.date_of_offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest1.place",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest1.outcome",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest1.date_of_conviction",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest1.sentence",
+   "part": 9
+  },
+  {
+   "field_id": "p9.has_arrest2",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.arrest2.offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest2.date_of_offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest2.place",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest2.outcome",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest2.date_of_conviction",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest2.sentence",
+   "part": 9
+  },
+  {
+   "field_id": "p9.has_arrest3",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.arrest3.offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest3.date_of_offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest3.place",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest3.outcome",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest3.date_of_conviction",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest3.sentence",
+   "part": 9
+  },
+  {
+   "field_id": "p9.has_arrest4",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.arrest4.offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest4.date_of_offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest4.place",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest4.outcome",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest4.date_of_conviction",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest4.sentence",
+   "part": 9
+  },
+  {
+   "field_id": "p9.has_arrest5",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.arrest5.offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest5.date_of_offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest5.place",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest5.outcome",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest5.date_of_conviction",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest5.sentence",
+   "part": 9
+  },
+  {
+   "field_id": "p9.has_arrest6",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.arrest6.offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest6.date_of_offense",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest6.place",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest6.outcome",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest6.date_of_conviction",
+   "part": 9
+  },
+  {
+   "field_id": "p9.arrest6.sentence",
+   "part": 9
+  },
+  {
+   "field_id": "p9.false_information",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.lied_to_officials",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.removal_proceedings",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.removed_deported",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.false_information.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.lied_to_officials.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.removal_proceedings.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.removed_deported.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.selective_service_registered",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.selective_service_date",
+   "part": 9
+  },
+  {
+   "field_id": "p9.selective_service_number",
+   "part": 9
+  },
+  {
+   "field_id": "p9.selective_service_registered.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.draft_evasion",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.military_exemption",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.served_armed_forces",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.draft_evasion.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.military_exemption.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.current_member",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.scheduled_deploy",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.stationed_abroad",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.former_member_abroad",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.court_martialed",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.court_martialed.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.discharged_alien",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.discharged_alien.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.deserted",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.deserted.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.nobility_title",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.nobility_title.explain",
+   "part": 9
+  },
+  {
+   "field_id": "p9.give_up_titles",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.oath_disability",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.support_constitution",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.understand_oath",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.willing_full_oath",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.willing_bear_arms",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.willing_noncombatant",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.willing_national_importance",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p1.age_over_18",
+   "part": 1,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p5.current_marriage_block_applies",
+   "part": 5,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p1.field_office_applies",
+   "part": 1,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.selective_service_applies",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  },
+  {
+   "field_id": "p9.selective_service_statement_applies",
+   "part": 9,
+   "options": [
+    "yes",
+    "no"
+   ]
+  }
+ ]
+}

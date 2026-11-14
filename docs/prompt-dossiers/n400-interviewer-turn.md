@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 66
+served_version: 67
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
@@ -2068,6 +2068,16 @@ Part 2 closed over the green card date. KNOWN FACTS held p2.lpr_date as a captur
 The year correction (the prompt sentence). "January 1st, 2026", the lane rightly caught the impossible year, she said "2016", and the lane deferred a year only. v65 says the day and month stay hers and the whole date is minted and read back. The day guard would have moved that fact back to a deferral (the day is not in "2016."), so _date_carried gains year_corrected: her last line held this day and month with a different year, and this line is the year alone.
 
 Tests: tests/test_n400_walk216_part_confirm.py, 16, from the walk's real turn shapes. Five sabotages, each run alone with bytecode off: the boundary rewrite (3 red), the ride-along refusal (2), the capture-gap refusal (1), the year carry (2), the route's reminder choice (1), each exactly the tests expected. Not probed live, and the prompt sentence is unproven on the wire.
+
+## v67: grouped volunteer ids (DRAFT, not served until Scott says yes)
+
+The auditor, 2026-11-13, from the N-400 team's envelope measurement. The client keeps sending its computed, per case volunteer_fields, compressed into grouped ids (p4.prior_address1-4.{street,unit,city}). One sentence after the VOLUNTEER FIELDS explainer says how to read them and that a fact names one expanded id. Nothing else in the prompt or the template changes.
+
+Drafted and dropped in the same PR: a FIELD CATALOG appendix (+11,262 chars) standing in for volunteer_fields, because it replaced the client's computed per case list (Part 9 hidden unless standing in it, known fields removed, deferrals kept) with a rule the model would have to follow; and a template reorder, which saves nothing with no user side cache breakpoint.
+
+Code kept: app/resources/n400_field_catalog.json (built from the client's form_definition_n400_tx.json, matched build 215's wire choice_fields 130 of 130) backs the option marker and Jev when a build sends no readable choice_fields. It never reaches a prompt.
+
+Tests: tests/test_n400_field_catalog.py. Not probed live; unproven on the wire.
 
 ## v66: only a part of two or more questions is read back
 
