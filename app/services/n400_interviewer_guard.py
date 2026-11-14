@@ -280,6 +280,90 @@ def _reply_ends_on_question(reply) -> bool:
     return any(isinstance(t, str) and t.rstrip().rstrip("\"'”’)»").endswith("?") for t in texts)
 
 
+# --- fill a null asking when the reply asks something (auditor, 2026-11-13) --
+#
+# Steven's case 515e9bb1 and the auditor's Haiku A/B: the lane spoke a
+# question and left `asking` null on 6 of 13 Haiku turns (and on some Sonnet
+# ones), so the client had no node to bind her next answer to. GP fills it
+# from the agenda's first open line and marks every fill so the audit can
+# count them. A checkpoint turn is left alone: its question is the read-back,
+# and a checkpoint carries asking null by contract.
+ASKING_FILLED_REASON = "the reply ends on a question and asking was null"
+
+
+# Models paraphrase: "What's your A-Number?" for "What is your USCIS number,
+# also called your A-Number?" (the auditor, 2026-11-13). So the match is word
+# overlap, not text: hyphens and apostrophes join ("anumber"), filler words
+# drop, and each shared word counts by how rare it is on the agenda, so
+# "number" alone cannot pull the phone line. Most of what she heard must be
+# covered by the line, or it is no match and the fill says first_open.
+_FILLER = set("""what whats is are was were your you yours the a an and or of to in on for
+with do does did have has had any ever now next and also please tell me can could
+would will just ok okay so then got it thanks thank great noted let us lets
+cual cuál es su sus tu el la los las de del y o en por para que qué ahora usted me
+puede podría dígame digame""".split())
+
+
+def _words(s: str) -> set[str]:
+    s = re.sub(r"(?<=\w)[-\u2011'’](?=\w)", "", (s or "").lower())
+    return {w for w in re.findall(r"\w+", s) if len(w) > 1 and w not in _FILLER}
+
+
+def _best_spoken_line(spoken, open_lines, all_lines):
+    heard = _words(spoken)
+    if not heard:
+        return None
+    df: dict[str, int] = {}
+    for _, _, q in all_lines:
+        for w in _words(q):
+            df[w] = df.get(w, 0) + 1
+    best, best_score = None, 0.0
+    for line in open_lines:
+        shared = heard & _words(line[2])
+        if not shared or len(shared) / len(heard) < 0.5:
+            continue
+        score = sum(1.0 / df.get(w, 1) for w in shared)
+        if score > best_score:
+            best, best_score = line, score
+    return best
+
+
+def _reply_texts_any(reply) -> list[str]:
+    vals = list(reply.values()) if isinstance(reply, dict) else [reply]
+    return [v for v in vals if isinstance(v, str)]
+
+
+def fill_null_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or turn.get("asking") is not None:
+        return text, None
+    if turn.get("section_checkpoint") or turn.get("interview_over"):
+        return text, None
+    if not _reply_ends_on_question(turn.get("reply")):
+        return text, None
+    filled = {f.get("field_id") for f in turn.get("facts") or [] if isinstance(f, dict)}
+    moot = moot_nodes_in_this_response(turn, agenda)
+    open_lines = [(n, ids, q) for n, ids, q in _agenda_lines(agenda)
+                  if not ids & filled and n not in moot]
+    if not open_lines:
+        return text, None
+    # The line whose own question is the one she just heard, else the first
+    # open line. First-open alone named eligibility under a reply that asked
+    # for the A-Number (the stream route fixture), binding her answer wrong.
+    spoken = " ".join(_split_trailing_question(t)[1] for t in _reply_texts_any(turn.get("reply"))
+                      if _split_trailing_question(t))
+    match = _best_spoken_line(spoken, open_lines, _agenda_lines(agenda))
+    nxt, how = (match, "spoken_question") if match else (open_lines[0], "first_open")
+    turn["asking"] = {"node_id": nxt[0], "field_ids": sorted(nxt[1])}
+    info = {"node_id": nxt[0], "field_ids": sorted(nxt[1]), "matched": how,
+            "reason": ASKING_FILLED_REASON}
+    turn["asking_filled"] = info
+    return json.dumps(turn, ensure_ascii=False), info
+
+
 # --- a stated trip count closes the list (rosa-r4 t46, 2026-09-28) ----------
 #
 # "She went to Guadalajara twice" plus both trips filed, and the lane never
@@ -1328,6 +1412,11 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
     if replaced is not None:
         logger.warning("n400_settled_question_replaced turn_id=%s replaced=%s with=%s",
                        turn_id, replaced["replaced_node"], replaced["node_id"])
+    # After the settled-question swap, which sets asking when it fires.
+    new_text, asking_filled = fill_null_asking(new_text, agenda)
+    if asking_filled is not None:
+        logger.warning("n400_asking_filled turn_id=%s node_id=%s matched=%s",
+                       turn_id, asking_filled["node_id"], asking_filled["matched"])
     # Ahead of the origin marker and the fact/deferral drop, so a stray
     # deferral of a filed value never reaches either.
     new_text, stray = drop_deferrals_of_filed_values(new_text, known_facts, agenda, user_content)
