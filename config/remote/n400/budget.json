@@ -52,10 +52,10 @@
     "shares a cell network with someone who used $2."
   ],
   "anonymous": {
-    "per_application_usd": 2,
-    "per_install_lifetime_usd": 10,
-    "daily_all_installs_usd": 50,
-    "per_ip_usd": 2,
+    "per_application_usd": 8,
+    "per_install_lifetime_usd": 40,
+    "daily_all_installs_usd": 200,
+    "per_ip_usd": 8,
     "per_ip_window_days": 30,
     "application_allowance_used": {
       "kind": "application_allowance_used",
