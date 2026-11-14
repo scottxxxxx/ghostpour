@@ -104,7 +104,10 @@ def test_sentences_stream_early_and_the_envelope_is_guarded(client, free_user, t
     assert obj["reply"]["en"] == ENVELOPE["reply"]["en"], "reply is still the WHOLE reply"
     assert obj["reply"]["en"].endswith(st["held_sentence"]["text"]), "held sentence is its suffix"
     # THE GUARDS RAN ON THE STREAMED TURN: the stale asking was dropped.
-    assert obj["asking"] is None
+    # Then the null asking is filled from the question she heard (the A-Number
+    # line), never the first open line (eligibility).
+    assert obj["asking"]["node_id"] == "q_p1_a_number"
+    assert obj["asking_filled"]["matched"] == "spoken_question"
     assert "asking_dropped" in obj
 
     # And the lane records a time to first token for the first time.
