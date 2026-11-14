@@ -1,5 +1,5 @@
 {
-  "version": 57,
+  "version": 70,
   "tiers": {
     "free": {
       "display_name": "無料",
@@ -825,7 +825,7 @@
         "subtitle": "無料・プライバシー保護・オフライン対応。Shoulder Surf AI に比べて精度は限定的です。",
         "enable": "Apple Intelligenceを有効にする",
         "enable_hint": "無料のオンデバイスAI、設定 → Apple IntelligenceとSiriで有効にしてください",
-        "requires": "iPhone 15 Pro 以降で Apple Intelligence を有効にする必要があります。"
+        "requires": "Apple Intelligence を有効にしたデバイスが必要です。"
       }
     }
   },

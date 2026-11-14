@@ -1,10 +1,10 @@
 {
-  "version": 17,
+  "version": 19,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
       "provider": "Apple",
-      "description": "Free on-device model (Apple Intelligence). Private, works offline. 4K context window. Requires iPhone 15 Pro+.",
+      "description": "Free on-device model (Apple Intelligence). Private, works offline. 4K context window. Requires a device with Apple Intelligence.",
       "inputCostPerMillion": null,
       "outputCostPerMillion": null,
       "contextWindow": "4K",

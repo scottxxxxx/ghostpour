@@ -1,5 +1,5 @@
 {
-  "version": 58,
+  "version": 71,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -825,7 +825,7 @@
         "subtitle": "Free, private, works offline. Quality is more limited than Shoulder Surf AI.",
         "enable": "Enable Apple Intelligence",
         "enable_hint": "Free on-device AI. Turn on in Settings → Apple Intelligence & Siri",
-        "requires": "Requires iPhone 15 Pro or later with Apple Intelligence enabled."
+        "requires": "Requires a device with Apple Intelligence enabled."
       }
     }
   },
