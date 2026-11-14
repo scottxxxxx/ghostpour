@@ -2069,15 +2069,15 @@ The year correction (the prompt sentence). "January 1st, 2026", the lane rightly
 
 Tests: tests/test_n400_walk216_part_confirm.py, 16, from the walk's real turn shapes. Five sabotages, each run alone with bytecode off: the boundary rewrite (3 red), the ride-along refusal (2), the capture-gap refusal (1), the year carry (2), the route's reminder choice (1), each exactly the tests expected. Not probed live, and the prompt sentence is unproven on the wire.
 
-## v67: the field catalog rides in the cached system prompt (DRAFT, not served until Scott says yes)
+## v67: grouped volunteer ids (DRAFT, not served until Scott says yes)
 
-The auditor, 2026-11-13, from the N-400 team's envelope measurement. Every field id and every choice field's options are the same for every applicant, so they move into the system prompt under the cache breakpoint as a FIELD CATALOG appendix (11,262 chars, one line per part, rendered by app/services/n400_field_catalog.py from app/resources/n400_field_catalog.json, which scripts/build_n400_field_catalog.py builds from the client's form_definition_n400_tx.json). The JSON matched build 215's wire choice_fields 130 of 130, same options, same order. The 96 field office strings are described, not listed: each carries a leading space and a spaced hyphen, the punctuation the no-dash rule forbids, and the app resolves the office on screen.
+The auditor, 2026-11-13, from the N-400 team's envelope measurement. The client keeps sending its computed, per case volunteer_fields, compressed into grouped ids (p4.prior_address1-4.{street,unit,city}). One sentence after the VOLUNTEER FIELDS explainer says how to read them and that a fact names one expanded id. Nothing else in the prompt or the template changes.
 
-An EMPTY volunteer_fields now means the catalog, with the client's own filter stated in words: every part but Part 9 (unless the first agenda line is in Part 9), minus fields KNOWN FACTS holds, deferred fields kept. Builds 215 and 216 keep sending the variable, so nothing changes for them. GP's option guard and evidence check use the client's choice_fields when it is readable, else GP's copy, so a build that stops sending it keeps the full per-field check instead of the agenda's 29 yes/no gates.
+Drafted and dropped in the same PR: a FIELD CATALOG appendix (+11,262 chars) standing in for volunteer_fields, because it replaced the client's computed per case list (Part 9 hidden unless standing in it, known fields removed, deferrals kept) with a rule the model would have to follow; and a template reorder, which saves nothing with no user side cache breakpoint.
 
-userPromptTemplate reordered: stable variables first, TURN ID last. Same variables. No user-side cache breakpoint exists today, so the reorder saves nothing until one is added.
+Code kept: app/resources/n400_field_catalog.json (built from the client's form_definition_n400_tx.json, matched build 215's wire choice_fields 130 of 130) backs the option marker and Jev when a build sends no readable choice_fields. It never reaches a prompt.
 
-Tests: tests/test_n400_field_catalog.py (10). Not probed live; unproven on the wire.
+Tests: tests/test_n400_field_catalog.py. Not probed live; unproven on the wire.
 
 ## v66: only a part of two or more questions is read back
 

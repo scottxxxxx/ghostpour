@@ -6,8 +6,6 @@ copy of the options is the one on the wire: a choice field's own options, and
 yes/no for every yes_no_explanation field.
 
 Run:  python3 scripts/build_n400_field_catalog.py [path to form_definition]
-Then paste `render_appendix()` into interviewer-turn's systemPrompt; the test
-test_n400_field_catalog.py fails until the two agree.
 """
 import json
 import os

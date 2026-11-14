@@ -896,19 +896,13 @@ VERSIONS = {
         ],
     },
     67: {
-        # The auditor, 2026-11-13, from the N-400 team's envelope measurement:
-        # every field id and every choice field's options are the same for
-        # every applicant, so they ride in the cached system prompt as an
-        # appendix (rendered by app/services/n400_field_catalog.py), and an
-        # EMPTY volunteer_fields means that catalog. Nothing removed.
-        "block_anchor": "FIELD CATALOG\n",
-        "once": "Every field id on this form, by part, in form order.",
-        "phrases": [
-            "the list meant is this catalog: every field of every part except Part 9",
-            "A deferral is not a value, so a deferred field stays on the list.",
-            "one of 96 USCIS field offices; the app matches what she says to the list on screen",
-        ],
-        "absent": [],
+        # The auditor, 2026-11-13: the client compresses volunteer_fields into
+        # grouped ids (p4.prior_address1-4.{street,unit,city}); one line says
+        # how to read them. A field catalog appendix was drafted and dropped.
+        "block_anchor": "VOLUNTEER FIELDS, when present",
+        "once": "A grouped id stands for every id it expands to",
+        "phrases": ["A fact always names one expanded id, never the grouped form."],
+        "absent": ["FIELD CATALOG"],
     },
 }
 

@@ -1,8 +1,8 @@
 """The N-400 field catalog, held by GP (auditor, 2026-11-13).
 
-Every field id and every choice field's options are the same for every
-applicant, so they ride in the cached system prompt as an appendix instead of
-in each request. Built from the client's own form definition by
+Every choice field's options are the same for every applicant. GP keeps a
+copy (no tokens: it never reaches a prompt) behind the option marker and
+Jev's evidence check. Built from the client's own form definition by
 scripts/build_n400_field_catalog.py, and checked against build 215's wire
 `choice_fields` before it shipped: 130 of 130 fields, same options, same order.
 
@@ -19,16 +19,6 @@ from functools import lru_cache
 from pathlib import Path
 
 _PATH = Path(__file__).resolve().parent.parent / "resources" / "n400_field_catalog.json"
-APPENDIX_HEAD = "FIELD CATALOG"
-# The 96 field offices are the PDF's dropdown strings (" Alaska - USCIS ..."):
-# a leading space and a spaced hyphen each, 3.8k chars of exactly the
-# punctuation the no-dash rule forbids. The app matches what she says to an
-# office on screen (N400Helper FieldOfficeChoice.swift), so the lane never
-# needs them; the guard still checks against the full list in the JSON.
-DESCRIBED_NOT_LISTED = {
-    "p1.interview_field_office":
-        "one of 96 USCIS field offices; the app matches what she says to the list on screen",
-}
 
 
 @lru_cache(maxsize=1)
@@ -54,27 +44,3 @@ def choice_fields_for(meta_value) -> dict:
         return meta_value
     return choice_fields()
 
-
-def render_appendix() -> str:
-    """One line per part: ids in catalog order, a choice field's options in
-    parentheses after it. The exact text that sits in the system prompt."""
-    parts: dict[int, list[str]] = {}
-    for f in _fields():
-        cell = f["field_id"]
-        if f["field_id"] in DESCRIBED_NOT_LISTED:
-            cell += " (" + DESCRIBED_NOT_LISTED[f["field_id"]] + ")"
-        elif f.get("options"):
-            cell += " (" + "|".join(f["options"]) + ")"
-        parts.setdefault(f["part"], []).append(cell)
-    lines = [
-        APPENDIX_HEAD,
-        "Every field id on this form, by part, in form order. A field with options lists them in "
-        "parentheses, separated by |, and its value is always exactly one of them.",
-        "Everywhere these instructions say VOLUNTEER FIELDS and the variable came empty, the list "
-        "meant is this catalog: every field of every part except Part 9 (Part 9's only while the "
-        "first AGENDA line is in Part 9), leaving out any field KNOWN FACTS already holds a value "
-        "for. A deferral is not a value, so a deferred field stays on the list.",
-    ]
-    for part in sorted(parts):
-        lines.append("Part %d: %s" % (part, ", ".join(parts[part])))
-    return "\n".join(lines)

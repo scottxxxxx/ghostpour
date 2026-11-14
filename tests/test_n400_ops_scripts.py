@@ -1217,7 +1217,7 @@ def test_every_v65_phrase_rides_into_v66_but_the_one_it_narrows():
         assert phrase in VERSIONS[66]["absent"], phrase
 
 
-def test_v67_verifies_and_carries_the_field_catalog():
+def test_v67_verifies_and_carries_the_grouped_id_line():
     sp = _bundle_prompt(67)
     assert verify(sp, 67)
     for p in VERSIONS[67]["phrases"]:

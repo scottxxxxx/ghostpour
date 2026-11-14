@@ -1,25 +1,15 @@
-"""The static N-400 field catalog in the cached system prompt (auditor,
-2026-11-13), and GP's own copy behind the option guard for a build that stops
-sending metadata.choice_fields. Drafted, not served: v67 waits on Scott."""
+"""GP's own N-400 choice catalog behind the option marker and Jev, for a build
+that stops sending metadata.choice_fields, and v67's one line that reads the
+client's grouped volunteer_fields (auditor, 2026-11-13). Drafted, not served:
+v67 waits on Scott."""
 import json
 import re
 
 from app.services.n400_field_catalog import (
-    choice_fields, choice_fields_for, field_ids, render_appendix,
+    choice_fields, choice_fields_for, field_ids,
 )
 
 CFG = json.load(open("config/remote/n400/interviewer-turn.json"))
-
-
-def test_the_prompt_carries_exactly_the_rendered_appendix():
-    """Regenerate with scripts/build_n400_field_catalog.py, then paste; this
-    fails until the prompt and the JSON the guard reads agree."""
-    assert render_appendix() in CFG["systemPrompt"]
-
-
-def test_the_appendix_sits_under_the_closing_dash_rule_not_after_it():
-    sp = CFG["systemPrompt"]
-    assert sp.index("FIELD CATALOG\n") < sp.index("Never use em dashes or en dashes anywhere in your output.")
 
 
 def test_the_catalog_matches_build_215s_wire():
@@ -31,18 +21,6 @@ def test_the_catalog_matches_build_215s_wire():
     assert len(c["p1.interview_field_office"]) == 96
 
 
-def test_no_dash_reaches_the_prompt_from_the_option_strings():
-    a = render_appendix()
-    assert not re.search(r" - |[–—]", a)
-    assert "one of 96 USCIS field offices" in a and "Anchorage" not in a
-
-
-def test_every_id_is_in_the_appendix_once():
-    a = render_appendix()
-    for fid in field_ids():
-        assert len(re.findall(r"(?<![\w.])" + re.escape(fid) + r"(?![\w.])", a)) == 1, fid
-
-
 def test_the_clients_map_wins_and_a_missing_or_unreadable_one_gets_gps():
     theirs = {"p8.took_trips": ["yes", "no"]}
     assert choice_fields_for(theirs) is theirs
@@ -50,14 +28,16 @@ def test_the_clients_map_wins_and_a_missing_or_unreadable_one_gets_gps():
         assert choice_fields_for(missing) == choice_fields()
 
 
-def test_the_template_puts_stable_variables_first_and_turn_id_last():
-    t = CFG["userPromptTemplate"]
-    order = re.findall(r"\{\{(\w+)\}\}", t)
-    assert order[-1] == "turn_id" and t.rstrip().endswith("TURN ID: {{turn_id}}")
-    assert order[:3] == ["form_code", "jurisdiction", "locale"]
-    assert order.index("known_facts") < order.index("agenda") < order.index("conversation") < order.index("user_input")
-    assert set(order) == set(CFG["requiredVariables"]) | set(CFG["optionalVariables"]) | {"user_input"}
-    assert "EMPTY means the FIELD CATALOG" in t
+def test_v67_adds_only_the_grouped_id_line():
+    import subprocess
+    old = json.loads(subprocess.run(["git", "show", "main:config/remote/n400/interviewer-turn.json"],
+                                    capture_output=True, text=True, check=True).stdout)
+    line = (" A grouped id stands for every id it expands to: p4.prior_address1-4.{street,unit,city} means "
+            "p4.prior_address1.street, p4.prior_address1.unit, p4.prior_address1.city and the same three for "
+            "prior_address2, 3 and 4. A fact always names one expanded id, never the grouped form.")
+    assert CFG["systemPrompt"].replace(line, "", 1) == old["systemPrompt"]
+    assert CFG["userPromptTemplate"] == old["userPromptTemplate"]
+    assert "FIELD CATALOG" not in CFG["systemPrompt"] and not re.search(r" - |[\u2013\u2014]", line)
 
 
 # --- through the real route --------------------------------------------------
