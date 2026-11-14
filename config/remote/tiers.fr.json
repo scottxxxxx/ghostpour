@@ -1,5 +1,5 @@
 {
-  "version": 57,
+  "version": 70,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -825,7 +825,7 @@
         "subtitle": "Gratuit, confidentiel, fonctionne hors ligne. La qualité est plus limitée qu'avec Shoulder Surf AI.",
         "enable": "Activer Apple Intelligence",
         "enable_hint": "IA gratuite sur l'appareil. Activez-la dans Réglages → Apple Intelligence et Siri",
-        "requires": "Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé."
+        "requires": "Nécessite un appareil avec Apple Intelligence activé."
       }
     }
   },

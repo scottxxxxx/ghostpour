@@ -1,10 +1,10 @@
 {
-  "version": 17,
+  "version": 19,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
       "provider": "Apple",
-      "description": "Modèle gratuit sur l'appareil (Apple Intelligence). Privé, fonctionne hors ligne. Fenêtre de contexte de 4K. Nécessite un iPhone 15 Pro ou plus récent.",
+      "description": "Modèle gratuit sur l'appareil (Apple Intelligence). Privé, fonctionne hors ligne. Fenêtre de contexte de 4K. Nécessite un appareil avec Apple Intelligence.",
       "inputCostPerMillion": null,
       "outputCostPerMillion": null,
       "contextWindow": "4K",

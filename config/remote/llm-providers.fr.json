@@ -1,5 +1,5 @@
 {
- "version": 30,
+ "version": 32,
  "defaultPromptReserveTokens": 8000,
  "providers": [
   {
@@ -58,7 +58,7 @@
     {
      "id": "foundation-models",
      "displayName": "Apple Intelligence",
-     "description": "Modèle gratuit sur l'appareil. Privé, fonctionne hors ligne. Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé.",
+     "description": "Modèle gratuit sur l'appareil. Privé, fonctionne hors ligne. Nécessite un appareil avec Apple Intelligence activé.",
      "isDefault": true,
      "supportsVision": false,
      "contextWindow": 4096,
@@ -76,7 +76,7 @@
      "promptReserveTokens": null,
      "localizations": {
       "fr": {
-       "description": "Modèle gratuit sur l'appareil. Privé, fonctionne hors ligne. Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé."
+       "description": "Modèle gratuit sur l'appareil. Privé, fonctionne hors ligne. Nécessite un appareil avec Apple Intelligence activé."
       }
      }
     },
