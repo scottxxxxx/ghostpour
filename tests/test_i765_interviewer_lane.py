@@ -155,7 +155,12 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     # templates are identical again and the client fills one.
     assert i765["optionalVariables"] == n400["optionalVariables"]
     assert "TODAY (her calendar day; empty from an older client):\n{{today}}" in i765["userPromptTemplate"]
-    assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
+    # N-400 v67 (draft, 2026-11-13) reordered its template and points an empty
+    # VOLUNTEER FIELDS at a catalog only N-400's prompt carries, so the texts
+    # differ; what the client fills is the variable set, and that stays one.
+    import re as _re
+    assert set(_re.findall(r"\{\{(\w+)\}\}", i765["userPromptTemplate"])) == \
+        set(_re.findall(r"\{\{(\w+)\}\}", n400["userPromptTemplate"])), "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
     assert i765["server_only"] is True and i765["version"] == 10

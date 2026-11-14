@@ -160,4 +160,5 @@ def test_a_malformed_catalogue_falls_back_to_the_agenda_gate_rule(bad):
 def test_the_route_hands_the_catalogue_to_the_guard():
     src = open("app/routers/chat.py").read()
     call = src.index("response.text = guard_response_text(")
-    assert 'choice_fields=body.get_meta("choice_fields")' in src[call:call + 400]
+    assert 'choice_fields_for(body.get_meta("choice_fields"))' in src[call - 400:call]
+    assert "choice_fields=_choice_fields" in src[call:call + 600]

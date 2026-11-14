@@ -895,6 +895,21 @@ VERSIONS = {
             "EVERY PART IS CONFIRMED BEFORE THE NEXT ONE OPENS",
         ],
     },
+    67: {
+        # The auditor, 2026-11-13, from the N-400 team's envelope measurement:
+        # every field id and every choice field's options are the same for
+        # every applicant, so they ride in the cached system prompt as an
+        # appendix (rendered by app/services/n400_field_catalog.py), and an
+        # EMPTY volunteer_fields means that catalog. Nothing removed.
+        "block_anchor": "FIELD CATALOG\n",
+        "once": "Every field id on this form, by part, in form order.",
+        "phrases": [
+            "the list meant is this catalog: every field of every part except Part 9",
+            "A deferral is not a value, so a deferred field stays on the list.",
+            "one of 96 USCIS field offices; the app matches what she says to the list on screen",
+        ],
+        "absent": [],
+    },
 }
 
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
@@ -994,6 +1009,8 @@ VERSIONS[65]["absent"] = list(VERSIONS[64]["absent"])
 VERSIONS[66]["phrases"] = [p for p in VERSIONS[65]["phrases"] + [VERSIONS[65]["once"]]
                            if not p.startswith("EVERY PART IS CONFIRMED BEFORE")] + VERSIONS[66]["phrases"]
 VERSIONS[66]["absent"] = list(VERSIONS[65]["absent"]) + VERSIONS[66]["absent"]
+VERSIONS[67]["phrases"] = VERSIONS[66]["phrases"] + [VERSIONS[66]["once"]] + VERSIONS[67]["phrases"]
+VERSIONS[67]["absent"] = list(VERSIONS[66]["absent"])
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
