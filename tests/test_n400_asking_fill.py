@@ -71,3 +71,48 @@ def test_the_spoken_question_wins_over_the_first_open_line():
 def test_an_unmatched_question_falls_back_to_the_first_open_line():
     out, info = fill_null_asking(_turn(reply={"en": "Shall we keep going?"}), AGENDA)
     assert json.loads(out)["asking"]["node_id"] == "q_p1_full_name" and info["matched"] == "first_open"
+
+
+PARAPHRASE_AGENDA = (
+    "q_p1_full_name | Part 1: Your name | p1.first_name,p1.last_name | What is your full name?\n"
+    "q_p1_phone | Part 1: Contact | p1.phone | What is your daytime phone number?\n"
+    "q_p1_a_number | Part 1: Your A-Number | p1.a_number | What is your USCIS number, also called your A-Number?\n"
+    "q_p1_dob | Part 1: Your birth | p1.dob | What is your date of birth?"
+)
+
+
+def test_a_paraphrase_matches_a_later_line_not_the_first_open_one():
+    """The auditor's case: reworded, and "number" alone must not pull the phone line."""
+    out, info = fill_null_asking(_turn(reply={"en": "Got it. What's your A-Number?"}), PARAPHRASE_AGENDA)
+    assert json.loads(out)["asking"]["node_id"] == "q_p1_a_number" and info["matched"] == "spoken_question"
+
+
+def test_a_shortened_question_matches_its_line():
+    out, info = fill_null_asking(_turn(reply={"en": "Thanks. And when were you born, your birth date?"}),
+                                 PARAPHRASE_AGENDA)
+    assert json.loads(out)["asking"]["node_id"] == "q_p1_dob" and info["matched"] == "spoken_question"
+
+
+def test_a_spanish_paraphrase_matches():
+    agenda = ("q_p1_full_name | Parte 1 | p1.first_name | ¿Cuál es su nombre completo?\n"
+              "q_p1_dob | Parte 1 | p1.dob | ¿Cuál es su fecha de nacimiento?")
+    out, info = fill_null_asking(_turn(reply={"es": "Gracias. ¿Y su fecha de nacimiento?"}), agenda)
+    assert json.loads(out)["asking"]["node_id"] == "q_p1_dob" and info["matched"] == "spoken_question"
+
+
+def test_a_rare_shared_word_beats_a_common_one():
+    """"number" sits on two lines, "marriages" on one; each line shares one
+    word, so only rarity keeps the earlier phone line from winning the tie."""
+    agenda = ("q_p1_full_name | Part 1 | p1.first_name | What is your full name?\n"
+              "q_p1_phone | Part 1 | p1.phone | What is your daytime phone number?\n"
+              "q_p1_ssn | Part 1 | p1.ssn | What is your Social Security number?\n"
+              "q_p5_times_married | Part 5 | p5.times_married | How many marriages have you had?")
+    out, info = fill_null_asking(_turn(reply={"en": "Okay. And the number of marriages?"}), agenda)
+    assert json.loads(out)["asking"]["node_id"] == "q_p5_times_married" and info["matched"] == "spoken_question"
+
+
+def test_one_shared_word_in_a_long_question_is_no_match():
+    """She heard about children; the phone line shares only "number"."""
+    out, info = fill_null_asking(_turn(reply={"en": "How many children do you have, by number?"}),
+                                 PARAPHRASE_AGENDA)
+    assert json.loads(out)["asking"]["node_id"] == "q_p1_full_name" and info["matched"] == "first_open"

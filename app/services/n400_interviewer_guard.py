@@ -291,8 +291,41 @@ def _reply_ends_on_question(reply) -> bool:
 ASKING_FILLED_REASON = "the reply ends on a question and asking was null"
 
 
-def _letters(s: str) -> str:
-    return re.sub(r"[^\w]+", " ", (s or "").lower()).strip()
+# Models paraphrase: "What's your A-Number?" for "What is your USCIS number,
+# also called your A-Number?" (the auditor, 2026-11-13). So the match is word
+# overlap, not text: hyphens and apostrophes join ("anumber"), filler words
+# drop, and each shared word counts by how rare it is on the agenda, so
+# "number" alone cannot pull the phone line. Most of what she heard must be
+# covered by the line, or it is no match and the fill says first_open.
+_FILLER = set("""what whats is are was were your you yours the a an and or of to in on for
+with do does did have has had any ever now next and also please tell me can could
+would will just ok okay so then got it thanks thank great noted let us lets
+cual cuál es su sus tu el la los las de del y o en por para que qué ahora usted me
+puede podría dígame digame""".split())
+
+
+def _words(s: str) -> set[str]:
+    s = re.sub(r"(?<=\w)[-\u2011'’](?=\w)", "", (s or "").lower())
+    return {w for w in re.findall(r"\w+", s) if len(w) > 1 and w not in _FILLER}
+
+
+def _best_spoken_line(spoken, open_lines, all_lines):
+    heard = _words(spoken)
+    if not heard:
+        return None
+    df: dict[str, int] = {}
+    for _, _, q in all_lines:
+        for w in _words(q):
+            df[w] = df.get(w, 0) + 1
+    best, best_score = None, 0.0
+    for line in open_lines:
+        shared = heard & _words(line[2])
+        if not shared or len(shared) / len(heard) < 0.5:
+            continue
+        score = sum(1.0 / df.get(w, 1) for w in shared)
+        if score > best_score:
+            best, best_score = line, score
+    return best
 
 
 def _reply_texts_any(reply) -> list[str]:
@@ -322,8 +355,7 @@ def fill_null_asking(text: str, agenda: str | None) -> tuple[str, dict | None]:
     # for the A-Number (the stream route fixture), binding her answer wrong.
     spoken = " ".join(_split_trailing_question(t)[1] for t in _reply_texts_any(turn.get("reply"))
                       if _split_trailing_question(t))
-    said = _letters(spoken)
-    match = next((l for l in open_lines if _letters(l[2]) and _letters(l[2]) in said), None)
+    match = _best_spoken_line(spoken, open_lines, _agenda_lines(agenda))
     nxt, how = (match, "spoken_question") if match else (open_lines[0], "first_open")
     turn["asking"] = {"node_id": nxt[0], "field_ids": sorted(nxt[1])}
     info = {"node_id": nxt[0], "field_ids": sorted(nxt[1]), "matched": how,
