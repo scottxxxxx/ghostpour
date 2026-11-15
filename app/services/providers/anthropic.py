@@ -202,7 +202,7 @@ class AnthropicAdapter(ProviderAdapter):
                     "type": "image",
                     "source": {"type": "base64", "media_type": "image/jpeg", "data": img_b64},
                 })
-        content_parts.append({"type": "text", "text": request.user_content})
+        content_parts.extend(_user_text_parts(request, recall_part))
 
         max_tokens = request.max_tokens or 4096
         thinking = anthropic_thinking_block(
@@ -570,6 +570,25 @@ def _system_cache_control(request: ChatRequest) -> dict:
     if call_type in _ONE_HOUR_CACHE_CALL_TYPES:
         return {"type": "ephemeral", "ttl": "1h"}
     return {"type": "ephemeral"}
+
+
+def _user_text_parts(request: ChatRequest, recall_part: dict | None) -> list[dict]:
+    """The user text, split after its stable head when the template marked one.
+
+    Anthropic allows four cache breakpoints. Documents, reference text,
+    recall and generation each spend one, so the head is cached only on a
+    request carrying none of them (the interviewer lanes), where the system
+    prompt is the only other breakpoint.
+    """
+    text = request.user_content
+    n = request.user_cache_prefix_chars
+    if (not n or n >= len(text) or request.documents or request.reference_text
+            or recall_part or request.generation):
+        return [{"type": "text", "text": text}]
+    return [
+        {"type": "text", "text": text[:n], "cache_control": _system_cache_control(request)},
+        {"type": "text", "text": text[n:]},
+    ]
 
 
 _RECALL_LABEL = "[CONTEXT FROM PREVIOUS MEETINGS]\n"

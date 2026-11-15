@@ -32,6 +32,7 @@ Each prompt config has:
 
 import logging
 import re
+import uuid
 
 logger = logging.getLogger("ghostpour.prompt_assembly")
 
@@ -209,6 +210,11 @@ def _apply_scenario(
     return system_prompt.replace("{{counterpart}}", counterpart)
 
 
+# Template marker: everything before it is the stable head of the user
+# message, cached as its own block by the Anthropic adapter.
+CACHE_BREAK = "{{cache_break}}"
+
+
 def assemble_prompt(
     call_type: str,
     user_content: str,
@@ -302,6 +308,14 @@ def assemble_prompt(
     #   tr-resume-analysis: {{resume_text}}
     # As a fallback, if no known placeholder is found, append user_content
     # to the template.
+    # A template may mark where its stable head ends with {{cache_break}}.
+    # It becomes a per-call nonce BEFORE any value is substituted, so a
+    # client value that happens to contain the marker text can never move
+    # the split; the nonce is found and removed after substitution.
+    cache_nonce = None
+    if CACHE_BREAK in user_template:
+        cache_nonce = "\x00cz-cache-%s\x00" % uuid.uuid4().hex
+        user_template = user_template.replace(CACHE_BREAK, cache_nonce, 1).replace(CACHE_BREAK, "")
     if "{{" in user_template:
         # The three legacy names all mean "the single payload the client
         # sent". They predate configs that need more than one value and are
@@ -354,10 +368,19 @@ def assemble_prompt(
         # No template — just use user_content directly
         assembled_user = user_content
 
+    cache_prefix_chars = None
+    if cache_nonce:
+        at = assembled_user.find(cache_nonce)
+        assembled_user = assembled_user.replace(cache_nonce, "")
+        if at > 0:
+            cache_prefix_chars = at
+
     result = {
         "system_prompt": system_prompt,
         "user_content": assembled_user,
     }
+    if cache_prefix_chars:
+        result["user_cache_prefix_chars"] = cache_prefix_chars
     if max_tokens:
         result["max_tokens"] = max_tokens
     # GP-controlled sampling temperature (optional). Low values make a

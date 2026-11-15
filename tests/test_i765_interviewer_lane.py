@@ -158,7 +158,7 @@ def test_the_config_has_the_n400_wire_shape_and_an_i765_brief():
     assert i765["userPromptTemplate"] == n400["userPromptTemplate"], "the client fills one template"
     assert i765["maxTokens"] == n400["maxTokens"] and i765["thinking"] == n400["thinking"]
     assert i765["recommendedModel"] == n400["recommendedModel"]
-    assert i765["server_only"] is True and i765["version"] == 10
+    assert i765["server_only"] is True and i765["version"] == 11
     sp = i765["systemPrompt"]
     assert "Form I-765" in sp and "N-400" not in sp
     # The brief's rules the client depends on (gp-lane-brief-i765.md, 2026-10-09).

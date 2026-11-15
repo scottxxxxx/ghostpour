@@ -63,6 +63,10 @@ class ChatRequest(BaseModel):
     # never survives. When True the anthropic adapter arms the execution
     # sandbox + document skills and collects generated artifacts.
     generation: bool = False
+    # Server-set ONLY: where the stable head of an assembled user message
+    # ends ({{cache_break}} in the template). The chat router clears any
+    # client value before assembly; the anthropic adapter caches the head.
+    user_cache_prefix_chars: int | None = None
     max_tokens: int | None = None
     temperature: float | None = None  # GP-controlled; None => provider default
     stream: bool = False
