@@ -1,5 +1,5 @@
 {
-  "version": 29,
+  "version": 32,
   "limits": {
     "project_chat": {
       "max_input_chars": {
