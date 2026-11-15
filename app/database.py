@@ -1443,6 +1443,19 @@ MIGRATIONS = [
     "user_id, request_timestamp, status, app_id, call_type, input_tokens, "
     "output_tokens, estimated_cost_usd, image_count, generated_count, "
     "documents_count)",
+    # Free-tier meeting report counts (Scott, 2026-11-15). One row per
+    # (account, meeting) a REAL report was stored for; the bucket is the
+    # model the client had selected. Not meeting_reports, which purges at
+    # 30 days and could not hold the lifetime Apple-model count.
+    """CREATE TABLE IF NOT EXISTS report_quota_ledger (
+        user_id TEXT NOT NULL,
+        meeting_id TEXT NOT NULL,
+        bucket TEXT NOT NULL,
+        month TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, meeting_id)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_report_quota_user_bucket ON report_quota_ledger(user_id, bucket, month)",
 ]
 
 

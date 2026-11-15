@@ -97,6 +97,9 @@ def _seed_ss_owned(db_path: str, user_id: str) -> None:
     conn.execute(
         "INSERT INTO project_chat_taste (user_id, period, session_id, first_at) "
         "VALUES (?,?,?,?)", (user_id, "2026-10", "s-1", _NOW))
+    conn.execute(
+        "INSERT INTO report_quota_ledger (user_id, meeting_id, bucket, month, created_at) "
+        "VALUES (?,?,?,?,?)", (user_id, "m-1", "ssai", "2026-10", _NOW))
     conn.commit()
     conn.close()
 

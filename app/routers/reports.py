@@ -57,6 +57,12 @@ class ReportRequest(BaseModel):
     # transcript_language, not language, because `language` on capture
     # already means the device language.
     transcript_language: str | None = None
+    # The model the user had selected when this report was asked for
+    # ("ssai" | "apple_cloud" | "on_device" | "byok", ProjectChat's
+    # vocabulary). It never changes which model writes the report; it picks
+    # the free-tier count (report_limits). Missing means ssai, so builds
+    # that predate it keep today's behaviour.
+    selected_model: str | None = None
     # The language the client wants the report WRITTEN in (BCP-47). SS sends
     # it from build 2026-09-10 on every per-rendition regeneration, alongside
     # transcript_language. Wins over transcript_language and Accept-Language;
@@ -230,6 +236,26 @@ async def generate_report(
                 # rejected, so a new source does not wait on a deploy.
                 "recovery_source": "report-404-replay",
             },
+        )
+
+    # Free-tier report counts (report_limits). Before either path, so an
+    # async report is refused the same way, and after the 404 so a meeting
+    # with nothing to report on is never answered with a quota card.
+    from app.services import report_limits
+    _quota = await report_limits.refusal(
+        db, user, meeting_id, body.selected_model, request.app.state.remote_configs)
+    if _quota:
+        logger.info("report_quota_reached user=%s meeting=%s bucket=%s used=%d limit=%d",
+                    user.id, meeting_id, _quota["bucket"], _quota["used"], _quota["limit"])
+        from app.services.allowance import effective_monthly_limit
+        _row = await (await db.execute(
+            "SELECT monthly_used_usd FROM users WHERE id = ?", (user.id,))).fetchone()
+        return await _build_canned_report_response(
+            request, db, user, meeting_id, body,
+            effective_limit_usd=effective_monthly_limit(user, tier),
+            monthly_used_usd=float(_row["monthly_used_usd"] or 0) if _row else 0.0,
+            locale=_quota_locale(request, body),
+            quota=_quota,
         )
 
     if body.async_:
@@ -585,6 +611,10 @@ async def _build_report_response(response, body, db, user, report_model, request
         ),
     )
     await db.commit()
+    if request is not None:
+        from app.services import report_limits
+        await report_limits.record(db, user, meeting_id, body.selected_model,
+                                   request.app.state.remote_configs)
 
     response_payload = {
         "report_html": report_html,
@@ -614,6 +644,31 @@ def _report_language(locale: str | None) -> str:
     return (locale or "en").split("-")[0].lower()
 
 
+def _quota_locale(request, body) -> str | None:
+    from app.services.language_directive import resolve_report_locale
+    return resolve_report_locale(
+        body.transcript_language, request.headers.get("Accept-Language"),
+        requested_language=body.report_language)
+
+
+_QUOTA_CTA_FALLBACK = {
+    "apple": {"kind": "report_quota_apple", "action": "switch_to_ss_ai",
+              "text": "You've used your 3 meeting reports on Apple's model. Switch to SS AI for 5 free reports a month."},
+    "ssai": {"kind": "report_quota_monthly", "action": "open_paywall",
+             "text": "You've used your 5 free meeting reports this month. Upgrade to Plus for a report after every meeting."},
+}
+
+
+_QUOTA_CARD_FALLBACK = {
+    "apple": {"headline": "Get 5 free reports a month with SS AI",
+              "body": "You've used the 3 meeting reports that come with Apple's model. Switch to SS AI and you get 5 free reports every month.",
+              "button_text": "Switch to SS AI"},
+    "ssai": {"headline": "This is what Plus delivers",
+             "body": "You've used your 5 free reports this month. Plus gives you a report after every meeting.",
+             "button_text": "Upgrade"},
+}
+
+
 async def _build_canned_report_response(
     request,
     db,
@@ -624,6 +679,7 @@ async def _build_canned_report_response(
     effective_limit_usd: float,
     monthly_used_usd: float,
     locale: str | None = None,
+    quota: dict | None = None,
 ):
     """Return + persist the canned/sample meeting report when a Free user
     is over budget. Pulls the HTML template + CTA strings from the
@@ -656,12 +712,16 @@ async def _build_canned_report_response(
         except (ValueError, TypeError):
             pass
 
+    card = cta
+    if quota:
+        card = {**cta, **_QUOTA_CARD_FALLBACK[quota["bucket"]],
+                **((cta.get("quota") or {}).get(quota["bucket"]) or {})}
     rendered_html = template
     for key, value in [
-        ("{{cta_eyebrow}}", cta.get("eyebrow", "")),
-        ("{{cta_headline}}", cta.get("headline", "")),
-        ("{{cta_body}}", cta.get("body", "")),
-        ("{{cta_button_text}}", cta.get("button_text", "Upgrade")),
+        ("{{cta_eyebrow}}", card.get("eyebrow", "")),
+        ("{{cta_headline}}", card.get("headline", "")),
+        ("{{cta_body}}", card.get("body", "")),
+        ("{{cta_button_text}}", card.get("button_text", "Upgrade")),
     ]:
         rendered_html = rendered_html.replace(key, value)
 
@@ -695,7 +755,7 @@ async def _build_canned_report_response(
     credits_used = dollars_to_credits(monthly_used_usd)
     credits_remaining = max(0, credits_total - credits_used)
 
-    return {
+    payload = {
         "report_html": rendered_html,
         "report_json": None,
         "meeting_id": meeting_id,
@@ -720,6 +780,20 @@ async def _build_canned_report_response(
             },
         },
     }
+    if quota:
+        # A count limit, not the $ budget: same canned card, its own code
+        # and copy (canned-report quota_cta.<bucket>, English fallback).
+        served = (cta.get("quota") or {}).get(quota["bucket"]) or {}
+        fallback = _QUOTA_CTA_FALLBACK[quota["bucket"]]
+        payload["feature_state"].update({
+            "code": "report_quota_reached",
+            "bucket": quota["bucket"],
+            "used": quota["used"],
+            "limit": quota["limit"],
+            "resets_at": quota["resets_at"],
+            "cta": {k: served.get(k) or fallback[k] for k in ("kind", "text", "action")},
+        })
+    return payload
 
 
 # --- async generation ---------------------------------------------------------
