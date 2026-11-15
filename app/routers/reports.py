@@ -724,6 +724,16 @@ async def _build_canned_report_response(
         ("{{cta_button_text}}", card.get("button_text", "Upgrade")),
     ]:
         rendered_html = rendered_html.replace(key, value)
+    if quota:
+        # The template's one button is marked data-action="open_paywall" in
+        # every locale. On a quota card it must carry the card's own action
+        # (switch_to_ss_ai for the Apple bucket), which SS routes by this
+        # attribute; a hard-coded paywall would send an Apple-model user to
+        # the wrong place.
+        action = (((cta.get("quota") or {}).get(quota["bucket"]) or {}).get("action")
+                  or _QUOTA_CTA_FALLBACK[quota["bucket"]]["action"])
+        rendered_html = rendered_html.replace(
+            'data-action="open_paywall"', f'data-action="{action}"')
 
     # Persist with placeholder flags so subsequent GETs return the same
     # canned content + iOS can route around it correctly.
