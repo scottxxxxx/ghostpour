@@ -2023,6 +2023,9 @@ async def _chat_impl(
                      (body.turn_id or "").strip() or None,
                      body.get_meta("surrogates"))
 
+    if body.user_cache_prefix_chars is not None:
+        body = body.model_copy(update={"user_cache_prefix_chars": None})
+
     # 2.5. Server-side prompt assembly — if client sent no system_prompt but
     # has a call_type with a registered prompt config, assemble it server-side.
     if not body.system_prompt:
@@ -2090,6 +2093,8 @@ async def _chat_impl(
                     updates["temperature"] = assembled["temperature"]
                 if assembled.get("thinking"):
                     updates["thinking"] = assembled["thinking"]
+                if assembled.get("user_cache_prefix_chars"):
+                    updates["user_cache_prefix_chars"] = assembled["user_cache_prefix_chars"]
                 body = body.model_copy(update=updates)
 
         if not body.system_prompt:

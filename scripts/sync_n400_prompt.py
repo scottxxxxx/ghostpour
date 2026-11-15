@@ -897,6 +897,9 @@ VERSIONS = {
     },
 }
 
+# v67 changes only the user template (stable head first, {{cache_break}},
+# turn_id last); the system prompt is v66's byte for byte, so its read-back
+# is v66's. The template is synced and read back by string on its own.
 # v39 carries every v38 phrase: a v39 sync that lost one is a regression of v38.
 VERSIONS[39]["phrases"] = VERSIONS[39]["phrases"] + VERSIONS[38]["phrases"]
 # v40 carries every v39 phrase and every v39 retirement, extended rather than
@@ -994,6 +997,10 @@ VERSIONS[65]["absent"] = list(VERSIONS[64]["absent"])
 VERSIONS[66]["phrases"] = [p for p in VERSIONS[65]["phrases"] + [VERSIONS[65]["once"]]
                            if not p.startswith("EVERY PART IS CONFIRMED BEFORE")] + VERSIONS[66]["phrases"]
 VERSIONS[66]["absent"] = list(VERSIONS[65]["absent"]) + VERSIONS[66]["absent"]
+# v67 changes only the user template (stable head first, {{cache_break}},
+# turn_id last). The system prompt is v66's byte for byte, so its read-back
+# is v66's; the template is synced and read back by string on its own.
+VERSIONS[67] = VERSIONS[66]
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]

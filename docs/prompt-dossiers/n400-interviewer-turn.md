@@ -1,7 +1,7 @@
 ---
 call_type: n400_interviewer_turn
 config_slug: n400/interviewer-turn
-served_version: 66
+served_version: 67
 model_dial: sonnet-5 (default only, no tier axis)
 recommended_model: claude-sonnet-5
 max_tokens: 6144
@@ -2078,3 +2078,19 @@ The prompt replaces the v39 era sentence that read a single-question part back (
 Code in the same PR. The boundary rewrite (confirm_part_boundary) carries the same condition, since GP cannot count the part's questions when the boundary arrives. checkpoint_on_one_question_part refuses a checkpoint on a part with exactly one answered field (KNOWN FACTS plus this response's settled ids; a capture gap is not an answer) and retries with ONE_QUESTION_PART_REMINDER: file, checkpoint null, ask the next part. It runs before the capture-gap and rides-next-question refusals, so a one-question part is never sent back to be confirmed. Counted in fields because the agenda lists only open nodes; a gate "no" is one field, and every two-question part has at least two.
 
 Tests: tests/test_n400_walk245_one_question_part.py, 8, from the walk's real t_003. Not probed live; unproven on the wire.
+
+## v67: the user template caches its stable head (2026-11-15)
+
+Template only; the system prompt is v66's. Steven's 11-13 export showed every
+turn billing about 5,000 uncached input tokens beside the 41.8k cached system
+prompt, because the user message carried no cache breakpoint and opened with
+TURN ID, which changes every turn. v67 moves FORM, JURISDICTION, LOCALE,
+APPLICANT CONTEXT, BEFORE WE BEGIN and TODAY to the front, ends that head with
+`{{cache_break}}` (GP's marker, prompt_assembly.CACHE_BREAK, never a client
+value), and moves TURN ID down to sit just above the utterance. The Anthropic
+adapter caches the head as its own block (1h TTL, as the system prompt) when
+the request carries no documents, reference text, recall or generation.
+Asked for by the N-400 team (11-14). Saving is unmeasured until cache_read on
+real turns is compared before and after; the conversation window slides, so
+it was left below the per-turn block and is not expected to cache.
+
