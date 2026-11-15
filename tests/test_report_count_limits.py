@@ -50,6 +50,7 @@ def test_ss_ai_free_gets_five_a_month_then_the_subscribe_card(client, free_user,
     assert q and q["bucket"] == "ssai" and (q["used"], q["limit"]) == (5, 5)
     assert q["resets_at"] and q["cta"]["action"] == "open_paywall"
     assert made[5][1].json()["report_status"] == "placeholder_budget_blocked"
+    assert 'data-action="open_paywall"' in made[5][1].json()["report_html"]
 
 
 def test_a_build_that_sends_no_model_counts_as_ss_ai(client, free_user, tmp_db_path, monkeypatch):
@@ -67,6 +68,8 @@ def test_apple_models_get_three_for_life_then_the_switch_card(client, free_user,
     assert q and q["bucket"] == "apple" and (q["used"], q["limit"]) == (3, 3)
     assert q["resets_at"] is None and q["cta"]["action"] == "switch_to_ss_ai"
     assert "Switch to SS AI" in made[3][1].json()["report_html"]
+    html = made[3][1].json()["report_html"]
+    assert 'data-action="switch_to_ss_ai"' in html and 'data-action="open_paywall"' not in html
     # Apple reports do not use up SS AI's five (served default).
     assert _real(_make(client, free_user, tmp_db_path, 1, selected_model="ssai")[0][1])
 
