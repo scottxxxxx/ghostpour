@@ -383,6 +383,9 @@ def test_anonymous_devices_are_unscoped_and_newest_first(client, tmp_db_path):
             "device": "Unknown (TestPad3,3)",
             "last_request": T_ANON_NEW_2,
             "location": {"country": "FR", "region": "IDF", "city": "Paris"},
+            "meeting_hours": 0.0,
+            "meeting_count": 0,
+            "meetings_unfinished": 0,
         },
         {
             "device_id": "anon-old",
@@ -394,6 +397,9 @@ def test_anonymous_devices_are_unscoped_and_newest_first(client, tmp_db_path):
             "device": None,
             "last_request": T_ANON_OLD,
             "location": {"country": "MX", "region": None, "city": None},
+            "meeting_hours": 0.0,
+            "meeting_count": 0,
+            "meetings_unfinished": 0,
         },
     ]
     assert _get(client)["anonymous_devices"] == expected
