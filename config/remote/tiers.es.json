@@ -1,12 +1,12 @@
 {
-  "version": 70,
+  "version": 71,
   "tiers": {
     "free": {
       "display_name": "Gratis",
-      "description": "Cada reunión capturada, resumida y convertida en un informe que puedes compartir.",
+      "description": "Cada reunión capturada y resumida, con informes que puedes compartir.",
       "feature_bullets": [
         "Transcripción y resumen en vivo, con quién dijo qué",
-        "Un informe completo después de cada reunión, que puedes compartir como enlace web. Elige un idioma al compartir, y quien lo lea puede cambiar entre el original y la traducción.",
+        "5 informes de reunión al mes para compartir con SS AI, o 3 con el modelo de Apple. Elige un idioma al compartir, y quien lo lea puede alternar entre el original y la traducción.",
         "Personas: con quién te reuniste y qué prometieron",
         "Tus reuniones sincronizadas y respaldadas en tu propio iCloud",
         "Unas cinco horas de IA en la nube al mes para probar el resto"
@@ -17,7 +17,7 @@
           "icon": "doc"
         },
         {
-          "label": "Un informe completo después de cada reunión, que puedes compartir como enlace web. Elige un idioma al compartir, y quien lo lea puede cambiar entre el original y la traducción.",
+          "label": "5 informes de reunión al mes para compartir con SS AI, o 3 con el modelo de Apple. Elige un idioma al compartir, y quien lo lea puede alternar entre el original y la traducción.",
           "icon": "share"
         },
         {
@@ -58,7 +58,7 @@
         },
         {
           "label": "Informes",
-          "value": "compartibles, en cualquier idioma",
+          "value": "5 al mes con SS AI",
           "icon": "share"
         },
         {
