@@ -90,6 +90,8 @@ APP_OWNED_TABLES = {
         # The free Project Chat taste counter: which conversations this
         # person started on SS AI this month. Theirs, so it goes too.
         "project_chat_taste",
+        # Free-tier report counts: which meetings produced a report.
+        "report_quota_ledger",
     ],
 }
 

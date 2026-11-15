@@ -1,5 +1,5 @@
 {
-  "version": 28,
+  "version": 29,
   "limits": {
     "project_chat": {
       "max_input_chars": {
@@ -8,6 +8,12 @@
         "pro": 1440000,
         "automation": 1440000
       }
+    },
+    "meeting_reports": {
+      "apple_lifetime": 3,
+      "ssai_free_per_month": 5,
+      "apple_counts_toward_ssai": false,
+      "byok_bucket": "ssai"
     }
   },
   "flags": {},
