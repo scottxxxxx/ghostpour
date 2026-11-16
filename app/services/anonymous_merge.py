@@ -28,7 +28,8 @@ import aiosqlite
 
 # User-visible content, and the plan's own records.
 CONTENT_TABLES = ("meeting_reports", "meeting_transcripts", "meeting_shares",
-                  "generated_files", "generations", "project_prefs", "device_tokens")
+                  "generated_files", "generations", "project_prefs", "device_tokens",
+                  "report_quota_ledger")
 PLAN_TABLES = ("subscription_events", "subscription_status")
 
 _PLAN_COLUMNS = ("tier", "monthly_cost_limit_usd", "monthly_used_usd", "overage_balance_usd",

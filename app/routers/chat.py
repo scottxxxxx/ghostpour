@@ -2023,6 +2023,9 @@ async def _chat_impl(
                      (body.turn_id or "").strip() or None,
                      body.get_meta("surrogates"))
 
+    if body.user_cache_prefix_chars is not None:
+        body = body.model_copy(update={"user_cache_prefix_chars": None})
+
     # 2.5. Server-side prompt assembly — if client sent no system_prompt but
     # has a call_type with a registered prompt config, assemble it server-side.
     if not body.system_prompt:
@@ -2090,6 +2093,8 @@ async def _chat_impl(
                     updates["temperature"] = assembled["temperature"]
                 if assembled.get("thinking"):
                     updates["thinking"] = assembled["thinking"]
+                if assembled.get("user_cache_prefix_chars"):
+                    updates["user_cache_prefix_chars"] = assembled["user_cache_prefix_chars"]
                 body = body.model_copy(update=updates)
 
         if not body.system_prompt:
@@ -2121,7 +2126,11 @@ async def _chat_impl(
     usage_tracker.check_model_access(body, tier, routed=managed_routing)
 
     # 4. Rate limit
-    allowed, retry_after = rate_limiter.check(user.id, tier.requests_per_minute)
+    # Per-app floor (apps.yml tier_overrides.min_requests_per_minute): N-400
+    # gets 15 on every tier, Scott 2026-11-16. Never lowers a tier's own value.
+    from app.routers.config import tier_overrides_for_app as _tofa
+    _rpm_floor = _tofa(getattr(request.state, "app_id", None)).get("min_requests_per_minute") or 0
+    allowed, retry_after = rate_limiter.check(user.id, max(tier.requests_per_minute, int(_rpm_floor)))
     if not allowed:
         raise HTTPException(
             status_code=429,

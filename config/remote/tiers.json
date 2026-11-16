@@ -1,12 +1,12 @@
 {
-  "version": 58,
+  "version": 72,
   "tiers": {
     "free": {
       "display_name": "Free",
-      "description": "Every meeting captured, summarized and turned into a report you can share.",
+      "description": "Every meeting captured and summarized, with reports you can share.",
       "feature_bullets": [
         "A live transcript and summary, with who said what",
-        "A full report after every meeting, which you can share as a web link. Pick a language when you share, and the reader can switch between the original and the translation.",
+        "5 shareable meeting reports a month with SS AI, or 3 with Apple's model. Pick a language when you share, and the reader can switch between the original and the translation.",
         "People: who you met and what they promised",
         "Your meetings synced and backed up in your own iCloud",
         "About five hours of cloud AI a month to try the rest"
@@ -17,7 +17,7 @@
           "icon": "doc"
         },
         {
-          "label": "A full report after every meeting, which you can share as a web link. Pick a language when you share, and the reader can switch between the original and the translation.",
+          "label": "5 shareable meeting reports a month with SS AI, or 3 with Apple's model. Pick a language when you share, and the reader can switch between the original and the translation.",
           "icon": "share"
         },
         {
@@ -58,7 +58,7 @@
         },
         {
           "label": "Reports",
-          "value": "shareable, in any language",
+          "value": "5 a month with SS AI",
           "icon": "share"
         },
         {
@@ -825,7 +825,7 @@
         "subtitle": "Free, private, works offline. Quality is more limited than Shoulder Surf AI.",
         "enable": "Enable Apple Intelligence",
         "enable_hint": "Free on-device AI. Turn on in Settings → Apple Intelligence & Siri",
-        "requires": "Requires iPhone 15 Pro or later with Apple Intelligence enabled."
+        "requires": "Requires a device with Apple Intelligence enabled."
       }
     }
   },

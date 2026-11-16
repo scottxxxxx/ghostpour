@@ -110,6 +110,13 @@ apps:
     # Kept apart from CZ_APPLE_BUNDLE_ID on purpose, because adding the bundle
     # THERE also opens Sign in with Apple while the lane is uncapped.
     purchase_ledger: true
+    # Per-minute floor, Scott 2026-11-16: N-400 gets 15 a minute on every
+    # tier (free is 5). A FLOOR, never a cap: chat.py takes the larger of
+    # this and the tier's, so pro's 30 stays 30. Only this key is read here;
+    # the paragraph below about no tier_overrides still holds for every
+    # entitlement value.
+    tier_overrides:
+      min_requests_per_minute: 15
     # Registered 2026-08-31, BEFORE the first TestFlight, which is the whole
     # point: resolve_app_dir fails open, so an unregistered id would have been
     # served ShoulderSurf's config with only a log line and nothing would have

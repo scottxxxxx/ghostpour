@@ -1,10 +1,10 @@
 {
-  "version": 17,
+  "version": 20,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
       "provider": "Apple",
-      "description": "Free on-device model (Apple Intelligence). Private, works offline. 4K context window. Requires iPhone 15 Pro+.",
+      "description": "無料のオンデバイスモデル（Apple Intelligence）。プライベートでオフラインでも動作します。4Kコンテキストウィンドウ。Apple Intelligence対応デバイスが必要です。",
       "inputCostPerMillion": null,
       "outputCostPerMillion": null,
       "contextWindow": "4K",
@@ -33,7 +33,7 @@
     },
     "gpt-5.5": {
       "provider": "OpenAI",
-      "description": "OpenAI's smartest model; strongest reasoning, agentic tasks, document analysis. 1M context",
+      "description": "OpenAIで最も賢いモデル。最高水準の推論、エージェント型タスク、ドキュメント分析。1Mコンテキスト",
       "inputCostPerMillion": 5.0,
       "outputCostPerMillion": 30.0,
       "contextWindow": "1M",
@@ -70,7 +70,7 @@
     },
     "gpt-5.2": {
       "provider": "OpenAI",
-      "description": "Previous-generation general-purpose model. Lower cost than 5.5 for routine tasks",
+      "description": "前世代の汎用モデル。日常的なタスクで5.5より低コスト",
       "inputCostPerMillion": 1.75,
       "outputCostPerMillion": 14.0,
       "contextWindow": "400K",
@@ -107,7 +107,7 @@
     },
     "gpt-5-mini": {
       "provider": "OpenAI",
-      "description": "Faster, cost efficient GPT-5 for well defined tasks and precise prompts",
+      "description": "高速でコスト効率の高いGPT-5。明確なタスクや的確なプロンプトに",
       "inputCostPerMillion": 0.25,
       "outputCostPerMillion": 1.25,
       "contextWindow": "400K",
@@ -143,7 +143,7 @@
     },
     "gpt-5-nano": {
       "provider": "OpenAI",
-      "description": "Fastest, cheapest GPT-5 variant; great for summarization and classification",
+      "description": "最速・最安のGPT-5バリアント。要約や分類に最適",
       "inputCostPerMillion": 0.05,
       "outputCostPerMillion": 0.4,
       "contextWindow": "400K",
@@ -179,7 +179,7 @@
     },
     "claude-opus-4-7": {
       "provider": "Anthropic",
-      "description": "Most capable Claude; adaptive thinking, step-change agentic coding, 1M context",
+      "description": "最も高性能なClaude。適応型思考、飛躍的に向上したエージェント型コーディング、1Mコンテキスト",
       "inputCostPerMillion": 5.0,
       "outputCostPerMillion": 25.0,
       "contextWindow": "1M",
@@ -216,7 +216,7 @@
     },
     "claude-sonnet-5": {
       "provider": "Anthropic",
-      "description": "Best combination of speed and intelligence; near-Opus coding and agentic quality, adaptive thinking, 1M context",
+      "description": "速度と知能の最良の組み合わせ。Opusに迫るコーディングとエージェント品質、適応型思考、1Mコンテキスト",
       "inputCostPerMillion": 3.0,
       "outputCostPerMillion": 15.0,
       "contextWindow": "1M",
@@ -253,7 +253,7 @@
     },
     "claude-sonnet-4-6": {
       "provider": "Anthropic",
-      "description": "Best balance of speed and intelligence; extended thinking, 1M context, strong computer use",
+      "description": "速度と知能の最良のバランス。拡張思考、1Mコンテキスト、優れたコンピュータ操作",
       "inputCostPerMillion": 3.0,
       "outputCostPerMillion": 15.0,
       "contextWindow": "1M",
@@ -289,7 +289,7 @@
     },
     "claude-haiku-4-5": {
       "provider": "Anthropic",
-      "description": "Fastest Claude with near-frontier intelligence; great for summaries and high-volume tasks",
+      "description": "最速のClaudeで、最先端に近い知能。要約や大量処理のタスクに最適",
       "inputCostPerMillion": 1.0,
       "outputCostPerMillion": 5.0,
       "contextWindow": "200K",
@@ -318,7 +318,7 @@
     },
     "gemini-3.1-pro-preview": {
       "provider": "Google",
-      "description": "Latest top tier reasoning model; 1M context, strong agentic and coding performance",
+      "description": "最新のトップクラス推論モデル。1Mコンテキスト、高いエージェント性能とコーディング性能",
       "inputCostPerMillion": 2.0,
       "outputCostPerMillion": 12.0,
       "contextWindow": "1M",
@@ -353,7 +353,7 @@
     },
     "gemini-3-flash-preview": {
       "provider": "Google",
-      "description": "Flash variant offering Pro grade reasoning at much lower latency and cost",
+      "description": "Proクラスの推論をはるかに低いレイテンシとコストで実現するFlashバリアント",
       "inputCostPerMillion": 0.5,
       "outputCostPerMillion": 3.0,
       "contextWindow": "1M",
@@ -389,7 +389,7 @@
     },
     "gemini-3.1-flash-lite-preview": {
       "provider": "Google",
-      "description": "Most cost-effective Gemini 3 model; 1M context, ideal for high-volume queries",
+      "description": "最もコスト効率の高いGemini 3モデル。1Mコンテキスト、大量の質問に最適",
       "inputCostPerMillion": 0.25,
       "outputCostPerMillion": 1.5,
       "contextWindow": "1M",
@@ -425,7 +425,7 @@
     },
     "grok-4": {
       "provider": "xAI",
-      "description": "Most intelligent Grok model; native tool use, reasoning, real time search integration",
+      "description": "最も賢いGrokモデル。ネイティブのツール利用、推論、リアルタイム検索の統合",
       "inputCostPerMillion": 3.0,
       "outputCostPerMillion": 15.0,
       "contextWindow": "256K",
@@ -461,7 +461,7 @@
     },
     "grok-4.1-fast": {
       "provider": "xAI",
-      "description": "Fast variant of Grok 4 optimized for speed with agent tool support; 2M context",
+      "description": "速度に最適化したGrok 4の高速バリアント。エージェントのツール利用に対応、2Mコンテキスト",
       "inputCostPerMillion": 0.2,
       "outputCostPerMillion": 0.5,
       "contextWindow": "2M",
@@ -497,7 +497,7 @@
     },
     "kimi-k2.5": {
       "provider": "Moonshot AI",
-      "description": "Flagship open source multimodal agentic model; 1T MoE, agent swarm, vision + video",
+      "description": "オープンソースのマルチモーダル・エージェント型フラッグシップモデル。1T MoE、エージェントスウォーム、画像・動画対応",
       "inputCostPerMillion": 0.6,
       "outputCostPerMillion": 2.5,
       "contextWindow": "256K",
@@ -531,7 +531,7 @@
     },
     "kimi-k2-thinking": {
       "provider": "Moonshot AI",
-      "description": "Deep reasoning model; technical discussions, strategic insight, multi step problem solving",
+      "description": "深い推論モデル。技術的な議論、戦略的な洞察、多段階の問題解決に",
       "inputCostPerMillion": 0.6,
       "outputCostPerMillion": 2.5,
       "contextWindow": "256K",
@@ -560,7 +560,7 @@
     },
     "qwen-plus": {
       "provider": "Alibaba (Qwen)",
-      "description": "General-purpose apps, balanced latency/quality, most production workloads",
+      "description": "汎用アプリ、レイテンシと品質のバランス、ほとんどの本番ワークロードに",
       "inputCostPerMillion": 0.4,
       "outputCostPerMillion": 2.4,
       "contextWindow": "129K",
@@ -589,7 +589,7 @@
     },
     "qwen-flash": {
       "provider": "Alibaba (Qwen)",
-      "description": "High-volume simple tasks, chatbots, rapid prototyping, cost-sensitive apps",
+      "description": "大量のシンプルなタスク、チャットボット、迅速なプロトタイピング、コスト重視のアプリに",
       "inputCostPerMillion": 0.1,
       "outputCostPerMillion": 0.4,
       "contextWindow": "1M",
@@ -618,7 +618,7 @@
     },
     "deepseek-v4-flash": {
       "provider": "DeepSeek",
-      "description": "V4 Flash MoE (284B/13B active); dual-mode (thinking / non-thinking), 1M context, cheapest frontier text-only chat",
+      "description": "V4 Flash MoE（284B/13Bアクティブ）。デュアルモード（思考あり／思考なし）、1Mコンテキスト、最も安価な最先端テキスト専用チャット",
       "inputCostPerMillion": 0.14,
       "outputCostPerMillion": 0.28,
       "contextWindow": "1M",
@@ -652,7 +652,7 @@
     },
     "deepseek-v4-pro": {
       "provider": "DeepSeek",
-      "description": "V4 Pro MoE (1.6T/49B active); dual-mode (thinking / non-thinking), 1M context, frontier reasoning, math, code (75% promo until 2026-05-31; regular pricing shown)",
+      "description": "V4 Pro MoE（1.6T/49Bアクティブ）。デュアルモード（思考あり／思考なし）、1Mコンテキスト、最先端の推論、数学、コード（2026-05-31まで75%割引キャンペーン中。表示は通常価格）",
       "inputCostPerMillion": 1.74,
       "outputCostPerMillion": 3.48,
       "contextWindow": "1M",
@@ -686,7 +686,7 @@
     },
     "kimi-k2.6": {
       "provider": "Moonshot AI",
-      "description": "Flagship open source multimodal agentic model; 1T MoE, agent swarm, vision + video",
+      "description": "オープンソースのマルチモーダル・エージェント型フラッグシップモデル。1T MoE、エージェントスウォーム、画像・動画対応",
       "inputCostPerMillion": 0.6,
       "outputCostPerMillion": 2.5,
       "contextWindow": "256K",
@@ -720,7 +720,7 @@
     },
     "qwen3-max": {
       "provider": "Alibaba (Qwen)",
-      "description": "Complex reasoning, enterprise workflows, high-stakes tasks",
+      "description": "複雑な推論、エンタープライズワークフロー、重要度の高いタスク",
       "inputCostPerMillion": 1.2,
       "outputCostPerMillion": 6.0,
       "contextWindow": "258K",
@@ -817,7 +817,7 @@
     },
     "private-cloud-compute": {
       "provider": "Apple",
-      "description": "Free Apple cloud model (Private Cloud Compute). Larger than on-device, data kept private. Needs internet; daily limit set by Apple. 32K context window. Requires iOS 27 and Apple Intelligence.",
+      "description": "無料のAppleクラウドモデル（Private Cloud Compute）。オンデバイスより大規模で、データはプライベートに保たれます。インターネット接続が必要、1日の利用上限はAppleが設定。32Kコンテキストウィンドウ。iOS 27とApple Intelligenceが必要です。",
       "inputCostPerMillion": null,
       "outputCostPerMillion": null,
       "contextWindow": "32K",

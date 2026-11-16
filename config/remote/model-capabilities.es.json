@@ -1,10 +1,10 @@
 {
-  "version": 17,
+  "version": 20,
   "defaultPromptReserveTokens": 8000,
   "models": {
     "foundation-models": {
       "provider": "Apple",
-      "description": "Modelo gratuito en el dispositivo (Apple Intelligence). Privado, funciona sin conexion. Ventana de contexto de 4K. Requiere iPhone 15 Pro o posterior.",
+      "description": "Modelo gratuito en el dispositivo (Apple Intelligence). Privado, funciona sin conexion. Ventana de contexto de 4K. Requiere un dispositivo con Apple Intelligence.",
       "inputCostPerMillion": null,
       "outputCostPerMillion": null,
       "contextWindow": "4K",

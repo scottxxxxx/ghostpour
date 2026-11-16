@@ -30,7 +30,7 @@ def _exhaust_rate_limit(client, free_user):
     limiter = client.app.state.rate_limiter
     limiter._buckets.clear()
     for _ in range(50):
-        if not limiter.check(free_user["user_id"], 5)[0]:
+        if not limiter.check(free_user["user_id"], 15)[0]:  # N-400 floor, #1215
             return
     raise AssertionError("the limiter never refused")
 

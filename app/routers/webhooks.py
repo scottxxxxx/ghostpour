@@ -3450,6 +3450,59 @@ async def list_users(
                 "unfinished": max(0, int(m["starts"] or 0) - int(m["stops"] or 0)),
             }
 
+    # Signed-out meeting time (Scott, 2026-11-15: Steven's meetings never
+    # reached his row because he recorded them signed out). The phone still
+    # sends meeting_start/stop with its device_id and no user_id. Per device:
+    # the time those pings add up to. A device that ever pinged signed in is
+    # credited to the LAST account seen on it, so a shared phone credits
+    # whoever signed in last; the time is kept apart from the signed-in
+    # column and never folded into it.
+    def _meeting_row(m) -> dict:
+        return {
+            "hours": round((m["secs"] or 0) / 3600, 2),
+            "meetings": int(m["starts"] or 0),
+            "unfinished": max(0, int(m["starts"] or 0) - int(m["stops"] or 0)),
+        }
+
+    device_meetings: dict[str, dict] = {}
+    for m in await (await db.execute(
+        """SELECT device_id,
+              SUM(CASE WHEN event_type = 'meeting_stop'
+                       THEN COALESCE(duration_seconds, 0) ELSE 0 END) AS secs,
+              SUM(CASE WHEN event_type = 'meeting_start' THEN 1 ELSE 0 END) AS starts,
+              SUM(CASE WHEN event_type = 'meeting_stop' THEN 1 ELSE 0 END) AS stops
+            FROM telemetry_events
+            WHERE user_id IS NULL
+              AND event_type IN ('meeting_start', 'meeting_stop')
+              AND received_at >= datetime('now', ?)
+            GROUP BY device_id""",
+        (f"-{days} days",),
+    )).fetchall():
+        device_meetings[m["device_id"]] = _meeting_row(m)
+
+    device_owner: dict[str, str] = {}
+    if device_meetings:
+        dph = ",".join("?" * len(device_meetings))
+        for o in await (await db.execute(
+            f"""SELECT t.device_id,
+                   (SELECT t2.user_id FROM telemetry_events t2
+                     WHERE t2.device_id = t.device_id AND t2.user_id IS NOT NULL
+                     ORDER BY t2.received_at DESC LIMIT 1) AS owner
+                FROM (SELECT DISTINCT device_id FROM telemetry_events
+                      WHERE device_id IN ({dph})) t""",
+            tuple(device_meetings),
+        )).fetchall():
+            if o["owner"]:
+                device_owner[o["device_id"]] = o["owner"]
+
+    signed_out_stats: dict[str, dict] = {}
+    for dev, owner in device_owner.items():
+        acc = signed_out_stats.setdefault(owner, {"hours": 0.0, "meetings": 0, "unfinished": 0})
+        st = device_meetings[dev]
+        acc["hours"] = round(acc["hours"] + st["hours"], 2)
+        acc["meetings"] += st["meetings"]
+        acc["unfinished"] += st["unfinished"]
+
     users = []
     for r in rows_fetched:
         monthly_used = float(r["monthly_used_usd"] or 0)
@@ -3524,6 +3577,11 @@ async def list_users(
             "meeting_hours": meeting_stats.get(r["id"], {}).get("hours", 0.0),
             "meeting_count": meeting_stats.get(r["id"], {}).get("meetings", 0),
             "meetings_unfinished": meeting_stats.get(r["id"], {}).get(
+                "unfinished", 0),
+            # signed-out time on a phone this account last signed in on
+            "signed_out_meeting_hours": signed_out_stats.get(r["id"], {}).get("hours", 0.0),
+            "signed_out_meeting_count": signed_out_stats.get(r["id"], {}).get("meetings", 0),
+            "signed_out_meetings_unfinished": signed_out_stats.get(r["id"], {}).get(
                 "unfinished", 0),
             "allocation_resets_at": r["allocation_resets_at"],
             "searches_used": int(r["searches_used"] or 0),
@@ -3611,6 +3669,10 @@ async def list_users(
             "app_build": a["app_build"],
             "telemetry_events": a["events"] or 0,
             "device": to_marketing_name(a["device_model"]),
+            "meeting_hours": device_meetings.get(a["device_id"], {}).get("hours", 0.0),
+            "meeting_count": device_meetings.get(a["device_id"], {}).get("meetings", 0),
+            "meetings_unfinished": device_meetings.get(a["device_id"], {}).get(
+                "unfinished", 0),
             "last_request": a["last_seen"],
             "location": (
                 {"country": a["country"], "region": a["region"], "city": a["city"]}

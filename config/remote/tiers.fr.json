@@ -1,12 +1,12 @@
 {
-  "version": 57,
+  "version": 71,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
-      "description": "Chaque réunion enregistrée, résumée et transformée en un rapport que vous pouvez partager.",
+      "description": "Chaque réunion enregistrée et résumée, avec des rapports à partager.",
       "feature_bullets": [
         "Transcription et résumé en direct, avec qui a dit quoi",
-        "Un rapport complet après chaque réunion, à partager sous forme de lien web. Choisissez une langue au moment du partage, et le lecteur peut passer de l'original à la traduction.",
+        "5 rapports de réunion à partager chaque mois avec SS AI, ou 3 avec le modèle d'Apple. Choisissez une langue au partage, et le lecteur peut passer de l'original à la traduction.",
         "Personnes : qui vous avez rencontré et ce qu'ils ont promis",
         "Vos réunions synchronisées et sauvegardées dans votre propre iCloud",
         "Environ cinq heures d'IA dans le cloud par mois pour essayer le reste"
@@ -17,7 +17,7 @@
           "icon": "doc"
         },
         {
-          "label": "Un rapport complet après chaque réunion, à partager sous forme de lien web. Choisissez une langue au moment du partage, et le lecteur peut passer de l'original à la traduction.",
+          "label": "5 rapports de réunion à partager chaque mois avec SS AI, ou 3 avec le modèle d'Apple. Choisissez une langue au partage, et le lecteur peut passer de l'original à la traduction.",
           "icon": "share"
         },
         {
@@ -58,7 +58,7 @@
         },
         {
           "label": "Rapports",
-          "value": "partageables, dans toutes les langues",
+          "value": "5 par mois avec SS AI",
           "icon": "share"
         },
         {
@@ -825,7 +825,7 @@
         "subtitle": "Gratuit, confidentiel, fonctionne hors ligne. La qualité est plus limitée qu'avec Shoulder Surf AI.",
         "enable": "Activer Apple Intelligence",
         "enable_hint": "IA gratuite sur l'appareil. Activez-la dans Réglages → Apple Intelligence et Siri",
-        "requires": "Nécessite un iPhone 15 Pro ou plus récent avec Apple Intelligence activé."
+        "requires": "Nécessite un appareil avec Apple Intelligence activé."
       }
     }
   },

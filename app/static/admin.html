@@ -3156,10 +3156,18 @@ function fmtCost(n) { return n == null ? '-' : '$' + n.toFixed(4); }
 // the fleet when only the derived one was on screen (2026-07-31).
 // Top-level on purpose: renderUserRows() is not the only caller, and a
 // helper scoped inside it is what took the whole dashboard down in #574.
+function signedOutTime(u) {
+  const n = u.signed_out_meeting_count || 0;
+  if (!n) return '';
+  const hrs = u.signed_out_meeting_hours || 0;
+  const label = hrs >= 1 ? hrs.toFixed(1) + ' hrs' : Math.round(hrs * 60) + ' min';
+  return `<div style="color:var(--text-dim);font-size:0.8em" title="${n} meeting${n === 1 ? '' : 's'} recorded signed out on a phone this account last signed in on (a shared phone credits whoever signed in last)">+ ${label} / ${n} signed out</div>`;
+}
+
 function meetingTime(u) {
   const hrs = u.meeting_hours || 0;
   const n = u.meeting_count || 0;
-  if (!n) return '<span style="color:var(--text-dim)">—</span>';
+  if (!n) return '<span style="color:var(--text-dim)">—</span>' + signedOutTime(u);
   const label = hrs >= 1 ? hrs.toFixed(1) + ' hrs' : Math.round(hrs * 60) + ' min';
   // A start with no stop contributes zero seconds, so the total is a floor.
   const missing = u.meetings_unfinished || 0;
@@ -3167,7 +3175,7 @@ function meetingTime(u) {
     ? ` <span style="color:var(--orange);font-size:0.8em" title="${missing} of ${n} meetings never reported a stop, so their time is missing from this total">+${missing}?</span>`
     : '';
   return `<span title="${n} meeting${n === 1 ? '' : 's'} in this period">${label}</span>` +
-    `<span style="color:var(--text-dim);font-size:0.8em"> / ${n}</span>${flag}`;
+    `<span style="color:var(--text-dim);font-size:0.8em"> / ${n}</span>${flag}` + signedOutTime(u);
 }
 
 // --- User table: client-side sortable columns ---------------------------
@@ -3180,7 +3188,7 @@ function _userSortVal(u, key) {
     case 'tier': return u.tier || '';
     case 'channel': return u.channel || '';
     case 'hours': return u.hours_used || 0;
-    case 'metmins': return u.meeting_hours || 0;
+    case 'metmins': return (u.meeting_hours || 0) + (u.signed_out_meeting_hours || 0);
     case 'alloc': return u.percent_used || 0;
     case 'resets': return u.allocation_resets_at || '';
     case 'genbuilds': return u.generations_used || 0;

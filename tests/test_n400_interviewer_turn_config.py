@@ -71,7 +71,9 @@ def test_the_config_would_actually_load(cfg):
 
 
 def test_every_placeholder_is_one_the_client_was_told_about(cfg):
-    used = set(re.findall(r"\{\{(\w+)\}\}", cfg["userPromptTemplate"]))
+    # cache_break is GP's own marker (prompt_assembly.CACHE_BREAK), not a
+    # client value.
+    used = set(re.findall(r"\{\{(\w+)\}\}", cfg["userPromptTemplate"])) - {"cache_break"}
     assert used == _DECLARED, (
         f"undeclared: {used - _DECLARED}; declared but unused: {_DECLARED - used}")
 
