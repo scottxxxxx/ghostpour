@@ -60,6 +60,28 @@ USAGE_LOG_RETENTION_DAYS = 90
 USAGE_LOG_EXPIRING_APPS: tuple[str, ...] = ("n400", "i765")
 KEEP_USAGE_ROWS_FOR: tuple[str, ...] = KEEP_RAW_REQUESTS_FOR
 
+# Dated holds: usage_log rows of one app inside a window keep their raw
+# request/reply and are never expired, whoever made them (Scott, 2026-11-16:
+# Steven's N-400 run last week is the only N-400 session from a production
+# install, preserve it). Keyed by app and date rather than user id because
+# the run spans anonymous accounts that only a prod read could list. Remove
+# the entry to let the rows age out normally.
+HOLD_USAGE_WINDOWS: tuple[tuple[str, str, str], ...] = (
+    ("n400", "2026-11-09T00:00:00", "2026-11-17T00:00:00"),
+)
+
+
+def _not_held(holds: tuple[tuple[str, str, str], ...]) -> tuple[str, list]:
+    """SQL `AND NOT (...)` excluding held rows, plus its params."""
+    if not holds:
+        return "", []
+    parts, args = [], []
+    for app_id, start, end in holds:
+        parts.append("(app_id = ? AND request_timestamp >= ? AND request_timestamp < ?)")
+        args += [app_id, start, end]
+    return " AND NOT (" + " OR ".join(parts) + ")", args
+
+
 # How often the sweep runs once the app is up. These windows are days
 # long and do not need a tight loop; hourly matches the existing
 # generated_files sweep so there is one cadence to reason about, and it
@@ -189,6 +211,7 @@ async def strip_old_raw_requests(
     *,
     retention_days: int = RAW_REQUEST_RETENTION_DAYS,
     keep_for: tuple[str, ...] = KEEP_RAW_REQUESTS_FOR,
+    holds: tuple[tuple[str, str, str], ...] = HOLD_USAGE_WINDOWS,
     batch_size: int = 50,
 ) -> int:
     """Remove raw_request and raw_response from usage_log rows past the
@@ -196,6 +219,7 @@ async def strip_old_raw_requests(
     cutoff is formatted like request_timestamp (ISO with a T), so the
     comparison is exact rather than off by the T against a space."""
     placeholders = ",".join("?" for _ in keep_for) or "''"
+    held_sql, held_args = _not_held(holds)
     # In batches, each its own short transaction (2026-10-07). As one UPDATE
     # it held the write lock for the whole scan (378 rows took past 03:13:58Z
     # and a chat turn's usage write timed out behind it). The SELECT is a
@@ -207,9 +231,9 @@ async def strip_old_raw_requests(
                  WHERE request_timestamp < strftime('%Y-%m-%dT%H:%M:%S', 'now', ?)
                    AND (json_extract(metadata, '$.raw_request') IS NOT NULL
                         OR json_extract(metadata, '$.raw_response') IS NOT NULL)
-                   AND user_id NOT IN ({placeholders})
+                   AND user_id NOT IN ({placeholders}){held_sql}
                  LIMIT ?""",
-            (f"-{int(retention_days)} days", *keep_for, batch_size),
+            (f"-{int(retention_days)} days", *keep_for, *held_args, batch_size),
         )
         ids = [r[0] for r in await cursor.fetchall()]
         if not ids:
@@ -230,6 +254,7 @@ async def expire_old_usage_rows(
     retention_days: int = USAGE_LOG_RETENTION_DAYS,
     apps: tuple[str, ...] = USAGE_LOG_EXPIRING_APPS,
     keep_for: tuple[str, ...] = KEEP_USAGE_ROWS_FOR,
+    holds: tuple[tuple[str, str, str], ...] = HOLD_USAGE_WINDOWS,
     batch_size: int = 50,
 ) -> int:
     """Delete usage_log rows of `apps` older than the window, except for
@@ -246,21 +271,22 @@ async def expire_old_usage_rows(
         (f"-{int(retention_days)} days",))).fetchone())[0]
     app_marks = ",".join("?" for _ in apps) or "''"
     keep_marks = ",".join("?" for _ in keep_for) or "''"
+    held_sql, held_args = _not_held(holds)
     total = 0
     while True:
         pairs = await (await db.execute(
             f"""SELECT DISTINCT user_id, app_id FROM usage_log
                  WHERE request_timestamp < ? AND app_id IN ({app_marks})
-                   AND user_id NOT IN ({keep_marks})
+                   AND user_id NOT IN ({keep_marks}){held_sql}
                  LIMIT ?""",
-            (cutoff, *apps, *keep_for, batch_size))).fetchall()
+            (cutoff, *apps, *keep_for, *held_args, batch_size))).fetchall()
         if not pairs:
             return total
         for user_id, app_id in pairs:
             spent = float((await (await db.execute(
                 "SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log"
-                " WHERE user_id = ? AND app_id = ? AND request_timestamp < ?",
-                (user_id, app_id, cutoff))).fetchone())[0] or 0.0)
+                " WHERE user_id = ? AND app_id = ? AND request_timestamp < ?" + held_sql,
+                (user_id, app_id, cutoff, *held_args))).fetchone())[0] or 0.0)
             sub = await (await db.execute(
                 "SELECT apple_sub FROM users WHERE id = ?", (user_id,))).fetchone()
             if (spent > 0 and app_id in CARRY_APPS and sub and sub[0]
@@ -274,8 +300,8 @@ async def expire_old_usage_rows(
                            updated_at = excluded.updated_at""",
                     (sub[0], app_id, spent))
             cursor = await db.execute(
-                "DELETE FROM usage_log WHERE user_id = ? AND app_id = ? AND request_timestamp < ?",
-                (user_id, app_id, cutoff))
+                "DELETE FROM usage_log WHERE user_id = ? AND app_id = ? AND request_timestamp < ?"
+                + held_sql, (user_id, app_id, cutoff, *held_args))
             await db.commit()
             total += cursor.rowcount or 0
             await asyncio.sleep(0)
