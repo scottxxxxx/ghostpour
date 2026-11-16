@@ -2126,7 +2126,11 @@ async def _chat_impl(
     usage_tracker.check_model_access(body, tier, routed=managed_routing)
 
     # 4. Rate limit
-    allowed, retry_after = rate_limiter.check(user.id, tier.requests_per_minute)
+    # Per-app floor (apps.yml tier_overrides.min_requests_per_minute): N-400
+    # gets 15 on every tier, Scott 2026-11-16. Never lowers a tier's own value.
+    from app.routers.config import tier_overrides_for_app as _tofa
+    _rpm_floor = _tofa(getattr(request.state, "app_id", None)).get("min_requests_per_minute") or 0
+    allowed, retry_after = rate_limiter.check(user.id, max(tier.requests_per_minute, int(_rpm_floor)))
     if not allowed:
         raise HTTPException(
             status_code=429,
