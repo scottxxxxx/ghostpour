@@ -1001,6 +1001,19 @@ VERSIONS[66]["absent"] = list(VERSIONS[65]["absent"]) + VERSIONS[66]["absent"]
 # turn_id last). The system prompt is v66's byte for byte, so its read-back
 # is v66's; the template is synced and read back by string on its own.
 VERSIONS[67] = VERSIONS[66]
+# v68 (Scott, 2026-11-16, the auditor's audit of Steven's run, case
+# 515e9bb1): every yes read back by name and no advice in a read-back; a yes
+# that opens rows never asks the next agenda line; a number said with the
+# month is the day. Adds only, so every v67 phrase is carried.
+VERSIONS[68] = {
+    "block_anchor": VERSIONS[66].get("block_anchor"),
+    "once": "EVERY YES IS READ BACK BY NAME, AND A READ-BACK NEVER ADVISES",
+    "phrases": VERSIONS[67]["phrases"] + [VERSIONS[66]["once"]] + [
+        "THE NEXT AGENDA LINE IS NEVER ASKED AFTER A YES THAT OPENS ROWS",
+        "A NUMBER SAID WITH THE MONTH IS THE DAY",
+    ],
+    "absent": list(VERSIONS[67]["absent"]),
+}
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
