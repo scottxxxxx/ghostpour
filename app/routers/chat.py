@@ -5323,7 +5323,14 @@ async def _chat_impl(
                     detail={**_e.detail, "retryable": not _billed},
                 ) from _e
             raise
-        except Exception:
+        except BaseException:
+            # BaseException, not Exception: the sentence stream's wall clock
+            # CANCELS this task, and CancelledError is not an Exception, so
+            # before 2026-11-16 a stream_timeout ran neither finish nor
+            # abandon and the id read in_progress until the 240s valve (found
+            # by the Fable auditor). A cancelled turn stores nothing, so a
+            # same-id resend runs fresh, and that is the honest answer: we
+            # cannot say whether the cancelled call was billed.
             # Never leave the id in flight on an unexpected error: a retry
             # would poll `in_progress` until the leak valve expired it.
             _ct.abandon(user.id, _turn_id)
