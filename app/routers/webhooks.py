@@ -5939,6 +5939,20 @@ async def subscriptions_apple_cloud_users(
     return await unlocks.apple_cloud_users(db, days=days)
 
 
+@router.get("/admin/subscriptions/return-visits")
+async def subscriptions_return_visits(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=60, ge=7, le=180),
+):
+    """New Shoulder Surf users by signup week: did they come back for a second
+    meeting on a later day within 72 hours? See app/services/return_visits.py."""
+    _verify_admin(request, x_admin_key)
+    from app.services import return_visits
+    return await return_visits.report(db, days=days)
+
+
 @router.get("/admin/subscriptions/redemptions")
 async def subscriptions_redemptions(
     request: Request,
