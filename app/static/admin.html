@@ -1156,6 +1156,13 @@
         <th>User</th><th title="What the Apple subscription is for">Plan</th><th title="The account's tier in GhostPour right now">Tier now</th><th>State</th><th>Auto-renew</th><th>Offer</th><th>This period</th><th>Period ends</th><th>Env</th><th>Paid ever</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
+    <div class="card" style="padding:16px;margin-top:16px">
+      <h4 style="margin:0 0 4px">Return visits, Shoulder Surf <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">did a new user come back for a second meeting on a later day, within 72 h of their first? Lapsed trials went quiet after day 1 to 3; first-day use did not separate them from the payer</span></h4>
+      <div id="rv-note" style="color:var(--text-dim);font-size:12px;margin-bottom:8px"></div>
+      <div class="table-wrap"><table id="rv-table"><thead><tr>
+        <th>Signup week</th><th>New users</th><th>Had a meeting</th><th title="Second meeting on a later day within 72 h of the first">Returned</th><th>Did not</th><th title="First meeting under 72 h ago">Pending</th><th>Return rate</th><th>Subscribed</th><th title="Apple charged real money">Paid</th><th>Paid and returned</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
       <div class="card" style="padding:16px;grid-column:span 2">
         <h4 style="margin:0 0 8px">Run-rate if every trial and offer converted <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">daily, at list price; net line is after Apple's 15%. Trials and offer periods count until they lapse. This is NOT recognised revenue; see the headline cards</span></h4>
@@ -2165,6 +2172,7 @@ async function loadSubscriptions() {
     _renderSubscriptions(rep, events);
     _loadUnlocks();
     _loadAppleCloudUsers();
+    _loadReturnVisits();
   } catch (e) {
     document.getElementById('sub-kpis').innerHTML =
       `<div class="card" style="grid-column:span 4">Subscriptions error: ${e.message}</div>`;
@@ -2178,6 +2186,23 @@ async function _loadUnlocks() {
     if (!resp.ok) { kp.innerHTML = `<div class="card">Unlocks load failed (${resp.status})</div>`; return; }
     _renderUnlocks(await resp.json());
   } catch (e) { kp.innerHTML = '<div class="card">Unlocks load failed</div>'; }
+}
+
+async function _loadReturnVisits() {
+  const note = document.getElementById('rv-note');
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/subscriptions/return-visits?days=60`, {headers:{'X-Admin-Key':adminKey}});
+    if (!resp.ok) { note.textContent = `Return visits load failed (${resp.status})`; return; }
+    const d = await resp.json();
+    const pct = (v) => v == null ? '<span style="color:var(--text-dim)">n/a</span>' : `${Math.round(v * 100)}%`;
+    const tb = document.querySelector('#rv-table tbody');
+    tb.innerHTML = (d.weeks || []).map(w => `<tr><td>${esc(w.week)}</td><td>${w.users}</td><td>${w.had_meeting}</td><td>${w.returned}</td><td>${w.not_returned}</td><td>${w.pending}</td><td>${pct(w.return_rate)}</td><td>${w.subscribed}</td><td>${w.paid}</td><td>${w.paid_returned}</td></tr>`).join('')
+      || '<tr><td colspan="10" style="color:var(--text-dim)">No new Shoulder Surf users in the window</td></tr>';
+    const all = d.users || [];
+    const dec = all.filter(u => u.state === 'returned' || u.state === 'not_returned');
+    const ret = dec.filter(u => u.state === 'returned').length;
+    note.textContent = `Last ${d.days} days, by signup week (Monday, UTC). ${all.length} new users, ${ret} of ${dec.length} decided came back (${dec.length ? Math.round(100 * ret / dec.length) : 0}%). Stats-excluded accounts left out.`;
+  } catch (e) { note.textContent = 'Return visits load failed'; }
 }
 
 async function _loadAppleCloudUsers() {
