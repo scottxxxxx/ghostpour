@@ -5953,6 +5953,20 @@ async def subscriptions_return_visits(
     return await return_visits.report(db, days=days)
 
 
+@router.get("/admin/subscriptions/cta-purchases")
+async def subscriptions_cta_purchases(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=90, ge=7, le=365),
+):
+    """Shoulder Surf trials and purchases that came right after a CTA tap, and
+    the per-CTA funnel. See app/services/cta_purchases.py."""
+    _verify_admin(request, x_admin_key)
+    from app.services import cta_purchases
+    return await cta_purchases.report(db, days=days)
+
+
 @router.get("/admin/subscriptions/redemptions")
 async def subscriptions_redemptions(
     request: Request,
