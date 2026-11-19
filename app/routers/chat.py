@@ -109,7 +109,7 @@ def _with_recall_echo(content: dict, hook_results: dict) -> dict:
 
 
 async def _log_guard_retry(usage_tracker, db, user_id, retry_body, retry, start,
-                           kind: str, resolved: bool, app_id) -> None:
+                           kind: str, resolved: bool, app_id, pricing=None) -> None:
     """One row for a guard's retry call, with the RETRY's own tokens.
 
     The N-400 guards below run after step 9 has already logged the first
@@ -121,6 +121,14 @@ async def _log_guard_retry(usage_tracker, db, user_id, retry_body, retry, start,
     """
     if retry is None:
         return
+    # Cost the retry's own tokens (Scott's 1.0.2 run, 2026-11-19, t_011: the
+    # retry row logged estimated_cost_usd NULL, so every guard retry was
+    # missing from spend totals and the anonymous allowance, which sums
+    # usage_log). Only the first call is costed at step 7.
+    if pricing is not None and getattr(pricing, "is_loaded", False) and retry.cost is None:
+        retry.cost = pricing.calculate_cost(
+            provider=retry_body.provider, model=retry_body.model, usage=retry.usage,
+            input_tokens=retry.input_tokens, output_tokens=retry.output_tokens)
     await usage_tracker.log_usage(
         db, user_id, retry_body, retry,
         int((time.monotonic() - start) * 1000),
@@ -4811,7 +4819,7 @@ async def _chat_impl(
                 _cp_ok = bool(_cp_text and checkpoint_is_refused(_cp_text, _agenda, _known, _said) is None)
                 await _log_guard_retry(
                     usage_tracker, db, user.id, _cp_body, _cp_retry, start,
-                    "checkpoint", resolved=_cp_ok, app_id=app_id)
+                    "checkpoint", resolved=_cp_ok, app_id=app_id, pricing=pricing)
                 if _cp_ok:
                     logger.warning(
                         "n400_checkpoint_retried turn_id=%s code=%s",
@@ -4849,7 +4857,7 @@ async def _chat_impl(
                 _o_ok = bool(_o_text and offers_impossible_oath_modification(_o_text) is None)
                 await _log_guard_retry(
                     usage_tracker, db, user.id, _o_body, _o_retry, start,
-                    "oath_modification", resolved=_o_ok, app_id=app_id)
+                    "oath_modification", resolved=_o_ok, app_id=app_id, pricing=pricing)
                 if _o_ok:
                     logger.warning("n400_impossible_oath_modification_retried turn_id=%s", _o_turn)
                     response = _o_retry
@@ -4889,7 +4897,7 @@ async def _chat_impl(
                 _c_ok = bool(_c_text and closes_in_words_while_agenda_open(_c_text, _agenda) is None)
                 await _log_guard_retry(
                     usage_tracker, db, user.id, _c_body, _c_retry, start,
-                    "closing_while_open", resolved=_c_ok, app_id=app_id)
+                    "closing_while_open", resolved=_c_ok, app_id=app_id, pricing=pricing)
                 if _c_ok:
                     logger.warning("n400_closing_while_open_retried turn_id=%s", _c_turn)
                     response = _c_retry
@@ -4926,7 +4934,7 @@ async def _chat_impl(
                 _d_ok = bool(_d_text and not date_inversions(_d_text, _known))
                 await _log_guard_retry(
                     usage_tracker, db, user.id, _d_body, _d_retry, start,
-                    "date_inversion", resolved=_d_ok, app_id=app_id)
+                    "date_inversion", resolved=_d_ok, app_id=app_id, pricing=pricing)
                 if _d_ok:
                     logger.warning("n400_date_inversion_retried turn_id=%s", _d_turn)
                     response = _d_retry
