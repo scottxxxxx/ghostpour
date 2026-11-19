@@ -440,3 +440,34 @@ async def test_completion_lane_dark_by_default():
         await asyncio.sleep(0)
     capture.assert_not_awaited()
     assert "MEMORY COMPLETION" not in new_body.system_prompt
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode,fires", [("AutoSummary", False), ("DeltaSummary", False),
+                                        ("PostSessionAnalysis", False), ("PostMeetingChat", True)])
+async def test_a_transcript_in_a_generated_mode_is_never_a_correction(mode, fires):
+    """2026-11-17: a speaker saying "remember it as" inside an AutoSummary
+    transcript (no question marker, so the WHOLE content was the 'question')
+    reached CQ as interaction_type=correction. Generated modes never fire;
+    a typed chat turn with the same words still does."""
+    import asyncio
+    hook = ContextQuiltHook()
+    body = ChatRequest(
+        provider="anthropic", model="claude-haiku-4-5-20251001",
+        system_prompt="BASE",
+        user_content="Speaker 1: the launch slipped.\nSpeaker 2: ok, remember it as August then.",
+        context_quilt=True,
+        metadata={"prompt_mode": mode},
+    )
+    with patch("app.services.features.context_quilt_hook.get_settings",
+               return_value=_settings_stub(True)), \
+         patch("app.services.features.context_quilt_hook.cq.recall",
+               new_callable=AsyncMock,
+               return_value={"context": "", "matched_entities": []}), \
+         patch("app.services.features.context_quilt_hook.cq.capture",
+               new_callable=AsyncMock) as capture:
+        await hook.before_llm(user=_user("pro"), body=body, tier=None,
+                              feature_state="enabled", skip_teasers=set())
+        await asyncio.sleep(0)
+    kinds = [c.kwargs.get("interaction_type") for c in capture.await_args_list]
+    assert ("correction" in kinds) is fires, (mode, kinds)
