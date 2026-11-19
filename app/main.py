@@ -543,6 +543,8 @@ app.include_router(promo.router, prefix="/v1", tags=["promo"])
 app.include_router(acquisition.router, prefix="/v1", tags=["acquisition"])
 app.include_router(app_version.router, prefix="/v1", tags=["app-version"])
 app.include_router(n400_policy.router, prefix="/v1", tags=["n400-policy"])
+from app.routers import n400_jev_gate as _n400_jev_gate  # noqa: E402
+app.include_router(_n400_jev_gate.router, prefix="/v1", tags=["n400-jev-gate"])
 app.include_router(account.router, prefix="/v1", tags=["account"])
 
 # Context Quilt proxy routes — only included when CQ is configured
