@@ -1379,6 +1379,107 @@ def fix_occupations(text: str, known_facts: str | None) -> tuple[str, list[dict]
     return json.dumps(turn, ensure_ascii=False), changes
 
 
+# --- a date already on file for ANOTHER field is confirmed, never filed -------
+#
+# Envelope trim simulation (2026-11-19, auditor ruling): with the window cut
+# to 8 exchanges she said "Like I told you before, June 15, 2019" at the
+# Part 4 address, the line where she first gave it as her green card date had
+# left the window, and the lane filed it as her move-in date. Every evidence
+# floor kept it, correctly, because the words ARE in her current turn. So a
+# minted date equal to a KNOWN FACTS date on a different field is taken back
+# and asked as a yes/no that names the other field. Never refused: moving in
+# the day the card came is real. No back-reference phrase is required, because
+# people repeat a date without saying "like I told you".
+#
+# Dates only. Identifiers sit in KNOWN FACTS as "on file", so GP never holds
+# the value to compare; that half is the client's.
+
+_KNOWN_LINE = re.compile(r"^\s*([a-z0-9_.]+)\s*:\s*(\d{4}-\d{2}-\d{2})\b", re.M)
+_ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_OTHER_FIELD_LABELS = {
+    "p2.lpr_date": {"en": "your green card date", "es": "la fecha de su tarjeta verde",
+                    "pt": "a data do seu green card"},
+    "p1.date_of_birth": {"en": "your date of birth", "es": "su fecha de nacimiento",
+                         "pt": "a sua data de nascimento"},
+}
+_MONTH_WORDS = {
+    "en": ("January", "February", "March", "April", "May", "June", "July", "August",
+           "September", "October", "November", "December"),
+    "es": ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+           "septiembre", "octubre", "noviembre", "diciembre"),
+    "pt": ("janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto",
+           "setembro", "outubro", "novembro", "dezembro"),
+}
+
+
+def _spoken(iso: str, loc: str) -> str:
+    y, m, d = int(iso[:4]), int(iso[5:7]), int(iso[8:10])
+    lang = loc if loc in _MONTH_WORDS else "en"
+    if lang == "en":
+        return f"{_MONTH_WORDS['en'][m - 1]} {d}, {y}"
+    return f"{d} de {_MONTH_WORDS[lang][m - 1]} de {y}"
+
+
+def value_on_other_field_text(iso: str, other: str, loc: str) -> str:
+    lang = loc if loc in ("en", "es", "pt") else "en"
+    label = (_OTHER_FIELD_LABELS.get(other) or {}).get(lang) or {
+        "en": "a date you already gave me", "es": "una fecha que ya me dio",
+        "pt": "uma data que você já me deu"}[lang]
+    when = _spoken(iso, lang)
+    return {
+        "en": f"{when} is also {label}. Is that the date for this one too?",
+        "es": f"El {when} también es {label}. ¿Es también la fecha para esta pregunta?",
+        "pt": f"{when} também é {label}. É também a data desta pergunta?",
+    }[lang]
+
+
+def _just_asked(iso: str, conversation: str | None) -> bool:
+    """Our last line was the confirm for this date, so her answer now is the
+    yes (or the no) to it and the mint stands. Without this the confirm would
+    be asked again forever."""
+    lines = [(m.group(1).upper(), m.group(2)) for m in _SPEAKER_LINE.finditer(conversation or "")]
+    asked = next((t for who, t in reversed(lines) if who in ("INTERVIEWER", "ENTREVISTADOR")), "")
+    return any(_spoken(iso, loc).lower() in asked.lower() for loc in _MONTH_WORDS)
+
+
+def confirm_value_on_other_field(text: str, agenda: str | None, known_facts: str | None,
+                                 conversation: str | None = None) -> tuple[str, dict | None]:
+    try:
+        turn = json.loads(text)
+    except (TypeError, ValueError):
+        return text, None
+    if not isinstance(turn, dict) or not isinstance(turn.get("facts"), list):
+        return text, None
+    on_file: dict[str, list[str]] = {}
+    for fid, val in _KNOWN_LINE.findall(known_facts or ""):
+        on_file.setdefault(val, []).append(fid)
+    hit = None
+    for f in turn["facts"]:
+        if not isinstance(f, dict):
+            continue
+        val, fid = str(f.get("value") or ""), f.get("field_id")
+        others = [o for o in on_file.get(val, []) if o != fid] if _ISO_DATE.match(val) else []
+        if others and not _just_asked(val, conversation):
+            hit = {"field_id": fid, "value": val, "other_field_id": others[0]}
+            break
+    if hit is None:
+        return text, None
+    turn["facts"] = [f for f in turn["facts"]
+                     if not (isinstance(f, dict) and f.get("field_id") == hit["field_id"])]
+    reply = turn.get("reply")
+    locs = list(reply) if isinstance(reply, dict) and reply else ["en"]
+    turn["reply"] = {loc: value_on_other_field_text(hit["value"], hit["other_field_id"], loc)
+                     for loc in locs}
+    node = next((n for n, ids in agenda_field_ids(agenda).items() if hit["field_id"] in ids), None)
+    if node:
+        turn["asking"] = {"node_id": node, "field_ids": [hit["field_id"]]}
+    turn["section_checkpoint"] = None
+    turn["interview_over"] = False
+    turn["complete"] = False
+    turn["value_on_other_field"] = hit
+    return json.dumps(turn, ensure_ascii=False), hit
+
+
 def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
                         user_content: str | None = None,
                         conversation: str | None = None,
@@ -1507,6 +1608,11 @@ def guard_response_text(text: str, agenda: str | None, turn_id: str | None,
             "n400_battery_unspoken turn_id=%s node_id=%s minted=%s spoken_chars=%d question_chars=%d",
             turn_id, battery["node_id"], ",".join(battery["minted"]),
             battery["spoken_chars"], battery["question_chars"])
+    new_text, other = confirm_value_on_other_field(new_text, agenda, known_facts, conversation)
+    if other is not None:
+        logger.warning(
+            "n400_value_on_other_field_confirm turn_id=%s field_id=%s other_field_id=%s",
+            turn_id, other["field_id"], other["other_field_id"])
     new_text, cp_asking = drop_checkpoint_when_asking_set(new_text)
     if cp_asking is not None:
         logger.warning(
