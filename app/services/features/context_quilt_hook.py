@@ -109,6 +109,10 @@ def _entities_header_value(names: list) -> str:
     return ",".join(quote(str(n), safe=_ENTITY_HEADER_SAFE) for n in names[:10])
 
 
+# Prompt modes whose user_content is a transcript the app assembled, never
+# words the user typed, so the correction/completion detectors must not run.
+GENERATED_MODES = frozenset({"AutoSummary", "DeltaSummary", "SummaryConsolidation", "PostSessionAnalysis"})
+
 class ContextQuiltHook:
     def __init__(self, feature_def: FeatureDefinition | None = None):
         self._skip_modes = set(feature_def.capture_skip_modes) if feature_def else set()
@@ -187,7 +191,13 @@ class ContextQuiltHook:
             _correction_qp = None
             _completion_qp = None
             _s = get_settings()
-            if _s.cq_corrections_enabled or _s.cq_completions_enabled:
+            # Generated turns carry a meeting transcript, not the user's ask:
+            # a speaker saying "remember it as" in an AutoSummary was filed
+            # as a memory correction (2026-11-17, CQ audit). NOT the
+            # capture_skip_modes list, which also holds PostMeetingChat and
+            # ProjectChat, where real corrections are typed.
+            if (_s.cq_corrections_enabled or _s.cq_completions_enabled) \
+                    and body.get_meta("prompt_mode") not in GENERATED_MODES:
                 from app.services.document_generation import _question_portion
                 _qp = _question_portion(body.user_content)
                 if _s.cq_corrections_enabled and cq.is_correction_ask(_qp):
