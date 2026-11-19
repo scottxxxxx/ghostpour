@@ -555,4 +555,6 @@ from app.routers import shares as _shares
 app.include_router(_shares.router, prefix="/v1", tags=["shares"])
 from app.routers import translations as _translations
 app.include_router(_translations.router, prefix="/v1", tags=["translations"])
+from app.routers import support as _support  # noqa: E402
+app.include_router(_support.router, prefix="/v1", tags=["support"])
 app.include_router(_shares.public, tags=["shares-public"])
