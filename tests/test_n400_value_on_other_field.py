@@ -64,3 +64,9 @@ def test_wired_into_the_full_guard_chain():
     t = json.loads(out)
     assert t.get("value_on_other_field", {}).get("other_field_id") == "p2.lpr_date"
     assert not t["facts"]
+
+
+def test_a_date_already_filed_for_this_field_is_never_asked_again():
+    known = KNOWN + "\np4.current_address.from: 2019-06-15"
+    out, hit = confirm_value_on_other_field(_turn(), AGENDA, known)
+    assert hit is None and out == _turn()

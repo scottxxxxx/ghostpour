@@ -1458,7 +1458,10 @@ def confirm_value_on_other_field(text: str, agenda: str | None, known_facts: str
         if not isinstance(f, dict):
             continue
         val, fid = str(f.get("value") or ""), f.get("field_id")
-        others = [o for o in on_file.get(val, []) if o != fid] if _ISO_DATE.match(val) else []
+        same = on_file.get(val, [])
+        # Already filed with this value for THIS field: she settled it on an
+        # earlier turn, so a re-mint (a read-back, a checkpoint) never re-asks.
+        others = [o for o in same if o != fid] if _ISO_DATE.match(val) and fid not in same else []
         if others and not _just_asked(val, conversation):
             hit = {"field_id": fid, "value": val, "other_field_id": others[0]}
             break
