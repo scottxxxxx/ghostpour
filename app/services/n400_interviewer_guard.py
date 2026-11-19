@@ -2440,6 +2440,16 @@ def _reply_texts(reply: object) -> list[str]:
     return []
 
 
+def _asking_is_own_checkpoint(asking: object, part: object) -> bool:
+    """`asking` names this part's own checkpoint node (q_p2_checkpoint for
+    Part 2), which re-asks the read-back rather than opening the next part.
+    Scott's 1.0.2 run (2026-11-19, t_011): an off-topic decline re-asked
+    "is Part 2 correct as I read it back?" with asking on q_p2_checkpoint,
+    and was refused as riding the next question, a wasted 8.4 s retry."""
+    node = asking.get("node_id") if isinstance(asking, dict) else asking
+    return isinstance(part, int) and node == f"q_p{part}_checkpoint"
+
+
 def drop_checkpoint_when_asking_set(text: str) -> tuple[str, dict | None]:
     """A checkpoint belongs on the turn that ASKS for confirmation, never on the
     turn that acknowledges it and moves on.
@@ -2477,6 +2487,8 @@ def drop_checkpoint_when_asking_set(text: str) -> tuple[str, dict | None]:
         return text, None
     cp = turn.get("section_checkpoint")
     if not cp or not _asking_is_set(turn.get("asking")):
+        return text, None
+    if isinstance(cp, dict) and _asking_is_own_checkpoint(turn.get("asking"), cp.get("part")):
         return text, None
     # ONE OPTIONAL REVIEW (Scott, 2026-09-26, after build 101): a part
     # boundary no longer stops to ask. Its card arrives with
@@ -2767,6 +2779,8 @@ def checkpoint_rides_next_question(text: str) -> dict | None:
         return None
     asking = turn.get("asking")
     if not _asking_is_set(asking):
+        return None
+    if _asking_is_own_checkpoint(asking, cp["part"]):
         return None
     if any(asks_for_confirmation(t) for t in _reply_texts(turn.get("reply"))):
         return None
