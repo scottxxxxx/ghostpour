@@ -2296,6 +2296,15 @@ async def _chat_impl(
     if _lang_sys != body.system_prompt:
         body = body.model_copy(update={"system_prompt": _lang_sys})
 
+    # Meeting moment citations (SS, 2026-11-19): the served rule rides only
+    # when the chat send carries "[ref m....]" meeting headers.
+    from app.services.chat_citations import append_citation_rule
+    _cite_sys = append_citation_rule(body.system_prompt, body.user_content,
+                                     body.get_meta("prompt_mode"),
+                                     request.app.state.remote_configs)
+    if _cite_sys != body.system_prompt:
+        body = body.model_copy(update={"system_prompt": _cite_sys})
+
     # Plus recall window, meeting-content half (Scott via CQ, 2026-08-26):
     # a windowed tier's project chat is hydrated with the last N days of
     # meetings, sliding from today. CQ windows the memory patches with the
