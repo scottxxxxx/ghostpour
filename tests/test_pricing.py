@@ -150,3 +150,14 @@ def test_is_loaded():
     assert svc.is_loaded is False
     svc._prices = {"model": {}}
     assert svc.is_loaded is True
+
+
+def test_anthropic_one_hour_cache_write_bills_at_twice_input():
+    # The N-400 lane writes the 1 hour cache (Scott's 1.0.2 run, 2026-11-19):
+    # the 1h part bills at 2x input, the rest at the table's 5 minute rate.
+    svc = _make_service(SAMPLE_PRICES)
+    usage = {"cache_creation_input_tokens": 1000,
+             "cache_creation.ephemeral_1h_input_tokens": 600}
+    cost = svc.calculate_cost("anthropic", "claude-sonnet-4-6", usage, 100, 0)
+    expected = 100 * 0.000003 + 400 * 0.00000375 + 600 * 0.000006
+    assert cost["input_cost"] == round(expected, 8)

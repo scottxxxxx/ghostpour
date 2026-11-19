@@ -251,7 +251,14 @@ class PricingService:
 
         input_cost = billable_input * input_cost_per_token
         cached_cost = cached_input * (cache_read_cost or input_cost_per_token)
-        creation_cost = cache_creation * (cache_creation_cost or input_cost_per_token)
+        # A 1 hour cache write bills at 2x input, not the 5 minute 1.25x the
+        # table's cache_creation rate carries (the N-400 lane writes the 1h
+        # cache: Scott's 1.0.2 run, 2026-11-19, first turn logged $0.118 and
+        # cost about $0.18). Anthropic reports the split beside the total.
+        write_1h = min(cache_creation, usage.get("cache_creation.ephemeral_1h_input_tokens") or 0)
+        rate_1h = pricing.get("cache_creation_input_token_cost_above_1hr") or 2 * input_cost_per_token
+        creation_cost = ((cache_creation - write_1h) * (cache_creation_cost or input_cost_per_token)
+                         + write_1h * rate_1h)
 
         if reasoning_tokens and reasoning_cost:
             regular_output = max(0, raw_output - reasoning_tokens)
