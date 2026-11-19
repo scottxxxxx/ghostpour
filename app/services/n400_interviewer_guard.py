@@ -1830,7 +1830,12 @@ def _date_confirmed(year: str, month: int, day: int, said: str, conversation: st
     if "?" not in asked or not (_whole_date_in(year, month, day, asked)
                                 or _whole_date_in(year, month, day, _years_as_digits(asked))):
         return None
-    hers = [t for who, t in lines if who in ("APPLICANT", "SOLICITANTE")][-3:]
+    # All of her lines in the window, not her last three (Scott's 1.0.2 run,
+    # 2026-11-19, t_033): she said "January 3rd, 2023" five lines before the
+    # lane read it back and she said yes, and the date was dropped. The exact
+    # read-back with "?" above is what makes the yes hers; the window reach
+    # matches the carry-forward's.
+    hers = [t for who, t in lines if who in ("APPLICANT", "SOLICITANTE")]
     if any(_day_and_month_in(month, day, t) for t in hers):
         return "her_day"
     if f"{year}-{month:02d}-{day:02d}" in (known_facts or ""):
