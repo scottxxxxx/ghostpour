@@ -4450,6 +4450,13 @@ async def _chat_impl(
             from app.services.text_hygiene import normalize_dashes
             response.text = normalize_dashes(response.text)
 
+        # 6.65. A summary that has work bullets never also says "small talk
+        # so far" (seen live in Spanish 2026-11-20). Non-stream; summaries
+        # are never streamed.
+        if response and response.text and call_type == "summary":
+            from app.services.text_hygiene import drop_stray_small_talk_bullet
+            response.text = drop_stray_small_talk_bullet(response.text)
+
         # 6.7. Collect generated artifacts (phase 2a) — best-effort, never
         # blocks the text answer. Staged rows ride the response as
         # `generated_files`; count/bytes land in usage metering below.
