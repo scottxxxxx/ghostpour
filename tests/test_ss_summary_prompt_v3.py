@@ -24,3 +24,14 @@ def test_a_spaced_hyphen_in_a_title_becomes_a_colon():
     assert clean_title("Salon Lyon - Stand et Brochure") == "Salon Lyon: Stand et Brochure"
     assert clean_title("Q3 Plan — Budget") == "Q3 Plan: Budget"
     assert clean_title("Follow-up Pricing Rework") == "Follow-up Pricing Rework"
+
+
+def test_each_locale_carries_the_same_change():
+    small = {"es": "- Por ahora solo charla informal, aún no se habló de trabajo",
+             "fr": "- Que des banalités pour l'instant, pas encore de travail abordé",
+             "ja": "- 今のところ雑談のみで、仕事の話はまだ出ていない"}
+    for loc, bullet in small.items():
+        sp = json.loads(Path(f"config/remote/protected-prompts.{loc}.json").read_text())["summaryPrompts"]
+        for mode in ("full", "delta", "consolidation"):
+            assert f'"{bullet}"' in sp[mode] or f"« {bullet} »" in sp[mode] or f"「{bullet}」" in sp[mode], (loc, mode)
+            assert "—" not in sp[mode] and "–" not in sp[mode]
