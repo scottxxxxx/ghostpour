@@ -46,6 +46,24 @@ def summary_requests(d: Path, reps: int, models: list[str]) -> list[tuple[str, d
     return out
 
 
+def loc_requests(d: Path, reps: int) -> list[tuple[str, dict]]:
+    """es/fr/ja: native cases, each language's own prompts and production tail."""
+    loc = d / "loc"
+    cases = json.loads((loc / "loc_cases.json").read_text())
+    out = []
+    for tag in TAGS:
+        for c in cases:
+            prompts = json.loads((loc / f"{c['lang']}_{tag}.json").read_text())
+            tail = "\n\n" + (loc / f"tail_{c['lang']}.txt").read_text()
+            for r in range(reps):
+                out.append((f"{tag}_{c['id']}_{r}"[:64], {
+                    "model": PROD, "max_tokens": 4096,
+                    "system": prompts[c["mode"]] + tail,
+                    "messages": [{"role": "user", "content": c["user"]}],
+                }))
+    return out
+
+
 def title_requests(d: Path) -> list[tuple[str, dict]]:
     res = json.loads((d / "api_summary_results.json").read_text())
     out = []
@@ -68,7 +86,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     probe_runner.add_args(ap)
     ap.add_argument("--dir", required=True)
-    ap.add_argument("--stage", choices=("summary", "title"), required=True)
+    ap.add_argument("--stage", choices=("summary", "title", "loc"), required=True)
     ap.add_argument("--reps", type=int, default=3)
     ap.add_argument("--also-model", default="")
     ap.add_argument("--tags", default="v1,v3")
@@ -82,6 +100,8 @@ def main() -> None:
     if args.stage == "summary":
         models = [PROD] + ([args.also_model] if args.also_model else [])
         reqs = summary_requests(d, args.reps, models)
+    elif args.stage == "loc":
+        reqs = loc_requests(d, args.reps)
     else:
         reqs = title_requests(d)
     results = probe_runner.run(reqs, args, get_settings().anthropic_api_key, Path(__file__).name)
@@ -92,7 +112,7 @@ def main() -> None:
         msg = r.get("message") or {}
         text = "".join(b.get("text", "") for b in msg.get("content", []) if b.get("type") == "text")
         flat[cid] = {"text": text, "error": r.get("error"), "usage": msg.get("usage")}
-    name = args.out or "api_summary_results.json" if args.stage == "summary" else "api_title_results.json"
+    name = args.out or ("api_summary_results.json" if args.stage == "summary" else "api_title_results.json")
     (d / name).write_text(json.dumps(flat, ensure_ascii=False, indent=1))
     print("wrote", d / name, len(flat))
 
