@@ -1014,6 +1014,17 @@ VERSIONS[68] = {
     ],
     "absent": list(VERSIONS[67]["absent"]),
 }
+# v69 (auditor rulings 2026-11-19, Scott's go 2026-11-20): a middle initial
+# on the card is the middle name; an agenda line ending "| no read-back" is a
+# one-question part. Adds only, so every v68 phrase is carried.
+VERSIONS[69] = {
+    "block_anchor": VERSIONS[68].get("block_anchor"),
+    "once": "A MIDDLE INITIAL IS A MIDDLE NAME",
+    "phrases": VERSIONS[68]["phrases"] + [VERSIONS[68]["once"]] + [
+        "An agenda line ending in | no read-back is a one-question part",
+    ],
+    "absent": list(VERSIONS[68]["absent"]),
+}
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
