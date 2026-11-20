@@ -1019,9 +1019,12 @@ VERSIONS[68] = {
 # one-question part. Adds only, so every v68 phrase is carried.
 VERSIONS[69] = {
     "block_anchor": VERSIONS[68].get("block_anchor"),
-    "once": "A MIDDLE INITIAL IS A MIDDLE NAME",
+    # The anchor block is SECTION CHECKPOINTS, where the marker sentence
+    # lives; the middle-initial line sits in the name rules, so it is a
+    # plain phrase.
+    "once": "An agenda line ending in | no read-back is a one-question part",
     "phrases": VERSIONS[68]["phrases"] + [VERSIONS[68]["once"]] + [
-        "An agenda line ending in | no read-back is a one-question part",
+        "A MIDDLE INITIAL IS A MIDDLE NAME",
     ],
     "absent": list(VERSIONS[68]["absent"]),
 }
