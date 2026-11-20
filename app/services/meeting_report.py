@@ -159,6 +159,16 @@ def _extract_named_speakers_from_transcript(transcript: str | None) -> list[str]
     return list(ordered)
 
 
+
+def _deadline_not_in_task(a: dict) -> bool:
+    """Show the bold deadline only when the task sentence does not already
+    say it ("...on December 17th. December 17th", seen 2026-11-20)."""
+    d = (a.get("deadline") or "").strip()
+    if not d:
+        return False
+    norm = lambda t: " ".join(t.lower().replace(".", " ").split())
+    return norm(d) not in norm(a.get("task") or "")
+
 _TEMPLATE_PATH = Path(__file__).parent.parent / "static" / "report_template.html"
 
 # System prompt for the LLM analysis call
@@ -848,7 +858,7 @@ def render_report_html(
             f'<td style="padding:10px 12px 10px 0;width:96px;vertical-align:top;">'
             f'<span style="background:{_PRIORITY_BG.get(a.get("priority", "standard"), "#1a1a1a")};color:#ffffff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:3px;white-space:nowrap;">{_esc(_resolve_action_owner(a))}</span>'
             f'</td>'
-            f'<td style="padding:10px 0;font-size:12px;color:#333;line-height:1.6;">{_esc(a.get("task", ""))}{" <strong>" + _esc(a["deadline"]) + "</strong>" if a.get("deadline") else ""}</td>'
+            f'<td style="padding:10px 0;font-size:12px;color:#333;line-height:1.6;">{_esc(a.get("task", ""))}{" <strong>" + _esc(a["deadline"]) + "</strong>" if _deadline_not_in_task(a) else ""}</td>'
             f'</tr>'
             for a in actions
         )

@@ -50,3 +50,32 @@ def normalize_dashes(text: str) -> str:
     text = _BULLET.sub(r"\1- ", text)
     text = _ASIDE.sub(", ", text)
     return _TRAILING.sub(",", text)
+
+
+# The fixed "small talk only" bullet each locale's summary prompt names.
+# Live 2026-11-20 on Haiku 4.5: Spanish sometimes printed it ABOVE real work
+# bullets, contradicting itself. It is only meaningful as the whole summary.
+SMALL_TALK_BULLETS = (
+    "- Small talk so far, no work discussed yet",
+    "- Por ahora solo charla informal, aún no se habló de trabajo",
+    "- Que des banalités pour l'instant, pas encore de travail abordé",
+    "- 今のところ雑談のみで、仕事の話はまだ出ていない",
+)
+
+
+def drop_stray_small_talk_bullet(text: str) -> str:
+    """Remove the small-talk bullet when any other bullet is present."""
+    if not text:
+        return text
+    lines = text.splitlines()
+    hits = [i for i, l in enumerate(lines) if l.strip() in SMALL_TALK_BULLETS]
+    if not hits:
+        return text
+    others = [l for i, l in enumerate(lines)
+              if i not in hits and l.lstrip().startswith(("- ", "* "))]
+    if not others:
+        return text
+    kept = [l for i, l in enumerate(lines) if i not in hits]
+    while kept and not kept[0].strip():
+        kept.pop(0)
+    return "\n".join(kept)
