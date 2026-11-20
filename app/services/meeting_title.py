@@ -130,6 +130,9 @@ def clean_title(raw: object) -> str | None:
     if not isinstance(raw, str):
         return None
     title = " ".join(raw.split()).strip(" .:-–—\"'")
+    # A spaced hyphen or a dash used as a separator reads as a dash; the house
+    # style is a colon ("Salon Lyon: Stand et Brochure"), seen live 2026-11-20.
+    title = re.sub(r"\s+[-\u2013\u2014]\s+", ": ", title)
     if not title or len(title) > MAX_TITLE_CHARS:
         return None
     if is_generic(title):
