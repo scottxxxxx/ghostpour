@@ -2379,7 +2379,7 @@ async def _chat_impl(
         from app.services.language_directive import accept_language_primary
         _effective_locale = accept_language_primary(
             request.headers.get("Accept-Language"))
-    _localized_system = _apply_locale(body.system_prompt, _effective_locale)
+    _localized_system = _apply_locale(body.system_prompt, _effective_locale, body.get_meta("call_type"))
     if _localized_system != body.system_prompt:
         body = body.model_copy(update={"system_prompt": _localized_system})
         _output_locale = _norm_locale(_effective_locale)
