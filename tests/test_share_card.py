@@ -139,6 +139,19 @@ def test_the_card_locale_is_the_shared_language_else_the_spoken_one():
     assert p["footer_left"].startswith("mié, ago 26")
 
 
+def test_a_brazilian_card_speaks_portuguese():
+    """pt-BR phones (2026-11-24): the region subtag lands on the pt chrome."""
+    assert card_locale("pt-BR", "en") == "pt" and card_locale(None, "pt-BR") == "pt"
+    p = plan_card(_facts(share_language=None, source_language="pt-BR", actions=[ACTIONS[0]]))
+    assert p["headline"] == "1 tarefa em aberto" and p["line1"].startswith("Até qui: Priya deve ")
+    assert p["footer_left"].startswith("qua, ago 26")
+    t = plan_card(_facts(share_language="pt-BR", source_language="en", sentiment_category="pressured"))
+    assert t["chip"] == "Traduzido do inglês" and t["footer_right"] == "Tom: sob pressão"
+    # a deadline written as a Portuguese weekday is still a day
+    from app.services.share_card import _WEEKDAYS
+    assert _WEEKDAYS["sexta-feira"] == 4 and _WEEKDAYS["segunda"] == 0
+
+
 # --- R7, R8: zero state and the translation chip --------------------------------
 
 def test_zero_state_promotes_the_summary_and_the_artifact_note():
@@ -161,7 +174,7 @@ def test_translation_is_a_chip_that_replaces_the_artifact_label_and_only_when_tr
 # --- rendering and the route ---------------------------------------------------
 
 def test_render_is_a_1200x630_png_in_every_served_language_and_the_floor_cases():
-    for lang in (None, "es", "fr", "ja"):
+    for lang in (None, "es", "fr", "ja", "pt"):
         img = Image.open(io.BytesIO(render_card(_facts(share_language=lang))))
         assert img.size == (1200, 630) and img.format == "PNG"
     floor = _facts(title="A" * 400, date=None, duration_seconds=None, attendees=0, actions=[], sentiment=None,
@@ -423,7 +436,7 @@ def test_the_zero_state_does_not_say_what_the_share_holds_twice():
 
 
 def test_every_language_and_the_floor_case_still_render():
-    for lang in (None, "es", "fr", "ja"):
+    for lang in (None, "es", "fr", "ja", "pt"):
         assert _px(render_card(_facts(share_language=lang))).size == (1200, 630)
     floor = _facts(title=None, date=None, duration_seconds=None, attendees=0, actions=[], sentiment=None,
                    sentiment_category=None, summary_line="", transcript_included=False, has_report=False)

@@ -22,7 +22,7 @@ def test_untouched_without_it():
 
 def test_every_bullet_matches_its_served_prompt():
     import json
-    for loc, b in zip(("", ".es", ".fr", ".ja"), SMALL_TALK_BULLETS):
+    for loc, b in zip(("", ".es", ".fr", ".ja", ".pt"), SMALL_TALK_BULLETS, strict=True):
         sp = json.loads(Path(f"config/remote/protected-prompts{loc}.json").read_text())["summaryPrompts"]
         assert b in sp["full"], loc
 

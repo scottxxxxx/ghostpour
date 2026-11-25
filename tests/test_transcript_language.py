@@ -25,13 +25,13 @@ ROOT = Path(__file__).parent.parent
 
 # --- the served recipe -----------------------------------------------------
 
-@pytest.mark.parametrize("loc", ["", ".es", ".fr"])
+@pytest.mark.parametrize("loc", ["", ".es", ".fr", ".pt"])
 def test_every_transcript_bearing_served_prompt_carries_a_language_rule(loc):
     d = json.loads((ROOT / f"config/remote/protected-prompts{loc}.json").read_text())
     markers = ("LANGUAGE:", "IDIOMA:", "LANGUE :")
     for k, v in d["summaryPrompts"].items():
         assert any(m in v for m in markers), f"{loc} summaryPrompts.{k}"
-        assert "another language" in v or "otro idioma" in v or "une autre langue" in v, f"{loc} {k} lacks the never-ask clause"
+        assert "another language" in v or "otro idioma" in v or "une autre langue" in v or "outro idioma" in v, f"{loc} {k} lacks the never-ask clause"
     for k in ("analysisPrompt", "analyzeSessionPrompt", "reanalyzeSummaryPrompt"):
         assert any(m in d[k] for m in markers), f"{loc} {k}"
     for dash in ("—", "–"):

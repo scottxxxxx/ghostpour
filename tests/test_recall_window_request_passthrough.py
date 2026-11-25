@@ -123,7 +123,7 @@ def repo_bundles(client):
     from pathlib import Path
     root = Path(__file__).parent.parent / "config" / "remote"
     rc = dict(client.app.state.remote_configs)
-    for loc in ("tiers", "tiers.es", "tiers.fr", "tiers.ja"):
+    for loc in ("tiers", "tiers.es", "tiers.fr", "tiers.ja", "tiers.pt"):
         rc[loc] = json.loads((root / f"{loc}.json").read_text())
     client.app.state.remote_configs = rc
     return client
@@ -141,7 +141,8 @@ def test_served_tiers_carry_the_number_and_no_raw_placeholder(repo_bundles):
 
 def test_localized_tiers_bundles_are_templated_too(repo_bundles):
     client = repo_bundles
-    for lang, needle in (("es", "últimos 30 días"), ("fr", "30 derniers jours"), ("ja", "過去30日間")):
+    for lang, needle in (("es", "últimos 30 días"), ("fr", "30 derniers jours"), ("ja", "過去30日間"),
+                         ("pt-BR", "últimos 30 dias")):
         resp = client.get("/v1/config/tiers", headers={"Accept-Language": lang})
         assert resp.status_code == 200
         assert PLACEHOLDER not in resp.text, lang
@@ -169,7 +170,7 @@ def test_every_locale_carries_the_same_placeholder_count_and_a_plus_dial():
     from pathlib import Path
     root = Path(__file__).parent.parent / "config" / "remote"
     counts = {}
-    for loc in ("tiers", "tiers.es", "tiers.fr", "tiers.ja"):
+    for loc in ("tiers", "tiers.es", "tiers.fr", "tiers.ja", "tiers.pt"):
         d = json.loads((root / f"{loc}.json").read_text())
         counts[loc] = json.dumps(d, ensure_ascii=False).count(PLACEHOLDER)
         dial = d["tiers"]["plus"]["feature_definitions"]["project_chat"]["meeting_window_days"]

@@ -19,7 +19,8 @@ from pathlib import Path
 import pytest
 
 FILES = ["llm-providers.json", "llm-providers.es.json",
-         "llm-providers.fr.json", "llm-providers.ja.json"]
+         "llm-providers.fr.json", "llm-providers.ja.json",
+         "llm-providers.pt.json"]
 SEARCH_PROVIDERS = {"anthropic", "openrouter"}
 
 
@@ -38,7 +39,7 @@ def test_every_anthropic_and_openrouter_model_says_whether_it_searches(name):
     assert seen == 37
 
 
-@pytest.mark.parametrize("lang", [None, "es", "fr", "ja"])
+@pytest.mark.parametrize("lang", [None, "es", "fr", "ja", "pt"])
 def test_the_field_is_served_on_the_route(client, lang):
     headers = {"X-App-ID": "shouldersurf"}
     if lang:
@@ -82,7 +83,7 @@ def test_every_document_route_model_says_whether_it_takes_a_pdf(name):
     assert seen == 54
 
 
-@pytest.mark.parametrize("lang", [None, "es", "fr", "ja"])
+@pytest.mark.parametrize("lang", [None, "es", "fr", "ja", "pt"])
 def test_supports_documents_is_served_on_the_route(client, lang):
     headers = {"X-App-ID": "shouldersurf"}
     if lang:

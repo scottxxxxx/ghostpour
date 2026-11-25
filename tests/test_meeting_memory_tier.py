@@ -20,7 +20,7 @@ import pytest
 import yaml
 
 _REMOTE = Path(__file__).parent.parent / "config" / "remote"
-LOCALES = ["en", "es", "ja", "fr"]
+LOCALES = ["en", "es", "ja", "fr", "pt"]
 
 ENTITLEMENTS = json.loads((_REMOTE / "entitlements.json").read_text())
 TIERS = {loc: json.loads(

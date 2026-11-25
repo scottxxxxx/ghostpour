@@ -26,7 +26,7 @@ def test_the_template_does_not_hardcode_the_project_label():
     assert "{{strings.project_label}}" in TEMPLATE
 
 
-@pytest.mark.parametrize("loc,expected", [("", "Project"), (".es", "Proyecto"), (".fr", "Projet"), (".ja", "プロジェクト")])
+@pytest.mark.parametrize("loc,expected", [("", "Project"), (".es", "Proyecto"), (".fr", "Projet"), (".ja", "プロジェクト"), (".pt", "Projeto")])
 def test_every_report_strings_bundle_carries_project_label(loc, expected):
     d = json.loads((ROOT / f"config/remote/report-strings{loc}.json").read_text())
     assert d["strings"]["project_label"] == expected
@@ -41,6 +41,7 @@ def test_french_bundle_has_every_key_english_has():
 @pytest.mark.parametrize("locale,expected", [
     (None, "August 21, 2026"), ("en", "August 21, 2026"), ("es", "21 de agosto de 2026"),
     ("es-US", "21 de agosto de 2026"), ("fr", "21 août 2026"), ("ja", "2026年8月21日"),
+    ("pt", "21 de agosto de 2026"), ("pt-BR", "21 de agosto de 2026"), ("pt_BR", "21 de agosto de 2026"),
     ("xx", "August 21, 2026"),
 ])
 def test_masthead_date_is_in_the_report_language(locale, expected):
@@ -49,7 +50,7 @@ def test_masthead_date_is_in_the_report_language(locale, expected):
 
 def _rc():
     rc = {}
-    for loc in ("", ".es", ".fr", ".ja"):
+    for loc in ("", ".es", ".fr", ".ja", ".pt"):
         d = json.loads((ROOT / f"config/remote/report-strings{loc}.json").read_text())
         rc["report-strings" + loc] = d
     return rc

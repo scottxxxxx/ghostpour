@@ -35,9 +35,10 @@ import re
 import pytest
 
 _REMOTE = pathlib.Path(__file__).parent.parent / "config" / "remote"
-_TIERS = ["tiers.json", "tiers.es.json", "tiers.fr.json", "tiers.ja.json"]
+_TIERS = ["tiers.json", "tiers.es.json", "tiers.fr.json", "tiers.ja.json", "tiers.pt.json"]
 _HIGHLIGHTS = ["feature-highlights.json", "feature-highlights.es.json",
-               "feature-highlights.fr.json", "feature-highlights.ja.json"]
+               "feature-highlights.fr.json", "feature-highlights.ja.json",
+               "feature-highlights.pt.json"]
 
 # The exact strings that were live and wrong. Pinned as forbidden rather than
 # described, because "copy that denies the feature" is not something a test

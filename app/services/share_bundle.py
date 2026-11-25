@@ -342,6 +342,7 @@ CONTENTS_WORDS = {
     "es": {"report": "Informe", "transcript": "Transcripción", "audio": "Audio", "photos": "{n} fotos", "photo": "1 foto"},
     "fr": {"report": "Rapport", "transcript": "Transcription", "audio": "Audio", "photos": "{n} photos", "photo": "1 photo"},
     "ja": {"report": "レポート", "transcript": "文字起こし", "audio": "音声", "photos": "写真{n}枚", "photo": "写真1枚"},
+    "pt": {"report": "Relatório", "transcript": "Transcrição", "audio": "Áudio", "photos": "{n} fotos", "photo": "1 foto"},
 }
 
 
@@ -358,6 +359,9 @@ DOWNLOAD_STRINGS = {
     "ja": {"badge_locale": "ja-jp", "badge_alt": "App Storeでダウンロード",
            "qr_alt": "Shoulder SurfをダウンロードするQRコード",
            "desktop": "パソコンでご覧ですか？iPhoneのカメラをここにかざしてダウンロードできます。"},
+    "pt": {"badge_locale": "pt-br", "badge_alt": "Baixar na App Store",
+           "qr_alt": "QR code para baixar o Shoulder Surf",
+           "desktop": "Está no computador? Aponte a câmera do seu iPhone aqui para baixar."},
 }
 
 
@@ -374,12 +378,14 @@ MONTHS = {
            "septiembre", "octubre", "noviembre", "diciembre"],
     "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
            "septembre", "octobre", "novembre", "décembre"],
+    "pt": ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto",
+           "setembro", "outubro", "novembro", "dezembro"],
 }
 
 
 def _when_str(when, lang) -> str:
     """The meeting date line in the language the page is showing. The
-    English shape is unchanged; es/fr/ja follow their own conventions."""
+    English shape is unchanged; es/fr/ja/pt follow their own conventions."""
     if not when:
         return ""
     l = _primary(lang)
@@ -387,6 +393,8 @@ def _when_str(when, lang) -> str:
         return f"{when.day} de {MONTHS['es'][when.month - 1]} de {when.year}, {when:%H:%M} UTC"
     if l == "fr":
         return f"{when.day} {MONTHS['fr'][when.month - 1]} {when.year}, {when:%H:%M} UTC"
+    if l == "pt":
+        return f"{when.day} de {MONTHS['pt'][when.month - 1]} de {when.year}, {when:%H:%M} UTC"
     if l == "ja":
         return f"{when.year}年{when.month}月{when.day}日 {when:%H:%M} UTC"
     return when.strftime("%B %-d, %Y, %-I:%M %p UTC")
@@ -429,6 +437,14 @@ CHROME = {
            "recording": "録音", "photos": "写真",
            "no_report": "この会議はレポートなしで共有されました。",
            "foot": "Shoulder Surfから共有されました。このリンクは{d}に無効になります。"},
+    "pt": {"show_in": "Ver a reunião em", "original": "Original",
+           "open_app": "Abrir no Shoulder Surf", "read_here": "ou leia aqui",
+           "show_transcript": "Mostrar transcrição",
+           "with": "Com", "sentiment": "Sentimento", "actions": "Itens de ação",
+           "decisions": "Decisões", "open_questions": "Perguntas em aberto",
+           "recording": "Gravação", "photos": "Fotos",
+           "no_report": "Esta reunião foi compartilhada sem relatório.",
+           "foot": "Compartilhado pelo Shoulder Surf. Este link para de funcionar em {d}."},
 }
 
 

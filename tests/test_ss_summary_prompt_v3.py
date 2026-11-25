@@ -29,7 +29,8 @@ def test_a_spaced_hyphen_in_a_title_becomes_a_colon():
 def test_each_locale_carries_the_same_change():
     small = {"es": "- Por ahora solo charla informal, aún no se habló de trabajo",
              "fr": "- Que des banalités pour l'instant, pas encore de travail abordé",
-             "ja": "- 今のところ雑談のみで、仕事の話はまだ出ていない"}
+             "ja": "- 今のところ雑談のみで、仕事の話はまだ出ていない",
+             "pt": "- Por enquanto só conversa informal, nenhum assunto de trabalho ainda"}
     for loc, bullet in small.items():
         sp = json.loads(Path(f"config/remote/protected-prompts.{loc}.json").read_text())["summaryPrompts"]
         for mode in ("full", "delta", "consolidation"):

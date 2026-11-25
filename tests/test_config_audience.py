@@ -177,7 +177,7 @@ def test_registry_says_what_we_serve_and_to_whom(client, app_env):
         "a config with a tester variant is mid-verification and the "
         "dashboard has to show it")
     assert by_name["tiers"]["under_test"] is False
-    assert set(by_name["tiers"]["locales"]) >= {"en", "es", "ja", "fr"}
+    assert set(by_name["tiers"]["locales"]) >= {"en", "es", "ja", "fr", "pt"}
 
 
 def test_registry_lists_the_test_accounts(client, app_env):

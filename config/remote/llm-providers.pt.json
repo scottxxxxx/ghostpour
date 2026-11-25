@@ -1,0 +1,2501 @@
+{
+ "version": 34,
+ "defaultPromptReserveTokens": 8000,
+ "providers": [
+  {
+   "id": "cloudzap",
+   "displayName": "IA gerenciada",
+   "apiFormat": "cloudzap",
+   "baseURL": "https://cz.shouldersurf.com/v1/chat",
+   "authHeaderName": "Authorization",
+   "authHeaderPrefix": "Bearer ",
+   "extraHeaders": {},
+   "requiresAPIKey": true,
+   "supportsVision": true,
+   "maxTokensDefault": 4096,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "auto",
+     "displayName": "Gerenciado pelo GhostPour",
+     "description": "Escolhemos o melhor modelo de IA para o seu plano de assinatura. Nenhuma configuração necessária.",
+     "isDefault": true,
+     "supportsVision": true,
+     "contextWindow": 200000,
+     "supportsReasoning": true,
+     "reasoningLevels": null,
+     "maxOutputTokens": null,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": null,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": true,
+     "serverManaged": true,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Nous sélectionnons le meilleur modèle d'IA pour votre formule d'abonnement. Aucune configuration nécessaire."
+      }
+     }
+    }
+   ],
+   "notes": "Serviço de IA gerenciado pelo GhostPour. Entre com a Apple, assine e a gente cuida do resto.",
+   "keyURL": "https://cz.shouldersurf.com/docs"
+  },
+  {
+   "id": "onDevice",
+   "displayName": "No dispositivo (Apple)",
+   "apiFormat": "apple",
+   "baseURL": "",
+   "authHeaderName": "",
+   "authHeaderPrefix": "",
+   "extraHeaders": {},
+   "requiresAPIKey": false,
+   "supportsVision": false,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "foundation-models",
+     "displayName": "Apple Intelligence",
+     "description": "Modelo gratuito no dispositivo. Privado, funciona offline. Requer um dispositivo com Apple Intelligence ativado.",
+     "isDefault": true,
+     "supportsVision": false,
+     "contextWindow": 4096,
+     "inputCostPerMillion": 0,
+     "outputCostPerMillion": 0,
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 4096,
+     "temperatureDefault": 0.7,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Modèle gratuit sur l'appareil. Privé, fonctionne hors ligne. Nécessite un appareil avec Apple Intelligence activé."
+      }
+     }
+    },
+    {
+     "id": "private-cloud-compute",
+     "displayName": "Apple Cloud",
+     "description": "Grátis. Private Cloud Compute da Apple: maior e mais capaz que o modelo do dispositivo, com seus dados mantidos privados. Precisa de internet, com um limite diário definido pela Apple. Requer iOS 27 e Apple Intelligence.",
+     "isDefault": false,
+     "minAppBuild": 2126,
+     "supportsVision": true,
+     "contextWindow": 32768,
+     "inputCostPerMillion": 0,
+     "outputCostPerMillion": 0,
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 4096,
+     "temperatureDefault": 0.7,
+     "maxImagesPerRequest": 1,
+     "streamingSupported": false,
+     "toolUseSupported": false,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "es": {
+       "description": "Gratis. Private Cloud Compute de Apple: más grande y capaz que el modelo en el dispositivo, y sus datos se mantienen privados. Necesita internet, con un límite diario fijado por Apple. Requiere iOS 27 y Apple Intelligence."
+      },
+      "fr": {
+       "description": "Gratuit. Private Cloud Compute d'Apple : plus grand et plus performant que le modèle sur l'appareil, et vos données restent privées. Nécessite Internet, avec une limite quotidienne fixée par Apple. Nécessite iOS 27 et Apple Intelligence."
+      },
+      "ja": {
+       "description": "無料。AppleのPrivate Cloud Compute：デバイス上のモデルより大きく高性能で、データはプライベートに保たれます。インターネット接続が必要で、Appleが定める1日の上限があります。iOS 27とApple Intelligenceが必要です。"
+      }
+     }
+    }
+   ],
+   "notes": "Grátis, privado, funciona offline. Com tecnologia Apple Intelligence.",
+   "keyURL": ""
+  },
+  {
+   "id": "openai",
+   "displayName": "OpenAI",
+   "apiFormat": "openai",
+   "baseURL": "https://api.openai.com/v1/chat/completions",
+   "tokenLimitField": "max_completion_tokens",
+   "authHeaderName": "Authorization",
+   "authHeaderPrefix": "Bearer ",
+   "extraHeaders": {},
+   "requiresAPIKey": true,
+   "supportsVision": true,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "gpt-6-astra",
+     "displayName": "GPT-6 Astra",
+     "description": "O modelo GPT-6 mais capaz da OpenAI; para os problemas mais difíceis, a um preço premium. Contexto de 922K.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 10.0,
+     "outputCostPerMillion": 50.0,
+     "litellmKey": "gpt-6-astra",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle GPT-6 le plus performant d'OpenAI ; pour les problèmes les plus difficiles, à un prix premium. Contexte de 922K."
+      }
+     }
+    },
+    {
+     "id": "gpt-6-sol",
+     "displayName": "GPT-6 Sol",
+     "description": "O GPT-6 versátil da OpenAI; raciocínio e programação fortes a um preço intermediário. Contexto de 922K.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "gpt-6-sol",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le GPT-6 polyvalent d'OpenAI ; raisonnement et codage solides à prix intermédiaire. Contexte de 922K."
+      }
+     }
+    },
+    {
+     "id": "gpt-6-luna",
+     "displayName": "GPT-6 Luna",
+     "description": "GPT-6 pequeno e rápido; muito econômico para tarefas mais leves. Contexto de 922K.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 0.1,
+     "outputCostPerMillion": 0.5,
+     "litellmKey": "gpt-6-luna",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-6 petit et rapide ; très économique pour les tâches légères. Contexte de 922K."
+      }
+     }
+    },
+    {
+     "id": "gpt-5.5",
+     "displayName": "GPT-5.5",
+     "description": "O modelo mais inteligente da OpenAI; raciocínio mais forte, tarefas agênticas, análise de documentos. Contexto de 1M.",
+     "isDefault": true,
+     "supportsVision": true,
+     "contextWindow": 1050000,
+     "inputCostPerMillion": 5.0,
+     "outputCostPerMillion": 30.0,
+     "litellmKey": "gpt-5.5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle le plus intelligent d'OpenAI ; raisonnement, tâches agentiques et analyse de documents au plus haut niveau. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gpt-5.6-sol",
+     "displayName": "GPT-5.6 Sol",
+     "description": "O carro-chefe mais novo da OpenAI; o raciocínio mais forte da família 5.6. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 5.0,
+     "outputCostPerMillion": 30.0,
+     "litellmKey": "gpt-5.6-sol",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier vaisseau amiral d'OpenAI ; le raisonnement le plus puissant de la famille 5.6. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gpt-5.6-terra",
+     "displayName": "GPT-5.6 Terra",
+     "description": "GPT-5.6 de porte médio; capacidade e custo equilibrados. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 2.5,
+     "outputCostPerMillion": 15.0,
+     "litellmKey": "gpt-5.6-terra",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-5.6 intermédiaire ; équilibre entre capacité et coût. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gpt-5.6-luna",
+     "displayName": "GPT-5.6 Luna",
+     "description": "GPT-5.6 pequeno e rápido; econômico para tarefas mais leves. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 1.0,
+     "outputCostPerMillion": 6.0,
+     "litellmKey": "gpt-5.6-luna",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-5.6 petit et rapide ; économique pour les tâches légères. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gpt-5.4",
+     "displayName": "GPT-5.4",
+     "description": "Carro-chefe da geração anterior. Custo menor que o 5.5 para tarefas de rotina. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1050000,
+     "inputCostPerMillion": 2.5,
+     "outputCostPerMillion": 15.0,
+     "litellmKey": "gpt-5.4",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Vaisseau amiral de génération précédente. Moins cher que 5.5 pour les tâches courantes. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gpt-5.4-mini",
+     "displayName": "GPT-5.4 Mini",
+     "description": "GPT-5.4 mais rápido e econômico para tarefas bem definidas e prompts precisos.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 272000,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 4.5,
+     "litellmKey": "gpt-5.4-mini",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-5.4 plus rapide et économique pour des tâches bien définies et des prompts précis."
+      }
+     }
+    },
+    {
+     "id": "gpt-5.4-nano",
+     "displayName": "GPT-5.4 Nano",
+     "description": "A variante mais rápida e barata do GPT-5.4; ótima para resumos e classificação.",
+     "isDefault": false,
+     "supportsVision": false,
+     "contextWindow": 272000,
+     "inputCostPerMillion": 0.2,
+     "outputCostPerMillion": 1.25,
+     "litellmKey": "gpt-5.4-nano",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": false,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "La variante GPT-5.4 la plus rapide et la moins chère ; idéale pour le résumé et la classification."
+      }
+     }
+    }
+   ],
+   "notes": "Modelos da OpenAI na nuvem.",
+   "keyURL": "https://platform.openai.com/api-keys"
+  },
+  {
+   "id": "anthropic",
+   "displayName": "Anthropic",
+   "apiFormat": "anthropic",
+   "baseURL": "https://api.anthropic.com/v1/messages",
+   "authHeaderName": "x-api-key",
+   "authHeaderPrefix": "",
+   "extraHeaders": {
+    "anthropic-version": "2023-06-01"
+   },
+   "requiresAPIKey": true,
+   "supportsVision": true,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "claude-fable-5-1",
+     "displayName": "Claude Fable 5.1",
+     "description": "O modelo mais poderoso da Anthropic, o Fable mais novo; para o raciocínio e o trabalho agêntico mais difíceis. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 10.0,
+     "outputCostPerMillion": 50.0,
+     "litellmKey": "claude-fable-5-1",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle le plus puissant d'Anthropic, le Fable le plus récent ; pour le raisonnement et le travail agentique les plus exigeants. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-fable-5",
+     "displayName": "Claude Fable 5",
+     "description": "O modelo mais poderoso da Anthropic; um novo nível acima do Opus para o raciocínio e o trabalho agêntico mais difíceis. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 10.0,
+     "outputCostPerMillion": 50.0,
+     "litellmKey": "claude-fable-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle le plus puissant d'Anthropic ; un nouveau palier au-dessus d'Opus pour le raisonnement et le travail agentique les plus exigeants. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-opus-5-5",
+     "displayName": "Claude Opus 5.5",
+     "description": "O Opus mais novo da Anthropic; programação, trabalho agêntico e corporativo de primeira linha, com raciocínio adaptativo. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 4.0,
+     "outputCostPerMillion": 20.0,
+     "litellmKey": "claude-opus-5-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Opus d'Anthropic ; codage, travail agentique et d'entreprise haut de gamme, réflexion adaptative. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-opus-5",
+     "displayName": "Claude Opus 5",
+     "description": "O Opus mais novo da Anthropic; programação agêntica e trabalho corporativo de primeira linha, raciocínio adaptativo, contexto de 1M.",
+     "isDefault": true,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 5.0,
+     "outputCostPerMillion": 25.0,
+     "litellmKey": "claude-opus-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Opus d'Anthropic ; codage agentique et travail d'entreprise haut de gamme, réflexion adaptative, contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-opus-4-8",
+     "displayName": "Claude Opus 4.8",
+     "description": "O Opus mais capaz; trabalho agêntico de longo prazo de última geração, raciocínio adaptativo, contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 5.0,
+     "outputCostPerMillion": 25.0,
+     "litellmKey": "claude-opus-4-8",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "L'Opus le plus capable ; travail agentique au long cours à l'état de l'art, réflexion adaptative, contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-opus-4-7",
+     "displayName": "Claude Opus 4.7",
+     "description": "Opus da geração anterior; raciocínio adaptativo, programação agêntica forte, contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 5.0,
+     "outputCostPerMillion": 25.0,
+     "litellmKey": "claude-opus-4-7",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Opus de génération précédente ; réflexion adaptative, solide codage agentique, contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-sonnet-5-5",
+     "displayName": "Claude Sonnet 5.5",
+     "description": "O Sonnet mais novo da Anthropic; rápido, com raciocínio e programação fortes e raciocínio adaptativo. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "claude-sonnet-5-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Sonnet d'Anthropic ; raisonnement et codage solides et rapides, réflexion adaptative. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-sonnet-5",
+     "displayName": "Claude Sonnet 5",
+     "description": "A melhor combinação de velocidade e inteligência; programação e qualidade agêntica próximas do Opus, raciocínio adaptativo, contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "claude-sonnet-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "La meilleure combinaison de vitesse et d'intelligence ; codage et agentique proches d'Opus, réflexion adaptative, contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "claude-sonnet-4-6",
+     "displayName": "Claude Sonnet 4.6",
+     "description": "O melhor equilíbrio entre velocidade e inteligência; raciocínio estendido, contexto de 1M, ótimo uso do computador.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 3.0,
+     "outputCostPerMillion": 15.0,
+     "litellmKey": "claude-sonnet-4-6",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le meilleur équilibre entre vitesse et intelligence ; réflexion étendue, contexte de 1M, très bon en usage d'ordinateur."
+      }
+     }
+    },
+    {
+     "id": "claude-haiku-5-5",
+     "displayName": "Claude Haiku 5.5",
+     "description": "O Haiku mais novo da Anthropic; rápido e muito econômico, com raciocínio adaptativo. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 0.1,
+     "outputCostPerMillion": 0.5,
+     "litellmKey": "claude-haiku-5-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "es": {
+       "description": "El Haiku más reciente de Anthropic; rápido y muy económico, con razonamiento adaptativo. Contexto de 1M."
+      },
+      "fr": {
+       "description": "Le tout dernier Haiku d'Anthropic ; rapide et très économique, avec réflexion adaptative. Contexte de 1M."
+      },
+      "ja": {
+       "description": "Anthropicの最新Haiku。高速で非常に経済的、適応型思考に対応。コンテキスト1M。"
+      }
+     }
+    },
+    {
+     "id": "claude-haiku-4-5-20251001",
+     "displayName": "Claude Haiku 4.5",
+     "description": "O Claude mais rápido, com inteligência próxima da fronteira; ótimo para resumos e tarefas de alto volume.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 200000,
+     "inputCostPerMillion": 1.0,
+     "outputCostPerMillion": 5.0,
+     "litellmKey": "claude-haiku-4-5-20251001",
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 64000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le Claude le plus rapide avec une intelligence proche de la frontière ; idéal pour les résumés et les tâches à haut volume."
+      }
+     }
+    }
+   ],
+   "notes": "Modelos da Anthropic na nuvem, liderados por Fable 5.1, Opus 5.5 e Sonnet 5.5; todos os modelos listados têm contexto de 1M, exceto o Haiku 4.5, com 200K.",
+   "keyURL": "https://console.anthropic.com/settings/keys"
+  },
+  {
+   "id": "google",
+   "displayName": "Google Gemini",
+   "apiFormat": "gemini",
+   "baseURL": "https://generativelanguage.googleapis.com/v1beta/models",
+   "authHeaderName": "x-goog-api-key",
+   "authHeaderPrefix": "",
+   "extraHeaders": {},
+   "requiresAPIKey": true,
+   "supportsVision": true,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "gemini-3.1-pro-preview",
+     "displayName": "Gemini 3.1 Pro",
+     "description": "Modelo de raciocínio de ponta mais recente; contexto de 1M, ótimo desempenho agêntico e em programação.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 12.0,
+     "litellmKey": "gemini/gemini-3.1-pro-preview",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 32768,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Dernier modèle de raisonnement haut de gamme ; contexte de 1M, solides performances agentiques et en codage."
+      }
+     }
+    },
+    {
+     "id": "gemini-3.5-flash",
+     "displayName": "Gemini 3.5 Flash",
+     "description": "O modelo rápido mais novo do Google; ótima qualidade com velocidade, contexto de 1M.",
+     "isDefault": true,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 1.5,
+     "outputCostPerMillion": 9.0,
+     "litellmKey": "gemini-3.5-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le plus récent modèle rapide de Google ; grande qualité à haute vitesse, contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gemini-3.1-flash-lite",
+     "displayName": "Gemini 3.1 Flash Lite",
+     "description": "O Gemini de menor custo; resumos rápidos e tarefas leves.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.25,
+     "outputCostPerMillion": 1.5,
+     "litellmKey": "gemini-3.1-flash-lite",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le Gemini le moins cher ; résumés rapides et tâches légères."
+      }
+     }
+    },
+    {
+     "id": "gemini-3.8-flash",
+     "displayName": "Gemini 3.8 Flash",
+     "description": "O modelo rápido mais novo do Google. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 3.75,
+     "litellmKey": "gemini-3.8-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le plus récent modèle rapide de Google. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gemini-3.7-flash",
+     "displayName": "Gemini 3.7 Flash",
+     "description": "O modelo rápido do Google, uma geração atrás do 3.8 Flash. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 3.75,
+     "litellmKey": "gemini-3.7-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle rapide de Google, un cran derrière 3.8 Flash. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gemini-3.6-flash",
+     "displayName": "Gemini 3.6 Flash",
+     "description": "O modelo rápido mais novo do Google; qualidade melhor e custo de saída menor que o 3.5 Flash. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 3.75,
+     "litellmKey": "gemini-3.6-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le plus récent modèle rapide de Google ; qualité améliorée et coût de sortie inférieur à 3.5 Flash. Contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "gemini-3.5-flash-lite",
+     "displayName": "Gemini 3.5 Flash Lite",
+     "description": "Gemini leve; o menor custo para tarefas simples. Contexto de 1M.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.3,
+     "outputCostPerMillion": 2.5,
+     "litellmKey": "gemini-3.5-flash-lite",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Gemini léger ; le coût le plus bas pour les tâches simples. Contexte de 1M."
+      }
+     }
+    }
+   ],
+   "notes": "Modelos Google Gemini.",
+   "keyURL": "https://aistudio.google.com/apikey"
+  },
+  {
+   "id": "xai",
+   "displayName": "xAI (Grok)",
+   "apiFormat": "openai",
+   "baseURL": "https://api.x.ai/v1/chat/completions",
+   "tokenLimitField": null,
+   "authHeaderName": "Authorization",
+   "authHeaderPrefix": "Bearer ",
+   "extraHeaders": {},
+   "requiresAPIKey": true,
+   "supportsVision": true,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "grok-4.7",
+     "displayName": "Grok 4.7",
+     "description": "O Grok mais novo da xAI; raciocínio com integração de conhecimento em tempo real. Contexto de 500K.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 500000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 6.0,
+     "litellmKey": "xai/grok-4.7",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 32768,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 4,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le Grok le plus récent de xAI ; raisonnement avec intégration de connaissances en temps réel. Contexte de 500K."
+      }
+     }
+    },
+    {
+     "id": "grok-4.3",
+     "displayName": "Grok 4.3",
+     "description": "O carro-chefe atual da xAI; raciocínio com integração de conhecimento em tempo real. Contexto de 1M.",
+     "isDefault": true,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 1.25,
+     "outputCostPerMillion": 2.5,
+     "litellmKey": "grok-4.3",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 32768,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 4,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le vaisseau amiral actuel de xAI ; raisonnement avec intégration de connaissances en temps réel. Contexte de 1M."
+      }
+     }
+    }
+   ],
+   "notes": "Modelos Grok da xAI. O Grok 4 só funciona com raciocínio.",
+   "keyURL": "https://console.x.ai"
+  },
+  {
+   "id": "deepseek",
+   "displayName": "DeepSeek",
+   "apiFormat": "openai",
+   "baseURL": "https://api.deepseek.com/chat/completions",
+   "tokenLimitField": null,
+   "authHeaderName": "Authorization",
+   "authHeaderPrefix": "Bearer ",
+   "extraHeaders": {},
+   "requiresAPIKey": true,
+   "supportsVision": false,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "deepseek-v4-flash",
+     "displayName": "DeepSeek V4 Flash",
+     "description": "MoE 284B/13B ativos, contexto de 1M. Modo duplo (com raciocínio / sem raciocínio). O chat só de texto de fronteira mais barato.",
+     "isDefault": true,
+     "supportsVision": false,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 0.14,
+     "outputCostPerMillion": 0.28,
+     "litellmKey": "deepseek/deepseek-v4-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "MoE 284B/13B actifs, contexte de 1M. Double mode (réflexion / sans réflexion). Le chat texte frontière le moins cher."
+      }
+     }
+    },
+    {
+     "id": "deepseek-v4-pro",
+     "displayName": "DeepSeek V4 Pro",
+     "description": "MoE 1.6T/49B ativos, contexto de 1M. Modo duplo (com raciocínio / sem raciocínio). Raciocínio de fronteira, matemática, código. (Desconto promocional de 75% até 2026-05-31; preço normal exibido.)",
+     "isDefault": false,
+     "supportsVision": false,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 1.74,
+     "outputCostPerMillion": 3.48,
+     "litellmKey": "deepseek/deepseek-v4-pro",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "MoE 1,6T/49B actifs, contexte de 1M. Double mode (réflexion / sans réflexion). Raisonnement, maths et code de niveau frontière. (Promo de 75% jusqu'au 31/05/2026 ; tarif normal affiché.)"
+      }
+     }
+    }
+   ],
+   "notes": "Modelos da DeepSeek na nuvem. Somente texto.",
+   "keyURL": "https://platform.deepseek.com/api_keys"
+  },
+  {
+   "id": "kimi",
+   "displayName": "Kimi (Moonshot)",
+   "apiFormat": "openai",
+   "baseURL": "https://api.moonshot.ai/v1/chat/completions",
+   "tokenLimitField": null,
+   "authHeaderName": "Authorization",
+   "authHeaderPrefix": "Bearer ",
+   "extraHeaders": {},
+   "requiresAPIKey": true,
+   "supportsVision": true,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.6,
+   "models": [
+    {
+     "id": "kimi-k3",
+     "displayName": "Kimi K3",
+     "description": "O carro-chefe mais novo da Moonshot; raciocínio multimodal com contexto de 1M.",
+     "isDefault": true,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 3.0,
+     "outputCostPerMillion": 15.0,
+     "litellmKey": "moonshot/kimi-k3",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 1.0,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier vaisseau amiral de Moonshot ; raisonnement multimodal avec un contexte de 1M."
+      }
+     }
+    },
+    {
+     "id": "kimi-k2.6",
+     "displayName": "Kimi K2.6",
+     "description": "A geração K2 mais recente; raciocínio ATIVADO por padrão. Retenção do raciocínio entre turnos via preserve_thinking.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 262144,
+     "inputCostPerMillion": 0.6,
+     "outputCostPerMillion": 2.5,
+     "litellmKey": "moonshot/kimi-k2.6",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 1.0,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Dernière génération K2 ; réflexion activée par défaut. Rétention du raisonnement multi-tours via preserve_thinking."
+      }
+     }
+    }
+   ],
+   "notes": "Modelos Kimi da API internacional oficial da Moonshot AI. Todos os modelos aceitam imagem e vídeo.",
+   "keyURL": "https://platform.moonshot.ai/console/api-keys"
+  },
+  {
+   "id": "qwen",
+   "displayName": "Qwen (Alibaba)",
+   "apiFormat": "openai",
+   "baseURL": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+   "tokenLimitField": null,
+   "authHeaderName": "Authorization",
+   "authHeaderPrefix": "Bearer ",
+   "extraHeaders": {},
+   "requiresAPIKey": true,
+   "supportsVision": true,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "qwen3.8-max",
+     "displayName": "Qwen3.8 Max",
+     "description": "O modelo de fronteira mais novo da Qwen para agentes, raciocínio e programação. Raciocina por padrão.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 991808,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 6.0,
+     "litellmKey": "dashscope/qwen3.8-max",
+     "minAppBuild": 534,
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier modèle frontière de Qwen pour les agents, le raisonnement et le codage. Réfléchit par défaut."
+      }
+     }
+    },
+    {
+     "id": "qwen3.8-flash",
+     "displayName": "Qwen3.8 Flash",
+     "description": "Qwen3.8 rápido e de baixo custo para tarefas do dia a dia.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 991808,
+     "inputCostPerMillion": 0.15,
+     "outputCostPerMillion": 0.47,
+     "litellmKey": "dashscope/qwen3.8-flash",
+     "minAppBuild": 534,
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Qwen3.8 rapide et économique pour les tâches courantes."
+      }
+     }
+    },
+    {
+     "id": "qwen3.7-max",
+     "displayName": "Qwen3.7 Max",
+     "description": "Modelo de agente + raciocínio de fronteira, tarefas de longo prazo, programação, trabalho de alto risco. Raciocina por padrão.",
+     "isDefault": true,
+     "supportsVision": true,
+     "contextWindow": 991808,
+     "inputCostPerMillion": 1.25,
+     "outputCostPerMillion": 3.75,
+     "litellmKey": "qwen/qwen3.7-max",
+     "minAppBuild": 534,
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Modèle frontière d'agent et de raisonnement, tâches au long cours, codage, travail à fort enjeu. Réfléchit par défaut."
+      }
+     }
+    },
+    {
+     "id": "qwen3.7-plus",
+     "displayName": "Qwen3.7 Plus",
+     "description": "Modelo de agente multimodal (visão + linguagem). Custo equilibrado para cargas de produção de alto volume. Raciocina por padrão.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 991808,
+     "inputCostPerMillion": 0.32,
+     "outputCostPerMillion": 1.28,
+     "litellmKey": "qwen/qwen3.7-plus",
+     "minAppBuild": 534,
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Modèle d'agent multimodal (vision + langage). Coût équilibré pour la production à haut volume. Réfléchit par défaut."
+      }
+     }
+    },
+    {
+     "id": "qwen3-max",
+     "displayName": "Qwen Max",
+     "description": "Raciocínio complexo, fluxos de trabalho corporativos, tarefas de alto risco.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 258048,
+     "inputCostPerMillion": 1.2,
+     "outputCostPerMillion": 6.0,
+     "litellmKey": "qwen/qwen3-max",
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Raisonnement complexe, workflows d'entreprise, tâches à fort enjeu."
+      }
+     }
+    },
+    {
+     "id": "qwen-plus",
+     "displayName": "Qwen Plus",
+     "description": "Apps de uso geral, equilíbrio entre latência e qualidade, a maioria das cargas de produção.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 129024,
+     "inputCostPerMillion": 0.4,
+     "outputCostPerMillion": 2.4,
+     "litellmKey": "qwen/qwen-plus",
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Applications généralistes, équilibre latence/qualité, la plupart des charges de production."
+      }
+     }
+    },
+    {
+     "id": "qwen-flash",
+     "displayName": "Qwen Flash",
+     "description": "Tarefas simples de alto volume, chatbots, prototipagem rápida, apps sensíveis a custo.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 997952,
+     "inputCostPerMillion": 0.1,
+     "outputCostPerMillion": 0.4,
+     "litellmKey": "qwen/qwen-flash",
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Tâches simples à haut volume, chatbots, prototypage rapide, applications sensibles au coût."
+      }
+     }
+    }
+   ],
+   "notes": "Modelos Qwen da Alibaba.",
+   "keyURL": "https://bailian.console.alibabacloud.com/#/api-key"
+  },
+  {
+   "id": "openrouter",
+   "displayName": "OpenRouter",
+   "apiFormat": "openai",
+   "baseURL": "https://openrouter.ai/api/v1/chat/completions",
+   "tokenLimitField": null,
+   "authHeaderName": "Authorization",
+   "authHeaderPrefix": "Bearer ",
+   "extraHeaders": {
+    "HTTP-Referer": "https://shouldersurf.app",
+    "X-Title": "Shoulder Surf"
+   },
+   "requiresAPIKey": true,
+   "supportsVision": true,
+   "maxTokensDefault": 1024,
+   "temperatureDefault": 0.7,
+   "models": [
+    {
+     "id": "google/gemini-3-flash-preview",
+     "displayName": "Gemini 3 Flash (OR)",
+     "description": "O Flash mais recente, com raciocínio de nível Pro e latência muito menor. Contexto de 1M, visão. A melhor opção padrão para perguntas durante a reunião.",
+     "isDefault": true,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.5,
+     "outputCostPerMillion": 3.0,
+     "litellmKey": "openrouter/google/gemini-3-flash-preview",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Dernier Flash avec un raisonnement de niveau Pro à latence bien plus faible. Contexte de 1M, vision. Le meilleur choix par défaut pour les requêtes en cours de réunion."
+      }
+     }
+    },
+    {
+     "id": "anthropic/claude-sonnet-5.5",
+     "displayName": "Claude Sonnet 5.5 (OR)",
+     "description": "O Sonnet mais novo da Anthropic, rápido e forte em raciocínio e programação, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "openrouter/anthropic/claude-sonnet-5.5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Sonnet d'Anthropic, rapide et solide en raisonnement et en codage via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "anthropic/claude-opus-5.5",
+     "displayName": "Claude Opus 5.5 (OR)",
+     "description": "O Opus mais novo da Anthropic para trabalho agêntico e corporativo de primeira linha, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 4.0,
+     "outputCostPerMillion": 20.0,
+     "litellmKey": "openrouter/anthropic/claude-opus-5.5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Opus d'Anthropic pour le travail agentique et d'entreprise haut de gamme via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "anthropic/claude-sonnet-5",
+     "displayName": "Claude Sonnet 5 (OR)",
+     "description": "Claude Sonnet 5, a melhor mistura de velocidade e inteligência, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "openrouter/anthropic/claude-sonnet-5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Claude Sonnet 5, le meilleur équilibre entre vitesse et intelligence via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "openai/gpt-6-sol",
+     "displayName": "GPT-6 Sol (OR)",
+     "description": "O GPT-6 versátil da OpenAI a um preço intermediário, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "openrouter/openai/gpt-6-sol",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le GPT-6 polyvalent d'OpenAI à prix intermédiaire via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "openai/gpt-6-luna",
+     "displayName": "GPT-6 Luna (OR)",
+     "description": "GPT-6 pequeno, rápido e muito econômico, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 922000,
+     "inputCostPerMillion": 0.1,
+     "outputCostPerMillion": 0.5,
+     "litellmKey": "openrouter/openai/gpt-6-luna",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-6 petit, rapide et très économique via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "google/gemini-3.8-flash",
+     "displayName": "Gemini 3.8 Flash (OR)",
+     "description": "O modelo rápido mais novo do Google, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.75,
+     "outputCostPerMillion": 3.75,
+     "litellmKey": "openrouter/google/gemini-3.8-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le plus récent modèle rapide de Google via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "x-ai/grok-4.7",
+     "displayName": "Grok 4.7 (OR)",
+     "description": "O Grok mais novo da xAI, raciocínio com conhecimento em tempo real, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 500000,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 6.0,
+     "litellmKey": "openrouter/x-ai/grok-4.7",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 32768,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 4,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le Grok le plus récent de xAI, raisonnement avec connaissances en temps réel via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "deepseek/deepseek-v4.1-flash",
+     "displayName": "DeepSeek V4.1 Flash (OR)",
+     "description": "O Flash mais novo da DeepSeek, chat de texto de baixo custo com raciocínio de modo duplo, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": false,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.3,
+     "outputCostPerMillion": 1.2,
+     "litellmKey": "openrouter/deepseek/deepseek-v4.1-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier Flash de DeepSeek, chat texte économique avec raisonnement bimode via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "moonshotai/kimi-k3",
+     "displayName": "Kimi K3 (OR)",
+     "description": "O carro-chefe mais novo da Moonshot, raciocínio multimodal, via OpenRouter.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 3.0,
+     "outputCostPerMillion": 15.0,
+     "litellmKey": "openrouter/moonshotai/kimi-k3",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 1.0,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le tout dernier vaisseau amiral de Moonshot, raisonnement multimodal via OpenRouter."
+      }
+     }
+    },
+    {
+     "id": "anthropic/claude-haiku-4.5",
+     "displayName": "Claude Haiku 4.5 (OR)",
+     "description": "O nível rápido do Claude, com visão. Ótimo para resumos rápidos e extração.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 200000,
+     "inputCostPerMillion": 1.0,
+     "outputCostPerMillion": 5.0,
+     "litellmKey": "openrouter/anthropic/claude-haiku-4.5",
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 64000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le palier vitesse de Claude, avec vision. Idéal pour les résumés rapides et l'extraction."
+      }
+     }
+    },
+    {
+     "id": "openai/gpt-5-mini",
+     "displayName": "GPT-5 Mini (OR)",
+     "description": "GPT-5 rápido e econômico, com visão. Bom para tarefas bem definidas durante a reunião.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 400000,
+     "inputCostPerMillion": 0.25,
+     "outputCostPerMillion": 2.0,
+     "litellmKey": "openrouter/openai/gpt-5-mini",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "GPT-5 rapide et économique, avec vision. Bien adapté aux tâches précises en cours de réunion."
+      }
+     }
+    },
+    {
+     "id": "google/gemini-3.1-flash-lite-preview",
+     "displayName": "Gemini 3.1 Flash Lite (OR)",
+     "description": "O modelo Gemini 3 com melhor custo-benefício. Contexto de 1M, visão; ideal para consultas de alto volume e sensíveis a custo.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.25,
+     "outputCostPerMillion": 1.5,
+     "litellmKey": "openrouter/google/gemini-3.1-flash-lite-preview",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "minimal",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le modèle Gemini 3 le plus économique. Contexte de 1M, vision ; idéal pour les requêtes à haut volume et sensibles au coût."
+      }
+     }
+    },
+    {
+     "id": "anthropic/claude-sonnet-4.6",
+     "displayName": "Claude Sonnet 4.6 (OR)",
+     "description": "Qualidade e velocidade equilibradas, com visão. Muitas vezes o melhor redator de resumos de reuniões.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 3.0,
+     "outputCostPerMillion": 15.0,
+     "litellmKey": "openrouter/anthropic/claude-sonnet-4.6",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Qualité et vitesse équilibrées, avec vision. Souvent le meilleur rédacteur de résumés de réunion."
+      }
+     }
+    },
+    {
+     "id": "google/gemini-3.1-pro-preview",
+     "displayName": "Gemini 3.1 Pro (OR)",
+     "description": "O Gemini principal, com contexto de 1M e raciocínio de primeira linha. O melhor para reuniões longas com análise aprofundada.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 2.0,
+     "outputCostPerMillion": 12.0,
+     "litellmKey": "openrouter/google/gemini-3.1-pro-preview",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high"
+     ],
+     "maxOutputTokens": 32768,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 16,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Gemini vaisseau amiral avec contexte de 1M et raisonnement haut de gamme. Le meilleur pour les longues réunions avec analyse approfondie."
+      }
+     }
+    },
+    {
+     "id": "anthropic/claude-opus-4.8",
+     "displayName": "Claude Opus 4.8 (OR)",
+     "description": "O Claude mais capaz via OpenRouter; trabalho agêntico de última geração.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 5.0,
+     "outputCostPerMillion": 25.0,
+     "litellmKey": "openrouter/anthropic/claude-opus-4.8",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+     ],
+     "maxOutputTokens": 64000,
+     "temperatureDefault": null,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": true,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le Claude le plus capable via OpenRouter ; travail agentique à l'état de l'art."
+      }
+     }
+    },
+    {
+     "id": "openai/gpt-5",
+     "displayName": "GPT-5 (OR)",
+     "description": "GPT-5 principal, com visão. Forte em raciocínio, análise de documentos e redação de relatórios pós-reunião.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 400000,
+     "inputCostPerMillion": 1.25,
+     "outputCostPerMillion": 10.0,
+     "litellmKey": "openrouter/openai/gpt-5",
+     "supportsReasoning": true,
+     "reasoningLevels": null,
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "GPT-5 vaisseau amiral avec vision. Solide en raisonnement, analyse de documents et rédaction de rapports après réunion."
+      }
+     }
+    },
+    {
+     "id": "openai/gpt-5.5",
+     "displayName": "GPT-5.5 (OR)",
+     "description": "O GPT-5.5 mais recente, com contexto de 1M. O raciocínio e as tarefas agênticas mais fortes; a mais alta qualidade para análise pós-reunião.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1050000,
+     "inputCostPerMillion": 5.0,
+     "outputCostPerMillion": 30.0,
+     "litellmKey": "openrouter/openai/gpt-5.5",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 10,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Dernier GPT-5.5 avec contexte de 1M. Raisonnement et tâches agentiques au plus haut niveau ; la meilleure qualité pour l'analyse après réunion."
+      }
+     }
+    },
+    {
+     "id": "openai/gpt-5.5-pro",
+     "displayName": "GPT-5.5 Pro (OR)",
+     "description": "Nível de precisão premium do GPT-5.5. Use quando acertar importa mais que o custo.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1050000,
+     "inputCostPerMillion": 30.0,
+     "outputCostPerMillion": 180.0,
+     "litellmKey": "openrouter/openai/gpt-5.5-pro",
+     "supportsReasoning": true,
+     "reasoningLevels": null,
+     "maxOutputTokens": 128000,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le palier de précision premium de GPT-5.5. À utiliser quand l'exactitude compte plus que le coût."
+      }
+     }
+    },
+    {
+     "id": "deepseek/deepseek-v4-flash",
+     "displayName": "DeepSeek V4 Flash (OR)",
+     "description": "O chat só de texto de fronteira mais barato. Contexto de 1M, raciocínio de modo duplo. Ótimo para resumos em escala.",
+     "isDefault": false,
+     "supportsVision": false,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.0592,
+     "outputCostPerMillion": 0.1184,
+     "litellmKey": "openrouter/deepseek/deepseek-v4-flash",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Le chat texte frontière le moins cher. Contexte de 1M, raisonnement double mode. Excellent pour le résumé à grande échelle."
+      }
+     }
+    },
+    {
+     "id": "deepseek/deepseek-v4-pro",
+     "displayName": "DeepSeek V4 Pro (OR)",
+     "description": "Raciocínio de fronteira só de texto. 1.6T/49B parâmetros ativos, contexto de 1M, modo duplo. (Desconto promocional de 75% até 2026-05-31; preço normal exibido.)",
+     "isDefault": false,
+     "supportsVision": false,
+     "contextWindow": 1048576,
+     "inputCostPerMillion": 0.783,
+     "outputCostPerMillion": 1.566,
+     "litellmKey": "openrouter/deepseek/deepseek-v4-pro",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "disabled",
+      "enabled"
+     ],
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "toggle",
+     "localizations": {
+      "fr": {
+       "description": "Raisonnement texte de niveau frontière. 1,6T/49B paramètres actifs, contexte de 1M, double mode. (Promo de 75% jusqu'au 31/05/2026 ; tarif normal affiché.)"
+      }
+     }
+    },
+    {
+     "id": "perplexity/sonar",
+     "displayName": "Perplexity Sonar (OR)",
+     "description": "Com pesquisa na web em tempo real. Pergunte sobre empresas, pessoas ou temas citados na reunião assim que surgirem.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 127072,
+     "inputCostPerMillion": 1.0,
+     "outputCostPerMillion": 1.0,
+     "litellmKey": "openrouter/perplexity/sonar",
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Adossé à la recherche web en temps réel. Renseignez-vous sur les entreprises, les personnes ou les sujets mentionnés en réunion, au fil de l'eau."
+      }
+     }
+    },
+    {
+     "id": "meta-llama/llama-4-maverick",
+     "displayName": "Llama 4 Maverick (OR)",
+     "description": "Carro-chefe de pesos abertos, com visão. Alternativa econômica competitiva, com ótimo suporte a vários idiomas.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 524288,
+     "inputCostPerMillion": 0.1875,
+     "outputCostPerMillion": 0.6525,
+     "litellmKey": "openrouter/meta-llama/llama-4-maverick",
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Vaisseau amiral à poids ouverts, avec vision. Alternative économique compétitive avec un solide support multilingue."
+      }
+     }
+    },
+    {
+     "id": "x-ai/grok-4.3",
+     "displayName": "Grok 4.3 (OR)",
+     "description": "O carro-chefe atual da xAI via OpenRouter; raciocínio com conhecimento em tempo real.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 1000000,
+     "inputCostPerMillion": 1.25,
+     "outputCostPerMillion": 2.5,
+     "litellmKey": "openrouter/x-ai/grok-4.3",
+     "supportsReasoning": true,
+     "reasoningLevels": [
+      "default",
+      "none",
+      "low",
+      "medium",
+      "high",
+      "xhigh"
+     ],
+     "maxOutputTokens": 32768,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 4,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "reasoningFamily": "effort",
+     "localizations": {
+      "fr": {
+       "description": "Le vaisseau amiral actuel de xAI via OpenRouter ; raisonnement avec connaissances en temps réel."
+      }
+     }
+    },
+    {
+     "id": "mistralai/mistral-large-2512",
+     "displayName": "Mistral Large 2512 (OR)",
+     "description": "O modelo grande mais recente da Mistral; ótimo desempenho em vários idiomas.",
+     "isDefault": false,
+     "supportsVision": false,
+     "contextWindow": 262144,
+     "inputCostPerMillion": 0.5,
+     "outputCostPerMillion": 1.5,
+     "litellmKey": "openrouter/mistralai/mistral-large-2512",
+     "supportsReasoning": false,
+     "reasoningLevels": null,
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 0,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le dernier grand modèle de Mistral ; solides performances multilingues."
+      }
+     }
+    },
+    {
+     "id": "qwen/qwen3-vl-235b-a22b-instruct",
+     "displayName": "Qwen3 VL 235B (OR)",
+     "description": "O modelo com visão mais forte em vários idiomas. A melhor escolha para reuniões em japonês, mandarim ou outros idiomas que não o inglês.",
+     "isDefault": false,
+     "supportsVision": true,
+     "contextWindow": 262144,
+     "inputCostPerMillion": 0.21,
+     "outputCostPerMillion": 1.9,
+     "litellmKey": "openrouter/qwen/qwen3-vl-235b-a22b-instruct",
+     "supportsReasoning": true,
+     "reasoningLevels": null,
+     "maxOutputTokens": 8192,
+     "temperatureDefault": 0.3,
+     "maxImagesPerRequest": 5,
+     "streamingSupported": true,
+     "toolUseSupported": true,
+     "supportsDocuments": true,
+     "supportsWebSearch": true,
+     "cacheControlSupported": false,
+     "serverManaged": false,
+     "promptReserveTokens": null,
+     "localizations": {
+      "fr": {
+       "description": "Le modèle de vision multilingue le plus puissant. Le meilleur choix pour les réunions en japonais, en mandarin ou dans d'autres langues que l'anglais."
+      }
+     }
+    }
+   ],
+   "notes": "Use sua chave do OpenRouter com os modelos listados aqui, incluindo Claude, GPT, Gemini, Grok e DeepSeek. O uso é cobrado na sua conta do OpenRouter. Crie uma chave em openrouter.ai/keys e defina um limite de gasto mensal nela.",
+   "keyURL": "https://openrouter.ai/keys"
+  }
+ ]
+}

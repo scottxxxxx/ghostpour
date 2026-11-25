@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 _REMOTE = Path(__file__).parent.parent / "config" / "remote"
-LOCALES = ["en", "es", "ja", "fr"]
+LOCALES = ["en", "es", "ja", "fr", "pt"]
 
 # Every language the app ships. A served surface that lacks one of these
 # silently falls back to English for that market.
@@ -104,7 +104,7 @@ def test_localized_copy_is_actually_translated():
     """A copy-paste of the English block is worse than no entry, because it
     looks handled."""
     en = TIERS["en"]["feature_definitions"]["people"]["signed_out"]
-    for loc in ("es", "ja", "fr"):
+    for loc in ("es", "ja", "fr", "pt"):
         other = TIERS[loc]["feature_definitions"]["people"]["signed_out"]
         for key in ("headline", "body", "cta_label"):
             assert other[key] != en[key], f"{loc}.{key} is still English"
@@ -122,7 +122,7 @@ def test_localized_copy_is_actually_translated():
 
 def test_every_feature_definition_exists_in_every_shipped_language():
     en_keys = set(TIERS["en"]["feature_definitions"])
-    for loc in ("es", "ja", "fr"):
+    for loc in ("es", "ja", "fr", "pt"):
         missing = en_keys - set(TIERS[loc]["feature_definitions"])
         assert not missing, (
             f"{loc} is missing {sorted(missing)}, so those markets get "
@@ -135,7 +135,7 @@ def test_user_facing_feature_strings_are_not_left_in_english():
     evidence of an untranslated block."""
     PROSE = ("description", "teaser_description", "upgrade_cta")
     en_fd = TIERS["en"]["feature_definitions"]
-    for loc in ("es", "ja", "fr"):
+    for loc in ("es", "ja", "fr", "pt"):
         for feature, en_def in en_fd.items():
             other = TIERS[loc]["feature_definitions"][feature]
             for key in PROSE:

@@ -1,0 +1,42 @@
+{
+ "version": 9,
+ "highlights": [
+  {
+   "id": "copilot",
+   "icon": "sparkles",
+   "text": "Copiloto de reuniões com IA",
+   "highlighted": false
+  },
+  {
+   "id": "summaries",
+   "icon": "clock",
+   "text": "Resumos automáticos a cada 10 min",
+   "highlighted": false
+  },
+  {
+   "id": "search",
+   "icon": "globe",
+   "text": "Pesquisa na web: informações atuais nas suas respostas (mais por mês no Plus e no Pro)",
+   "highlighted": false
+  },
+  {
+   "id": "images",
+   "icon": "photo",
+   "text": "Análise de imagens (a quantidade varia conforme o plano)",
+   "highlighted": false
+  },
+  {
+   "id": "ai",
+   "icon": "cpu",
+   "text": "IA padrão ou avançada",
+   "highlighted": false
+  },
+  {
+   "id": "memory",
+   "icon": "brain",
+   "text": "Memória das reuniões: a IA lembra das reuniões anteriores",
+   "highlighted": true,
+   "color": "green"
+  }
+ ]
+}

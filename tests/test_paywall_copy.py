@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-LOCALES = ["", ".es", ".fr", ".ja"]
+LOCALES = ["", ".es", ".fr", ".ja", ".pt"]
 
 
 def _paywall(suffix):

@@ -25,6 +25,7 @@ FILES = {
     "es": "config/remote/protected-prompts.es.json",
     "fr": "config/remote/protected-prompts.fr.json",
     "ja": "config/remote/protected-prompts.ja.json",
+    "pt": "config/remote/protected-prompts.pt.json",
 }
 
 PHRASES = {
@@ -80,6 +81,19 @@ PHRASES = {
         delta="以前の要約をそのまま出力し直し、それについての注記は書かないでください",
         delta_owner="アクションアイテム（述べられていれば担当者と期限）",
     ),
+    "pt": dict(
+        r4="nunca a chame de conversa fiada",
+        r4_paste="Nunca peça ao usuário para colar, compartilhar, enviar ou reproduzir nada",
+        r6="nunca comente que falta uma imagem",
+        r8="nunca escreva o conteúdo deles por imaginação, mesmo quando pedirem para não usar marcadores",
+        r8_general="Conhecimento geral não é um fato sobre o usuário",
+        r8_shape="deixando só esses fatos entre colchetes",
+        hmr="sem introdução como \"Você poderia dizer\"",
+        wawm="aponte no máximo três pontos cegos",
+        wta="Se não houver imagem anexada, responda a partir da transcrição e não mencione nenhuma imagem.",
+        delta="entregue de novo o resumo anterior exatamente como recebido, nunca uma nota sobre ele",
+        delta_owner="itens de ação (com responsáveis e prazos, se mencionados)",
+    ),
 }
 
 GONE = {
@@ -91,6 +105,8 @@ GONE = {
            "sois précis et constructif"],
     "ja": ["以前の要約をそのまま返してください", "まず画像に見える関連する内容を簡潔に説明してください",
            "具体的かつ建設的に"],
+    "pt": ["devolva o resumo anterior sem alterações", "descreva brevemente o conteúdo relevante que você vê ANTES",
+           "seja específico e construtivo"],
 }
 
 LOCALES = list(FILES)
@@ -139,6 +155,6 @@ def test_no_dashes_in_what_changed(loc):
                  m[5]["systemPrompt"], d["summaryPrompts"]["delta"]):
         # The dash rule's own counter-example ("word - word" and its
         # translations) is the one spaced hyphen allowed: it names what not to do.
-        for example in ("(word - word)", "(palabra - palabra)", "(mot - mot)", "（語 - 語）"):
+        for example in ("(word - word)", "(palabra - palabra)", "(mot - mot)", "（語 - 語）", "(palavra - palavra)"):
             text = text.replace(example, "")
         assert "—" not in text and "–" not in text and " - " not in text, loc

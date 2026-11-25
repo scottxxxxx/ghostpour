@@ -43,11 +43,12 @@ def test_bundled_config_generation_live_on_every_tier_with_free_capped():
     # capped at 5 a month by the per-tier generation dial, Plus uncapped,
     # Pro keeps its quiet 100. Load-bearing invariants: min_tier free in
     # every locale, the caps as the sheet says, all four formats.
-    for f in ("client-config.json", "client-config.es.json", "client-config.fr.json", "client-config.ja.json"):
+    for f in ("client-config.json", "client-config.es.json", "client-config.fr.json", "client-config.ja.json",
+              "client-config.pt.json"):
         gen = json.load(open(f"config/remote/{f}"))["documents"]["generation"]
         assert gen["enabled"] is True and gen["min_tier"] == "free", f
         assert len(gen["formats"]) == 4
-    for loc in ("", ".es", ".fr", ".ja"):
+    for loc in ("", ".es", ".fr", ".ja", ".pt"):
         t = json.load(open(f"config/remote/tiers{loc}.json"))["tiers"]
         assert t["free"]["feature_definitions"]["generation"]["generations_per_month"] == 5, loc
         # 50 from 2026-09-07 (Scott). Was null, and null is UNCAPPED here, not

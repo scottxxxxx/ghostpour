@@ -551,14 +551,17 @@ def _parse_accept_language(header: str | None) -> str | None:
         "es" → "es"
         "es-MX,es;q=0.9,en;q=0.8" → "es"
         "en-US" → "en"
+        "pt-BR" → "pt", and "pt_BR" → "pt" too (a POSIX-style tag
+        must not miss the .pt bundles and silently serve English)
         None → None
     """
     if not header:
         return None
     # Take the first (highest priority) language tag
     first = header.split(",")[0].strip().split(";")[0].strip()
-    # Extract just the language code (before any region subtag)
-    lang = first.split("-")[0].lower()
+    # Extract just the language code (before any region subtag, whether
+    # it is joined with "-" or with "_")
+    lang = first.replace("_", "-").split("-")[0].lower()
     return lang if lang and lang != "en" else None
 
 

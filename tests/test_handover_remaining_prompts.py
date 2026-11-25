@@ -15,10 +15,10 @@ import pathlib
 
 import pytest
 
-LOCALES = ("", ".es", ".fr")
+LOCALES = ("", ".es", ".fr", ".pt")
 # ja ships analysisSchema but not freeformAskPrompt, so it joins only the
 # schema tests.
-SCHEMA_LOCALES = ("", ".es", ".fr", ".ja")
+SCHEMA_LOCALES = ("", ".es", ".fr", ".ja", ".pt")
 
 # Scott's ruling, 2026-09-04: the analysis lane converges on the report
 # lane's eight. ShoulderSurf shipped the client half in f6f778d; this is
@@ -138,7 +138,7 @@ def test_the_english_enum_lines_are_the_client_text_verbatim():
     assert ('each require a line you could quote: no quote, no claim.\n') in s
 
 
-@pytest.mark.parametrize("loc", (".es", ".fr"))
+@pytest.mark.parametrize("loc", (".es", ".fr", ".pt"))
 def test_the_prose_around_it_is_translated(loc):
     """Matching how analysisPrompt already ships: contract in English,
     instructions in the user's language."""
@@ -155,7 +155,7 @@ def test_the_freeform_ask_prompt_is_served(loc):
 
 
 @pytest.mark.parametrize("loc,word", [("", "image"), (".es", "imágenes"),
-                                      (".fr", "images")])
+                                      (".fr", "images"), (".pt", "imagens")])
 def test_ask_still_handles_images_with_no_question(loc, word):
     """The behaviour that made it a literal rather than a preset: it is the
     fallback mode, so it has to answer a question OR describe an image when
@@ -196,7 +196,7 @@ def test_the_follow_up_sentence_is_folded_in(loc):
     assert "Previous conversation in this chat" in _pp(loc)["analyzeSessionPrompt"]
 
 
-@pytest.mark.parametrize("loc", (".es", ".fr"))
+@pytest.mark.parametrize("loc", (".es", ".fr", ".pt"))
 def test_the_section_header_is_not_translated(loc):
     """The CLIENT emits that literal English string into the user message.
     Translating it would point the model at a section that does not exist,
@@ -214,7 +214,7 @@ def test_every_new_key_shipped_in_every_locale():
     means a Spanish or French user silently gets the English behaviour, or
     none, depending on how the client falls back."""
     base = set(_pp().keys())
-    for loc in (".es", ".fr"):
+    for loc in (".es", ".fr", ".pt"):
         missing = {"analysisSchema", "freeformAskPrompt"} - set(_pp(loc).keys())
         assert not missing, (loc, missing)
     assert {"analysisSchema", "freeformAskPrompt"} <= base

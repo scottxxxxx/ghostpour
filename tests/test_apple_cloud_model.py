@@ -11,7 +11,8 @@ REMOTE = Path(__file__).resolve().parent.parent / "config" / "remote"
 
 
 @pytest.mark.parametrize("name", ["llm-providers.json", "llm-providers.es.json",
-                                  "llm-providers.fr.json", "llm-providers.ja.json"])
+                                  "llm-providers.fr.json", "llm-providers.ja.json",
+                                  "llm-providers.pt.json"])
 def test_apple_cloud_is_gated_to_build_2126_and_not_default(name):
     doc = json.loads((REMOTE / name).read_text(encoding="utf-8"))
     on_device = next(p for p in doc["providers"] if p["id"] == "onDevice")

@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).parent.parent / "config" / "remote"
-LOCALES = ("tiers", "tiers.es", "tiers.fr", "tiers.ja")
+LOCALES = ("tiers", "tiers.es", "tiers.fr", "tiers.ja", "tiers.pt")
 KEYS = {"coach_mark_title", "coach_mark_body", "coach_mark_dismiss_label",
         "context_range_label", "context_range_windowed_label", "context_range_empty_label", "quick_prompts"}
 

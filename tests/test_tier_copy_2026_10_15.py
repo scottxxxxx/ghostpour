@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent / "config/remote"
-LOCALES = ("", ".es", ".fr", ".ja")
+LOCALES = ("", ".es", ".fr", ".ja", ".pt")
 
 
 def _d(suf):

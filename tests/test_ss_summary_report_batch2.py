@@ -23,29 +23,36 @@ from app.services.meeting_report import (
 
 ROOT = Path(__file__).resolve().parent.parent / "config" / "remote"
 LOCALES = {"en": "protected-prompts.json", "es": "protected-prompts.es.json",
-           "fr": "protected-prompts.fr.json", "ja": "protected-prompts.ja.json"}
+           "fr": "protected-prompts.fr.json", "ja": "protected-prompts.ja.json",
+           "pt": "protected-prompts.pt.json"}
 
 SHAPE = {"en": "Leave out any section that would be empty",
          "es": "Omite cualquier sección que quedaría vacía",
          "fr": "Omets toute section qui serait vide",
-         "ja": "空になるセクションは省いてください。"}
+         "ja": "空になるセクションは省いてください。",
+         "pt": "Omita qualquer seção que ficaria vazia"}
 NON_MEETING = {"en": "When the recording is not a working meeting",
                "es": "Cuando la grabación no es una reunión de trabajo",
                "fr": "Quand l'enregistrement n'est pas une réunion de travail",
-               "ja": "録音が業務の会議ではない場合"}
+               "ja": "録音が業務の会議ではない場合",
+               "pt": "Quando a gravação não for uma reunião de trabalho"}
 DECISION = {"en": "A decision is something the participants agreed",
             "es": "Una decisión es algo que los participantes acordaron",
             "fr": "Une décision est ce dont les participants ont convenu",
-            "ja": "決定事項とは参加者が合意したことで"}
+            "ja": "決定事項とは参加者が合意したことで",
+            "pt": "Uma decisão é algo com que os participantes concordaram"}
 OWNER = {"en": "not whoever suggested it.", "es": "no quien la sugirió.",
-         "fr": "pas celle qui l'a suggérée.", "ja": "提案しただけの人ではありません。"}
+         "fr": "pas celle qui l'a suggérée.", "ja": "提案しただけの人ではありません。",
+         "pt": "não quem a sugeriu."}
 STRETCH = {"en": "never let it remove or replace points from the other summaries",
            "es": "nunca dejes que elimine ni reemplace puntos de los otros resúmenes",
            "fr": "ne le laisse jamais supprimer ni remplacer des points des autres résumés",
-           "ja": "その要約によって他の要約の項目を削除したり置き換えたりしないでください。"}
+           "ja": "その要約によって他の要約の項目を削除したり置き換えたりしないでください。",
+           "pt": "nunca deixe que ele remova ou substitua pontos dos outros resumos"}
 HYPHENS = {"en": "(follow-up, hands-on, vis-à-vis)",
            "es": "(franco-alemán, teórico-práctico, e-mail)",
-           "fr": "(est-ce que, peut-être, vis-à-vis, elle-même)"}
+           "fr": "(est-ce que, peut-être, vis-à-vis, elle-même)",
+           "pt": "(bem-vindo, guarda-chuva, segunda-feira, e-mail)"}
 
 
 def _sp(loc):
