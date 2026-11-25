@@ -50,3 +50,12 @@ def test_the_route_sends_the_rule_the_call_type_earns(client, free_user, mock_pr
                     headers={**free_user["headers"], "X-App-ID": "shouldersurf"})
     assert r.status_code == 200, r.text
     assert (TYPED in _system_sent(mock_provider)) is typed
+
+
+@pytest.mark.parametrize("ct,echo", [("query", None), ("meeting_chat", None), ("summary", "es")])
+def test_output_language_is_null_for_queries_and_kept_elsewhere(client, free_user, mock_provider, ct, echo):
+    r = client.post("/v1/chat", json=chat_request(call_type=ct, locale="es"),
+                    headers={**free_user["headers"], "X-App-ID": "shouldersurf"})
+    assert r.status_code == 200, r.text
+    assert r.json()["output_language"] == echo
+    assert r.headers.get("X-Output-Locale") == echo

@@ -2383,6 +2383,14 @@ async def _chat_impl(
     if _localized_system != body.system_prompt:
         body = body.model_copy(update={"system_prompt": _localized_system})
         _output_locale = _norm_locale(_effective_locale)
+        # A query answers in the language the user typed, so GP directed no
+        # single language: echo null ("the model chose") and SS reads the text
+        # itself. A phone-locale echo would stamp a short Portuguese answer as
+        # English and fire SS's LANGUAGE MISMATCH log on every typed answer
+        # (SS, 2026-11-25).
+        from app.services.locale_injection import QUERY_CALL_TYPES as _QCT
+        if body.get_meta("call_type") in _QCT:
+            _output_locale = None
 
     # Effective allocation limit (trial, regular, or none for an anonymous
     # account with no plan): app/services/allowance.py. An app that gives
