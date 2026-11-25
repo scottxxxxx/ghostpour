@@ -63,6 +63,13 @@ _SYSTEM_EXACT = frozenset({
     "OSLog", "os", "Dispatch", "ObjectiveC", "CoreServices",
     "MobileCoreServices", "SystemConfiguration", "LocalAuthentication",
     "CoreHaptics", "CoreMotion", "CoreBluetooth", "CallKit", "PushKit",
+    # SwiftUI's private engines: the first real iPad report (2026-11-25)
+    # topped out in AttributeGraph and read as an Apple crash.
+    "AttributeGraph", "RenderBox", "UIFoundation", "DocumentManager",
+    "ExtensionFoundation", "FeatureFlags", "Symbolication", "TextInput",
+    "TextInputUI", "UIKitServices", "SafariServices", "LinkPresentation",
+    "PDFKit", "QuickLook", "VisionKit", "NaturalLanguage", "SoundAnalysis",
+    "Translation", "FoundationModels", "GenerativeModels",
 })
 _SYSTEM_PREFIXES = ("lib", "dyld", "Core", "UIKit", "AV", "Swift_")
 
