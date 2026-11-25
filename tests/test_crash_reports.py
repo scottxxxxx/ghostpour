@@ -473,3 +473,11 @@ def test_crash_reports_purge_at_180_days(tmp_path):
 def test_crash_route_is_kept_out_of_the_live_log():
     from app.middleware import request_logging
     assert "/v1/diagnostics/crash" in request_logging._SKIP_PATHS
+
+
+def test_swiftui_engine_frames_are_system():
+    from app.services.crash_signature import is_system_binary
+    for name in ("AttributeGraph", "RenderBox", "FoundationModels"):
+        assert is_system_binary(name), name
+    assert not is_system_binary("Shoulder Surf")
+    assert not is_system_binary("Shoulder Surf.debug.dylib")
