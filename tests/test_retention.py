@@ -198,6 +198,9 @@ def test_the_windows_are_unchanged():
         # Scott in the PR; installs are kept in companion_installs.
         "companion_events": 180,
         "companion_downloads": 180,
+        # MetricKit crash reports (2026-11-24): 180 days, set in the
+        # crash intake request.
+        "crash_reports": 180,
     }
 
 

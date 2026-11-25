@@ -137,6 +137,10 @@ SWEEPS: tuple[Sweep, ...] = (
           "versions in use live in companion_installs, which is kept."),
     Sweep("companion_downloads", "received_at", 180,
           "Website download hits for the companions."),
+    Sweep("crash_reports", "received_at", 180,
+          "MetricKit crash and hang reports (2026-11-24). Long enough to "
+          "compare a crash signature across several releases; anonymous by "
+          "construction, so the window bounds storage rather than linkage."),
 )
 
 

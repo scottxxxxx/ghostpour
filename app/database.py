@@ -1456,6 +1456,36 @@ MIGRATIONS = [
         PRIMARY KEY (user_id, meeting_id)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_report_quota_user_bucket ON report_quota_ledger(user_id, bucket, month)",
+    # MetricKit crash and hang reports from Shoulder Surf (2026-11-24,
+    # contract proposed by SS). POST /v1/diagnostics/crash, no auth. The
+    # App Privacy label says "Crash Data, not linked to you", so this table
+    # has NO user_id, device id, IP or IP hash column, and nothing joins it
+    # to accounts. app_id is the X-App-ID header (an app, not a person).
+    # report_id is client generated and is the dedupe key: a repeat is
+    # ignored, never overwritten. `payload` is the exact JSON text of the
+    # payload member as it arrived in the request body (see
+    # app/routers/diagnostics.py). Purged at 180 days by
+    # app/services/retention.py.
+    """CREATE TABLE IF NOT EXISTS crash_reports (
+        report_id TEXT PRIMARY KEY,
+        received_at TEXT NOT NULL,
+        app_id TEXT,
+        kind TEXT NOT NULL,
+        crash_time TEXT,
+        app_version TEXT,
+        app_build TEXT,
+        os_version TEXT,
+        device_model TEXT,
+        signal TEXT,
+        exception_type TEXT,
+        exception_code TEXT,
+        termination_reason TEXT,
+        signature TEXT NOT NULL,
+        payload TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_crash_reports_received ON crash_reports(received_at)",
+    "CREATE INDEX IF NOT EXISTS idx_crash_reports_signature ON crash_reports(signature, received_at)",
+    "CREATE INDEX IF NOT EXISTS idx_crash_reports_build ON crash_reports(app_build, received_at)",
 ]
 
 
