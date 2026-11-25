@@ -27,3 +27,24 @@ def effective_monthly_limit(user, tier, anonymous_capped: bool = False) -> float
     if user.is_trial and tier.trial_cost_limit_usd is not None:
         return tier.trial_cost_limit_usd
     return tier.monthly_cost_limit_usd
+
+
+# WHAT THE ALLOWANCE COUNTS. Promo calls (app/services/promo_metering.py, SS's
+# compare_summary since 2026-11-25) are served free and must never count
+# toward the monthly allowance. The allowance is counted in two places and
+# both read this:
+#
+#   * the meter, users.monthly_used_usd, which UsageTracker.record_cost adds
+#     to. record_cost asks counts_toward_allowance() before it writes.
+#   * the real spend read, allocation_reset.real_spend_alerts, which sums
+#     usage_log over the user's period against their cap. It filters rows
+#     with ALLOWANCE_USAGE_LOG_FILTER.
+#
+# Promo rows stay in usage_log with their real cost, so GP's own spend on
+# them still shows on every dashboard view that does not apply this filter.
+ALLOWANCE_USAGE_LOG_FILTER = "promo IS NULL"
+
+
+def counts_toward_allowance(promo: str | None) -> bool:
+    """False for a call served under a promo; True for every metered call."""
+    return not promo

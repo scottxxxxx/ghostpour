@@ -62,6 +62,9 @@ APP_SCOPED_TABLES = [
     "meeting_shares",
     "plan_snapshots",
     "promo_events",
+    # Promo calls served off the allowance (SS compare_summary, 2026-11-25):
+    # which months this person used the promo in. Theirs, so it goes too.
+    "promo_redemptions",
     # Recall telemetry (2026-08-27): operational, but each row names the
     # person whose turn it measured, so it is theirs and goes with them.
     # The rate it exists to answer is computed per scope, never per user,

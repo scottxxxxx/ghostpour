@@ -1486,6 +1486,27 @@ MIGRATIONS = [
     "CREATE INDEX IF NOT EXISTS idx_crash_reports_received ON crash_reports(received_at)",
     "CREATE INDEX IF NOT EXISTS idx_crash_reports_signature ON crash_reports(signature, received_at)",
     "CREATE INDEX IF NOT EXISTS idx_crash_reports_build ON crash_reports(app_build, received_at)",
+    # Promo calls served off the allowance (Scott, 2026-11-25; first one is
+    # SS's compare_summary). One row per (account, promo, UTC month): the
+    # primary key IS the monthly cap, claimed with one INSERT so two
+    # simultaneous taps cannot both be free. status 'claimed' until a
+    # provider response exists, then 'served'; an unserved claim is deleted
+    # when the request fails. See app/services/promo_metering.py.
+    """CREATE TABLE IF NOT EXISTS promo_redemptions (
+        user_id TEXT NOT NULL,
+        promo TEXT NOT NULL,
+        month TEXT NOT NULL,
+        status TEXT NOT NULL,
+        claim_token TEXT NOT NULL,
+        claimed_at TEXT NOT NULL,
+        served_at TEXT,
+        app_id TEXT,
+        PRIMARY KEY (user_id, promo, month)
+    )""",
+    # The promo a usage_log row was served under, NULL on every metered row.
+    # A column rather than a metadata key so the allowance's own sums can
+    # exclude promo rows with a plain `promo IS NULL` (app/services/allowance.py).
+    "ALTER TABLE usage_log ADD COLUMN promo TEXT",
 ]
 
 
