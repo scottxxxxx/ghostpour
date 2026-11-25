@@ -203,8 +203,13 @@ class UsageTracker:
         db: aiosqlite.Connection,
         user: UserRecord,
         tier: TierDefinition,
+        promo: str | None = None,
     ) -> tuple[float, float]:
         """Read current usage state. Returns (monthly_used, overage_balance).
+
+        `promo` set means the call is served off the allowance, so the admin
+        "force exhausted" toggle does not stop it either: a real exhausted
+        allowance does not, and the toggle exists to rehearse that.
 
         Previously raised 429 when monthly_used >= effective_limit. That path
         is gone — the budget gate (app/services/budget_gate.py) is now the
@@ -235,7 +240,7 @@ class UsageTracker:
         # Simulation: force allocation exhausted (admin testing toggle).
         # Kept on the 429 path because it's a synthetic dev affordance — the
         # production block path is the budget gate.
-        if user.simulated_exhausted:
+        if user.simulated_exhausted and not promo:
             raise HTTPException(
                 status_code=429,
                 detail={
@@ -274,8 +279,10 @@ class UsageTracker:
         tier: TierDefinition,
         user: UserRecord | None = None,
         app_id: str | None = None,
+        promo: str | None = None,
     ) -> None:
-        """Deduct cost from the ACCOUNT allowance, unless this app meters itself.
+        """Deduct cost from the ACCOUNT allowance, unless this app meters itself
+        or the call was served under a promo.
 
         `users.monthly_used_usd` is one row per account and every app under
         this developer team shares it, because SIWA issues subject ids per
@@ -295,6 +302,15 @@ class UsageTracker:
             effective_limit = tier.trial_cost_limit_usd
 
         if effective_limit == -1 or cost <= 0:
+            return
+
+        # A promo call (SS compare_summary) is free to the user. Its cost is
+        # still logged in usage_log, on a row whose promo column is set; it
+        # just never reaches the meter. See app/services/allowance.py.
+        from app.services.allowance import counts_toward_allowance
+        if not counts_toward_allowance(promo):
+            logger.info("record_cost_skipped_promo promo=%s user=%s cost=%.6f",
+                        promo, user_id, cost)
             return
 
         from app.routers.config import load_apps
@@ -322,6 +338,7 @@ class UsageTracker:
         error_msg: str | None = None,
         app_id: str | None = None,
         ttft_ms: int | None = None,
+        promo: str | None = None,
     ) -> None:
         # `ttft_ms` is time to first token, integer milliseconds, passed
         # ONLY by the token-streaming path in the chat router, which is the
@@ -438,9 +455,9 @@ class UsageTracker:
                 status, error_message, call_type, prompt_mode,
                 image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario, scenario_kind,
                 ttft_ms, jurisdiction, case_id, geo_country, geo_region, geo_city,
-                form_city, ip_hash, generated_count, documents_count)
+                form_city, ip_hash, generated_count, documents_count, promo)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -467,6 +484,10 @@ class UsageTracker:
                 *n400_place_columns(request, app_id),
                 generated_count,
                 documents_count,
+                # Server-stamped by the chat route only when a promo was
+                # HONORED (promo_metering.APPLIED_META_KEY). NULL otherwise,
+                # which is what keeps the row inside the allowance sums.
+                promo or request.get_meta("promo_applied"),
             ),
             what="log_usage", user_id=user_id, cost=estimated_cost,
         ):
@@ -493,6 +514,7 @@ class UsageTracker:
         elapsed_ms: int,
         pricing,
         status: str = "success",
+        promo: str | None = None,
     ) -> None:
         """Cost + meter a single LLM call in one shot: compute cost from the
         pricing table, deduct it from the user's allocation, and write the
@@ -516,8 +538,11 @@ class UsageTracker:
             )
             response.cost = cost
             request_cost = cost.get("total_cost", 0.0)
+        # `promo`: a sub-call made for a promo call (the title or captions
+        # cleanup on SS's compare_summary) is free to the user like its parent.
         await self.record_cost(db, user.id, request_cost, tier, user=user,
-                               app_id=app_id)
+                               app_id=app_id, promo=promo)
         await self.log_usage(
             db, user.id, request, response, elapsed_ms, status=status, app_id=app_id,
+            promo=promo,
         )
