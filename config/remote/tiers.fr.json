@@ -1,5 +1,5 @@
 {
-  "version": 71,
+  "version": 72,
   "tiers": {
     "free": {
       "display_name": "Gratuit",
@@ -707,7 +707,7 @@
     "headline": "Votre IA qui apprend de chaque réunion",
     "subheads": {
       "feature_locked": {
-        "body": "Vous avez utilisé vos heures gratuites. Abonnez-vous pour débloquer la mémoire des réunions, l'analyse de photos et des analyses plus riches à chaque session."
+        "body": "Abonnez-vous pour débloquer la mémoire des réunions, l'analyse de photos et des analyses plus riches à chaque session."
       },
       "allowance_exhausted": {
         "title": "Vous avez épuisé vos heures gratuites",

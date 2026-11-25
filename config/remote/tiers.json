@@ -1,5 +1,5 @@
 {
-  "version": 72,
+  "version": 73,
   "tiers": {
     "free": {
       "display_name": "Free",
@@ -707,7 +707,7 @@
     "headline": "Your AI that learns from every meeting",
     "subheads": {
       "feature_locked": {
-        "body": "You've used your free hours. Subscribe to unlock meeting memory, photo analysis, and richer insights from every session."
+        "body": "Subscribe to unlock meeting memory, photo analysis, and richer insights from every session."
       },
       "allowance_exhausted": {
         "title": "You're out of free hours",
