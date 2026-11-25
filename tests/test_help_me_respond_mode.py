@@ -27,7 +27,7 @@ import json
 
 import pytest
 
-LOCALES = ["", ".es", ".fr"]
+LOCALES = ["", ".es", ".fr", ".pt"]
 
 
 def _mode(suffix: str) -> dict:
@@ -47,6 +47,7 @@ def test_mode_one_is_still_help_me_respond(suffix):
     ("", "never invent facts about the user", "square brackets"),
     (".es", "nunca inventes hechos sobre el usuario", "entre corchetes"),
     (".fr", "n'invente jamais de faits sur l'utilisateur", "entre crochets"),
+    (".pt", "nunca invente fatos sobre o usuário", "entre colchetes"),
 ])
 def test_the_mode_forbids_inventing_the_user_and_says_what_to_do_instead(suffix, never, brackets):
     """Both halves, because the first alone produces hedging and rule 4
@@ -62,7 +63,7 @@ def test_the_mode_forbids_inventing_the_user_and_says_what_to_do_instead(suffix,
 def test_the_scaffold_is_declared_a_complete_answer_not_hedging(suffix):
     """The sentence that stops rule 4 from overriding the new rule."""
     text = _mode(suffix)["systemPrompt"].lower()
-    assert any(k in text for k in ("not hedging", "no es una evasiva", "n'est pas une dérobade"))
+    assert any(k in text for k in ("not hedging", "no es una evasiva", "n'est pas une dérobade", "não é uma evasiva"))
 
 
 @pytest.mark.parametrize("suffix", LOCALES)
@@ -71,7 +72,7 @@ def test_the_framing_rule_is_present(suffix):
     an invented premise ("it's a bit of both"). Three of three re-runs
     were clean once the framing itself was declared the user's to fill."""
     text = _mode(suffix)["systemPrompt"].lower()
-    assert any(k in text for k in ("that choice is theirs", "esa elección es suya", "ce choix lui appartient"))
+    assert any(k in text for k in ("that choice is theirs", "esa elección es suya", "ce choix lui appartient", "essa escolha é dele"))
 
 
 @pytest.mark.parametrize("suffix", LOCALES)
@@ -80,7 +81,8 @@ def test_the_full_draft_path_survives(suffix):
     eight eval transcripts had the user's stance in them and all five
     still produced full drafts with zero brackets."""
     text = _mode(suffix)["systemPrompt"].lower()
-    assert any(k in text for k in ("draft the full reply", "redacta la respuesta completa", "rédige la réponse complète"))
+    assert any(k in text for k in ("draft the full reply", "redacta la respuesta completa", "rédige la réponse complète",
+                                    "escreva a resposta completa"))
 
 
 @pytest.mark.parametrize("suffix", LOCALES)

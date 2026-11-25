@@ -70,7 +70,7 @@ def test_the_document_framing_is_clean():
     _no_dash(_FRAMING_PREAMBLE, "the attached-document preamble")
 
 
-@pytest.mark.parametrize("locale", ["es-US", "ja", "fr-FR"])
+@pytest.mark.parametrize("locale", ["es-US", "ja", "fr-FR", "pt-BR"])
 def test_the_locale_directive_is_clean(locale):
     from app.services.locale_injection import language_directive
     _no_dash(language_directive(locale) or "", f"the {locale} directive")

@@ -567,6 +567,7 @@ def test_original_language_and_date_line_helpers():
     assert _when_str(d, "es-US") == "21 de agosto de 2026, 20:16 UTC"
     assert _when_str(d, "fr") == "21 août 2026, 20:16 UTC"
     assert _when_str(d, "ja") == "2026年8月21日 20:16 UTC"
+    assert _when_str(d, "pt-BR") == "21 de agosto de 2026, 20:16 UTC"
     assert _when_str(d, "de") == "August 21, 2026, 8:16 PM UTC"
     assert _when_str(None, "es") == ""
     assert original_language([{"record": {"transcriptLanguage": "es-MX"}}]) == "es"

@@ -208,3 +208,4 @@ def test_time_formatter_unknown_locale_stays_english():
     assert format_meeting_time(dt, "de") == "9:05 AM"
     assert format_meeting_time(dt, None) == "9:05 AM"
     assert format_meeting_time(dt, "fr") == "09:05"
+    assert format_meeting_time(dt, "pt-BR") == "09:05"

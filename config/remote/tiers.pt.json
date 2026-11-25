@@ -1,0 +1,902 @@
+{
+  "version": 74,
+  "tiers": {
+    "free": {
+      "display_name": "Grátis",
+      "description": "Todas as reuniões capturadas e resumidas, com relatórios que você pode compartilhar.",
+      "feature_bullets": [
+        "Transcrição e resumo ao vivo, com quem disse o quê",
+        "5 relatórios de reunião compartilháveis por mês com SS AI, ou 3 com o modelo da Apple. Escolha um idioma ao compartilhar, e quem lê pode alternar entre o original e a tradução.",
+        "Pessoas: quem você conheceu e o que cada um prometeu",
+        "Suas reuniões sincronizadas e com backup no seu próprio iCloud",
+        "Cerca de cinco horas de IA na nuvem por mês para experimentar o resto"
+      ],
+      "feature_items": [
+        {
+          "label": "Transcrição e resumo ao vivo, com quem disse o quê",
+          "icon": "doc"
+        },
+        {
+          "label": "5 relatórios de reunião compartilháveis por mês com SS AI, ou 3 com o modelo da Apple. Escolha um idioma ao compartilhar, e quem lê pode alternar entre o original e a tradução.",
+          "icon": "share"
+        },
+        {
+          "label": "Pessoas: quem você conheceu e o que cada um prometeu",
+          "icon": "checkmark"
+        },
+        {
+          "label": "Suas reuniões sincronizadas e com backup no seu próprio iCloud",
+          "icon": "icloud"
+        },
+        {
+          "label": "Cerca de cinco horas de IA na nuvem por mês para experimentar o resto",
+          "icon": "checkmark"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Resumo automático",
+          "value": "a cada 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Modo de resumo",
+          "value": "Só o que é novo",
+          "icon": "doc"
+        },
+        {
+          "label": "Context Quilt",
+          "value": "prévia",
+          "icon": "brain",
+          "state": "teaser"
+        },
+        {
+          "label": "Chat do projeto",
+          "value": "prévia",
+          "icon": "chat",
+          "state": "teaser"
+        },
+        {
+          "label": "Relatórios",
+          "value": "5 por mês com SS AI",
+          "icon": "share"
+        },
+        {
+          "label": "Sincronização e backup no iCloud",
+          "value": "ativados",
+          "icon": "icloud"
+        },
+        {
+          "label": "Pesquisa na web",
+          "value": "5 por mês",
+          "icon": "search"
+        },
+        {
+          "label": "Geração de arquivos",
+          "value": "5 por mês",
+          "icon": "filegen"
+        },
+        {
+          "label": "Máx. de imagens",
+          "value": "1 por mensagem",
+          "icon": "photo"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 50000,
+          "meeting_window_days": 10
+        },
+        "budget": {
+          "cta_exhausted": {
+            "kind": "budget_exhausted",
+            "text": "Você já usou sua IA grátis deste mês. Faça upgrade para o Plus para continuar.",
+            "action": "open_paywall"
+          },
+          "cta_exhausted_anonymous": {
+            "kind": "budget_exhausted",
+            "text": "Você já usou a Shoulder Surf AI deste plano. Veja os planos para continuar.",
+            "action": "open_paywall"
+          }
+        },
+        "search": {
+          "searches_per_month": 5,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_paywall_required",
+            "header_icon": "globe",
+            "title": "Pesquisa na web",
+            "body": "Traga informações atualizadas da web para suas perguntas: notícias recentes, documentação nova e dados ao vivo que seu modelo não conheceria de outra forma.",
+            "bullets_label": "EXPERIMENTE PARA",
+            "bullets": [
+              {
+                "icon": "newspaper.fill",
+                "label": "Últimas notícias sobre um concorrente ou tema da sua reunião"
+              },
+              {
+                "icon": "doc.text.magnifyingglass",
+                "label": "Documentação recente de uma biblioteca ou framework que vocês estão discutindo"
+              },
+              {
+                "icon": "chart.line.uptrend.xyaxis",
+                "label": "Preços, disponibilidade ou mudanças de produto atuais"
+              }
+            ],
+            "footer": "Plus e Pro incluem mais pesquisas por mês, usando SS AI como seu modelo.",
+            "primary_action": {
+              "label": "Fazer upgrade",
+              "action": "open_paywall"
+            },
+            "secondary_action": {
+              "label": "Talvez depois",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": null
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "Para a leitura mais nítida",
+            "tips": [
+              "Enquadre a folha inteira para que o texto fique o maior possível",
+              "Segure firme até o texto ficar nítido antes de fotografar",
+              "Ilumine a folha inteira por igual e evite reflexos ou sombras",
+              "Posicione a câmera de frente, e não em ângulo"
+            ]
+          }
+        },
+        "generation": {
+          "generations_per_month": 5
+        },
+        "context_quilt": {
+          "recall_max_age_days": 10
+        }
+      }
+    },
+    "plus": {
+      "display_name": "Plus",
+      "description": "Respostas que lembram do que você esqueceria.",
+      "feature_bullets": [
+        "Context Quilt, sua memória de longo prazo. Ele acompanha discretamente compromissos, preferências e bloqueios em todas as suas reuniões e leva isso para cada resposta: ao vivo, depois da reunião e no Chat do projeto. Isso inclui coisas que ninguém disse hoje e que você nunca pensaria em acrescentar.",
+        "Chat do projeto: depois da reunião, pergunte sobre todas as reuniões dos últimos {recall_window_days} dias",
+        "Perguntas ilimitadas, durante a reunião e depois",
+        "Anexe documentos, e a resposta lê todas as páginas",
+        "75 pesquisas na web por mês para informações atualizadas",
+        "Transforme qualquer chat em um arquivo de verdade em Excel, Word, PowerPoint ou PDF",
+        "3 imagens por pergunta"
+      ],
+      "feature_items": [
+        {
+          "label": "Context Quilt, sua memória de longo prazo. Ele acompanha discretamente compromissos, preferências e bloqueios em todas as suas reuniões e leva isso para cada resposta: ao vivo, depois da reunião e no Chat do projeto. Isso inclui coisas que ninguém disse hoje e que você nunca pensaria em acrescentar.",
+          "icon": "brain"
+        },
+        {
+          "label": "Chat do projeto: depois da reunião, pergunte sobre todas as reuniões dos últimos {recall_window_days} dias",
+          "icon": "chat"
+        },
+        {
+          "label": "Perguntas ilimitadas, durante a reunião e depois",
+          "icon": "chat"
+        },
+        {
+          "label": "Anexe documentos, e a resposta lê todas as páginas",
+          "icon": "paperclip"
+        },
+        {
+          "label": "75 pesquisas na web por mês para informações atualizadas",
+          "icon": "search"
+        },
+        {
+          "label": "Transforme qualquer chat em um arquivo de verdade em Excel, Word, PowerPoint ou PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "3 imagens por pergunta",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Resumo automático",
+          "value": "a cada 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Modo de resumo",
+          "value": "Só o que é novo",
+          "icon": "doc"
+        },
+        {
+          "label": "IA",
+          "value": "Padrão",
+          "icon": "cpu"
+        },
+        {
+          "label": "Context Quilt",
+          "value": "ativado",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Chat do projeto",
+          "value": "reuniões dos últimos {recall_window_days} dias",
+          "icon": "chat",
+          "state": "enabled"
+        },
+        {
+          "label": "Relatórios",
+          "value": "compartilháveis, em qualquer idioma",
+          "icon": "share"
+        },
+        {
+          "label": "Sincronização e backup no iCloud",
+          "value": "ativados",
+          "icon": "icloud"
+        },
+        {
+          "label": "Pesquisa na web",
+          "value": "75 por mês",
+          "icon": "search"
+        },
+        {
+          "label": "Geração de arquivos",
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Anexos de documentos",
+          "value": "2 arquivos, até 25 MB cada",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Máx. de imagens",
+          "value": "3 por mensagem",
+          "icon": "photo"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 150000,
+          "meeting_window_days": 30
+        },
+        "search": {
+          "searches_per_month": 75,
+          "searches_soft_threshold": null,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Limite de pesquisas na web atingido",
+            "body": "Você usou todas as {total} pesquisas deste mês. Faça upgrade para o Pro para ter limites maiores.",
+            "primary_action": {
+              "label": "Fazer upgrade",
+              "action": "open_paywall"
+            },
+            "secondary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": null,
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Pesquisa na web indisponível para este modelo",
+            "body": "Mude para SS AI para usar a pesquisa na web nesta pergunta.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "Para a leitura mais nítida",
+            "tips": [
+              "Enquadre a folha inteira para que o texto fique o maior possível",
+              "Segure firme até o texto ficar nítido antes de fotografar",
+              "Ilumine a folha inteira por igual e evite reflexos ou sombras",
+              "Posicione a câmera de frente, e não em ângulo"
+            ]
+          }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
+        },
+        "generation": {
+          "generations_per_month": 50
+        }
+      }
+    },
+    "pro": {
+      "display_name": "Pro",
+      "description": "Todas as reuniões que você já teve, lembradas, com a IA mais forte nas que importam.",
+      "feature_bullets": [
+        "Context Quilt, sua memória de longo prazo. Ele acompanha discretamente compromissos, preferências e bloqueios em todas as suas reuniões e leva isso para cada resposta: ao vivo, depois da reunião e no Chat do projeto. Isso inclui coisas que ninguém disse hoje e que você nunca pensaria em acrescentar.",
+        "Chat do projeto com todas as reuniões que você já gravou",
+        "O modelo mais forte escreve seus relatórios e a análise pós-reunião",
+        "Espaço para reuniões longas e documentos grandes em uma única pergunta",
+        "120 pesquisas na web por mês",
+        "Arquivos de verdade em Excel, Word, PowerPoint e PDF a partir do chat",
+        "5 imagens por pergunta"
+      ],
+      "feature_items": [
+        {
+          "label": "Context Quilt, sua memória de longo prazo. Ele acompanha discretamente compromissos, preferências e bloqueios em todas as suas reuniões e leva isso para cada resposta: ao vivo, depois da reunião e no Chat do projeto. Isso inclui coisas que ninguém disse hoje e que você nunca pensaria em acrescentar.",
+          "icon": "brain"
+        },
+        {
+          "label": "Chat do projeto com todas as reuniões que você já gravou",
+          "icon": "chat"
+        },
+        {
+          "label": "O modelo mais forte escreve seus relatórios e a análise pós-reunião",
+          "icon": "cpu"
+        },
+        {
+          "label": "Espaço para reuniões longas e documentos grandes em uma única pergunta",
+          "icon": "cpu"
+        },
+        {
+          "label": "120 pesquisas na web por mês",
+          "icon": "search"
+        },
+        {
+          "label": "Arquivos de verdade em Excel, Word, PowerPoint e PDF a partir do chat",
+          "icon": "filegen"
+        },
+        {
+          "label": "5 imagens por pergunta",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Resumo automático",
+          "value": "a cada 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Modo de resumo",
+          "value": "Completo ou só o que é novo (você escolhe)",
+          "icon": "doc"
+        },
+        {
+          "label": "IA",
+          "value": "Modelo mais forte",
+          "icon": "cpu"
+        },
+        {
+          "label": "Context Quilt",
+          "value": "ativado",
+          "icon": "brain",
+          "state": "enabled"
+        },
+        {
+          "label": "Chat do projeto",
+          "value": "todas as reuniões",
+          "icon": "chat",
+          "state": "enabled"
+        },
+        {
+          "label": "Relatórios",
+          "value": "compartilháveis, em qualquer idioma",
+          "icon": "share"
+        },
+        {
+          "label": "Sincronização e backup no iCloud",
+          "value": "ativados",
+          "icon": "icloud"
+        },
+        {
+          "label": "Pesquisa na web",
+          "value": "120 por mês",
+          "icon": "search"
+        },
+        {
+          "label": "Geração de arquivos",
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Anexos de documentos",
+          "value": "2 arquivos, até 25 MB cada",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Máx. de imagens",
+          "value": "5 por mensagem",
+          "icon": "photo"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 360000,
+          "meeting_window_days": null
+        },
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Limite de pesquisas na web atingido",
+            "body": "Você usou todas as {total} pesquisas deste mês. As pesquisas voltam em {reset_date}.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "Você está chegando ao seu limite mensal de pesquisas",
+            "body": "Você usou {used} de {total} pesquisas este mês."
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Pesquisa na web indisponível para este modelo",
+            "body": "Mude para SS AI para usar a pesquisa na web nesta pergunta.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "generation": {
+          "generations_per_month": 100
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "Para a leitura mais nítida",
+            "tips": [
+              "Enquadre a folha inteira para que o texto fique o maior possível",
+              "Segure firme até o texto ficar nítido antes de fotografar",
+              "Ilumine a folha inteira por igual e evite reflexos ou sombras",
+              "Posicione a câmera de frente, e não em ângulo"
+            ]
+          }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
+        }
+      }
+    },
+    "automation": {
+      "display_name": "Automation (internal)",
+      "description": "Partner test harness credentials. Mirrors Pro so a harness exercises the lane a paying user gets.",
+      "feature_bullets": [
+        "Advanced AI for deeper reports and analysis",
+        "Full recap or just-what's-new summaries, your choice",
+        "Web search: current info in your answers (120/mo)",
+        "Meeting Memory: AI remembers past meetings",
+        "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+        "Attach documents to chat (2 files, 25 MB each)",
+        "5 photos or images per question"
+      ],
+      "feature_items": [
+        {
+          "label": "Advanced AI for deeper reports and analysis",
+          "icon": "checkmark.plus"
+        },
+        {
+          "label": "Full recap or just-what's-new summaries, your choice",
+          "icon": "doc"
+        },
+        {
+          "label": "Web search: current info in your answers (120/mo)",
+          "icon": "search"
+        },
+        {
+          "label": "Meeting Memory: AI remembers past meetings",
+          "icon": "brain"
+        },
+        {
+          "label": "Builds real files you can share: Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Attach documents to chat (2 files, 25 MB each)",
+          "icon": "paperclip"
+        },
+        {
+          "label": "5 photos or images per question",
+          "icon": "photo"
+        }
+      ],
+      "status_items": [
+        {
+          "label": "Auto-summary",
+          "value": "every 10 min",
+          "icon": "clock"
+        },
+        {
+          "label": "Summary mode",
+          "value": "Full or just what's new (your choice)",
+          "icon": "doc"
+        },
+        {
+          "label": "AI",
+          "value": "Advanced",
+          "icon": "cpu"
+        },
+        {
+          "label": "Max images",
+          "value": "5 per question",
+          "icon": "photo"
+        },
+        {
+          "label": "Web search",
+          "value": "120 per month",
+          "icon": "search"
+        },
+        {
+          "label": "File generation",
+          "value": "Excel, Word, PowerPoint, PDF",
+          "icon": "filegen"
+        },
+        {
+          "label": "Document attachments",
+          "value": "2 files, up to 25 MB each",
+          "icon": "paperclip"
+        },
+        {
+          "label": "Meeting Memory",
+          "value": "enabled",
+          "icon": "brain",
+          "state": "enabled"
+        }
+      ],
+      "feature_definitions": {
+        "project_chat": {
+          "max_input_tokens": 360000,
+          "meeting_window_days": null
+        },
+        "search": {
+          "searches_per_month": 120,
+          "searches_soft_threshold": 80,
+          "cta_hard_cap": {
+            "kind": "search_cap_exhausted",
+            "title": "Web search limit reached",
+            "body": "You've used all {total} searches this month. Searches resume on {reset_date}.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          },
+          "cta_soft_cap": {
+            "kind": "search_soft_cap_warning",
+            "title": "Approaching your monthly search limit",
+            "body": "You've used {used} of {total} searches this month."
+          },
+          "cta_unavailable": {
+            "kind": "search_unavailable_for_provider",
+            "title": "Web search not available for this model",
+            "body": "Switch to SS AI to use web search on this query.",
+            "primary_action": {
+              "label": "OK",
+              "action": "dismiss"
+            }
+          }
+        },
+        "generation": {
+          "generations_per_month": 100
+        },
+        "images": {
+          "max_long_edge": 1568,
+          "jpeg_quality": 0.8,
+          "capture_guidance": {
+            "title": "For the sharpest read",
+            "tips": [
+              "Fill the frame with the sheet so the text is as large as possible",
+              "Hold steady until the text looks sharp before you shoot",
+              "Light the whole sheet evenly and avoid glare or shadows",
+              "Line the camera up straight on rather than at an angle"
+            ]
+          }
+        },
+        "context_quilt": {
+          "recall_max_age_days": null
+        }
+      }
+    }
+  },
+  "feature_definitions": {
+    "context_quilt": {
+      "category": "intelligence",
+      "display_name": "Context Quilt",
+      "description": "Sua IA lembra das reuniões anteriores e usa esse conhecimento automaticamente.",
+      "teaser_description": "Sua IA encontrou conexões com suas reuniões anteriores",
+      "upgrade_cta": "Faça upgrade para o Plus e leve o Context Quilt, sua memória de longo prazo, para cada resposta",
+      "cta_strings": {
+        "free_within_quota_footer": "✨ Esta foi sua Memória grátis de {total} deste mês. O Plus leva o Context Quilt, sua memória de longo prazo, para cada resposta.",
+        "free_no_quota_only": "✨ Você já usou sua IA grátis deste mês. O Plus deixa tudo ilimitado e leva o Context Quilt, sua memória de longo prazo, para cada resposta.",
+        "free_people_only": "✨ Sua IA está montando sua lista de Pessoas a partir desta reunião. O Plus leva o Context Quilt, sua memória de longo prazo, para cada resposta."
+      }
+    },
+    "meeting_reports": {
+      "category": "intelligence",
+      "display_name": "Relatórios de reunião",
+      "description": "Gere relatórios HTML compartilháveis a partir das transcrições das suas reuniões: sentimento, momentos principais, tags sugeridas e suas anotações sobre quem falou.",
+      "teaser_description": "Os relatórios transformam suas reuniões em resumos compartilháveis.",
+      "upgrade_cta": "Faça upgrade para o Plus para gerar relatórios de reunião compartilháveis"
+    },
+    "people": {
+      "category": "intelligence",
+      "display_name": "Pessoas",
+      "description": "Todo mundo das suas reuniões em um só lugar, com o que disseram e o que se comprometeram a fazer.",
+      "teaser_description": "Pessoas reúne todo mundo das suas reuniões em um só lugar.",
+      "upgrade_cta": "Entre para montar sua lista de Pessoas",
+      "signed_out": {
+        "headline": "Veja quem está nas suas reuniões",
+        "body": "O Context Quilt é a memória de longo prazo da Shoulder Surf AI. Entre e ele cria uma página para cada pessoa com quem você se reúne, mostrando as reuniões de que ela participou, o que ela se comprometeu a fazer e os projetos em que está envolvida.",
+        "body_with_count": "Você já se reuniu com {count} pessoas até agora. O Context Quilt é a memória de longo prazo da Shoulder Surf AI. Entre e ele cria uma página para cada uma delas, mostrando as reuniões de que participaram, o que se comprometeram a fazer e os projetos em que estão envolvidas.",
+        "cta_label": "Entrar",
+        "cta_action": "sign_in"
+      }
+    },
+    "project_chat": {
+      "category": "intelligence",
+      "display_name": "Chat do projeto",
+      "description": "Faça perguntas à IA sobre todas as reuniões de um projeto: sua IA conhece o contexto.",
+      "teaser_description": "O Chat do projeto é um recurso do Plus.",
+      "upgrade_cta": "Faça upgrade para o Plus para usar o Chat do projeto",
+      "teaser_response": "O Chat do projeto é um recurso do Plus. Faça upgrade para perguntar à IA sobre todas as suas reuniões neste projeto.",
+      "gp_chat_flag": "ssai_free_only",
+      "free_quota_per_month": 1,
+      "cta_strings": {
+        "quota_remaining": "Você tem {remaining} de {total} Chats do projeto grátis restantes este mês. Faça upgrade para o Plus para ter ilimitado.",
+        "quota_exhausted": "Você já usou seu Chat do projeto grátis deste mês. Faça upgrade para o Plus para ter ilimitado.",
+        "unlimited": "Chat do projeto da Shoulder Surf.",
+        "login_required": "Entre para usar o Chat do projeto."
+      },
+      "entry": {
+        "coach_mark_title": "Só você sabe quais reuniões realmente importaram",
+        "coach_mark_body": "Entregue essas, e escolha até onde ele vai: o resumo, a transcrição completa ou o que ele já lembra do seu trabalho. Menos coisa entrando, resposta mais certeira saindo. Mude de ideia quando quiser.",
+        "coach_mark_dismiss_label": "Não mostrar de novo",
+        "context_range_label": "Usando reuniões de {start} a {end}",
+        "context_range_windowed_label": "Seus últimos {window_days} dias: {start} a {end}",
+        "context_range_empty_label": "Nenhuma reunião selecionada",
+        "quick_prompts": [
+          {
+            "id": "evolved",
+            "label": "Como este projeto evoluiu?",
+            "prompt": "Como este projeto evoluiu ao longo do tempo?"
+          },
+          {
+            "id": "decisions",
+            "label": "Quais decisões foram tomadas?",
+            "prompt": "Quais decisões foram tomadas neste projeto, e quando?"
+          }
+        ]
+      }
+    },
+    "web_search": {
+      "category": "intelligence",
+      "display_name": "Pesquisa na web",
+      "description": "Peça para sua IA buscar informações atuais na web durante uma pergunta.",
+      "teaser_description": "Todos os planos incluem pesquisa na web. Plus e Pro incluem mais por mês.",
+      "upgrade_cta": "Faça upgrade para o Plus para ter mais pesquisas na web por mês"
+    },
+    "search": {
+      "category": "intelligence",
+      "display_name": "Pesquisa na web",
+      "description": "Peça para sua IA buscar informações atuais na web durante uma pergunta.",
+      "teaser_description": "Todos os planos incluem pesquisa na web. Plus e Pro incluem mais por mês.",
+      "upgrade_cta": "Faça upgrade para o Plus para ter mais pesquisas na web por mês"
+    }
+  },
+  "upgrade_nudges": {
+    "context_fits_higher": {
+      "text": "Isto tem {needed}K caracteres. O plano {tier_name} aceita até {cap}K.",
+      "label": "Ver {tier_name}"
+    },
+    "memory_excluded_scope": {
+      "text": "A memória de {excluded} reuniões deste projeto não está disponível no plano {tier_name}. O plano {next_tier} leva essa memória para cada conversa.",
+      "label": "Ver {next_tier}"
+    },
+    "memory_excluded_window": {
+      "text": "Este projeto tem {excluded} reuniões com mais de {window} dias, fora da janela do plano {tier_name}. O plano {next_tier} {next_window}.",
+      "label": "Ver {next_tier}",
+      "next_window_none": "não tem janela",
+      "next_window_days": "tem uma janela de {n} dias"
+    }
+  },
+  "paywall": {
+    "headline": "Sua IA que aprende com cada reunião",
+    "subheads": {
+      "feature_locked": {
+        "body": "Assine para desbloquear a memória das reuniões, a análise de fotos e insights mais ricos de cada sessão."
+      },
+      "allowance_exhausted": {
+        "title": "Suas horas grátis acabaram",
+        "body": "Desbloqueie IA ilimitada para esta reunião e as próximas."
+      }
+    },
+    "cq_card": {
+      "title": "Context Quilt",
+      "badge": "Plus ou superior",
+      "badge_short": "CQ",
+      "tagline": "Sua IA monta um grafo de memória a partir de cada reunião e lembra decisões, compromissos e contexto anteriores quando você mais precisa.",
+      "bullets": [
+        "Lembra decisões e compromissos de reuniões anteriores",
+        "Liga os pontos entre projetos e conversas",
+        "Lembra quem disse o quê, de uma sessão para outra",
+        "Fica mais inteligente e relevante quanto mais você usa"
+      ]
+    },
+    "comparison": {
+      "cloud_title": "Shoulder Surf AI",
+      "device_title": "IA no dispositivo",
+      "rows": [
+        {
+          "cloud_label": "Memória das reuniões (CQ)",
+          "device_label": "Memória das reuniões (CQ)",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Análise de fotos",
+          "device_label": "Análise de fotos",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Janela de contexto longa",
+          "device_label": "Só contexto curto",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Resumos mais ricos",
+          "device_label": "Respostas básicas",
+          "cloud_has": true,
+          "device_has": false
+        },
+        {
+          "cloud_label": "Funciona offline",
+          "device_label": "Funciona offline",
+          "cloud_has": false,
+          "device_has": true
+        }
+      ],
+      "learn_more_label": "Saiba mais sobre a Shoulder Surf AI"
+    },
+    "choose_plan_label": "Escolha um plano",
+    "testflight_banner": {
+      "title": "As assinaturas são grátis durante o teste beta",
+      "body": "Você está no beta do TestFlight, então a Apple não vai te cobrar. Os preços aparecem, mas as assinaturas iniciadas durante o teste beta são grátis.",
+      "link_label": "Leia mais na página do TestFlight da Apple"
+    },
+    "trial_pill": {
+      "day": {
+        "one": "teste de {n} dia",
+        "other": "teste de {n} dias"
+      },
+      "week": {
+        "one": "teste de {n} semana",
+        "other": "teste de {n} semanas"
+      },
+      "month": {
+        "one": "teste de {n} mês",
+        "other": "teste de {n} meses"
+      },
+      "year": {
+        "one": "teste de {n} ano",
+        "other": "teste de {n} anos"
+      }
+    },
+    "welcome_back": {
+      "title": "Oferta de boas-vindas de volta",
+      "day": {
+        "one": "Que bom te ver de novo: {n} dia grátis",
+        "other": "Que bom te ver de novo: {n} dias grátis"
+      },
+      "week": {
+        "one": "Que bom te ver de novo: {n} semana grátis",
+        "other": "Que bom te ver de novo: {n} semanas grátis"
+      },
+      "month": {
+        "one": "Que bom te ver de novo: {n} mês grátis",
+        "other": "Que bom te ver de novo: {n} meses grátis"
+      },
+      "year": {
+        "one": "Que bom te ver de novo: {n} ano grátis",
+        "other": "Que bom te ver de novo: {n} anos grátis"
+      }
+    },
+    "per_month_suffix": "/mês",
+    "other_options": {
+      "title": "Outras opções",
+      "recommended": "Recomendado",
+      "subscribe": "Assinar",
+      "picker_hint": "Escolha como você quer lidar com esta reunião. Você pode voltar e mudar isso quando quiser em Ajustes.",
+      "byok": {
+        "title": "Usar minha própria chave de API",
+        "subtitle": "Use OpenAI, Anthropic ou outros provedores com sua própria conta",
+        "body": "Use sua própria chave da OpenAI, Anthropic ou OpenRouter. Você paga diretamente a eles.",
+        "add_key": "Adicionar sua própria chave de API",
+        "keep_using": "Continuar usando {provider}",
+        "key_continues": "Sua chave de API continua respondendo às perguntas."
+      },
+      "on_device": {
+        "title": "Usar a IA no dispositivo",
+        "subtitle": "Grátis, privada, funciona offline. A qualidade é mais limitada que a da Shoulder Surf AI.",
+        "enable": "Ativar Apple Intelligence",
+        "enable_hint": "IA grátis no dispositivo. Ative em Ajustes → Apple Intelligence e Siri",
+        "requires": "Requer um dispositivo com Apple Intelligence ativado."
+      }
+    }
+  },
+  "unlocks": [
+    {
+      "id": "unlock_apple_cloud",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud",
+      "name": "Extras: Apple Cloud",
+      "icon": "cloud",
+      "bullets": [
+        "Chat do projeto no Apple Cloud, sem precisar da Shoulder Surf AI",
+        "Até 5 fotos por pergunta no Apple Cloud",
+        "Envie arquivos de texto, Markdown, PDF, Word e RTF no Apple Cloud",
+        "O Private Cloud Compute da Apple mantém seus dados privados",
+        "Compra única, sua para sempre"
+      ]
+    },
+    {
+      "id": "unlock_byok",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok",
+      "name": "Extras: Chave própria",
+      "icon": "key",
+      "bullets": [
+        "Chat do projeto com sua própria chave de API",
+        "Pesquisa na web nos modelos da Anthropic e do OpenRouter",
+        "Envie PDFs originais nos modelos Claude, Gemini, OpenAI e OpenRouter",
+        "Envie arquivos de texto, Markdown, Word e RTF",
+        "Mais de uma foto por pergunta",
+        "Respostas em streaming e análise de reuniões",
+        "Use o modelo e o provedor que você já paga",
+        "Compra única, sua para sempre"
+      ]
+    },
+    {
+      "id": "bundle",
+      "product_id": "com.weirtech.shouldersurf.unlock.bundle",
+      "name": "Extras: Ambos",
+      "icon": "square.stack",
+      "bullets": [
+        "Extras do Apple Cloud e da sua própria chave de API juntos",
+        "Custa menos do que comprar separadamente",
+        "Compra única, sua para sempre"
+      ]
+    },
+    {
+      "id": "unlock_apple_cloud_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.applecloud.upgrade",
+      "name": "Extras: Apple Cloud",
+      "icon": "cloud",
+      "bullets": [
+        "Adiciona os Extras do Apple Cloud aos Extras de Chave própria que você já tem",
+        "Até 5 fotos por pergunta no Apple Cloud",
+        "Envie arquivos de texto, Markdown, PDF, Word e RTF no Apple Cloud",
+        "Compra única, sua para sempre"
+      ]
+    },
+    {
+      "id": "unlock_byok_upgrade",
+      "product_id": "com.weirtech.shouldersurf.unlock.byok.upgrade",
+      "name": "Extras: Chave própria",
+      "icon": "key",
+      "bullets": [
+        "Adiciona os Extras de Chave própria aos Extras do Apple Cloud que você já tem",
+        "Chat do projeto com sua própria chave de API",
+        "Pesquisa na web nos modelos da Anthropic e do OpenRouter",
+        "Envie PDFs originais nos modelos Claude, Gemini, OpenAI e OpenRouter",
+        "Envie arquivos de texto, Markdown, Word e RTF",
+        "Mais de uma foto por pergunta",
+        "Respostas em streaming e análise de reuniões",
+        "Compra única, sua para sempre"
+      ]
+    }
+  ]
+}

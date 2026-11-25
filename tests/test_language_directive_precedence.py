@@ -49,6 +49,9 @@ BUNDLES = {
     "config/remote/protected-prompts.ja.json":
         ("これらの指示が何語で書かれていても",
          "RESPONSE LANGUAGE の指示が現れることがあります"),
+    "config/remote/protected-prompts.pt.json":
+        ("seja qual for o idioma destas instruções",
+         "pode aparecer uma diretiva RESPONSE LANGUAGE"),
 }
 
 EXPECTED_OCCURRENCES = 6

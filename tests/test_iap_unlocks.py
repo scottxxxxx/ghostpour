@@ -317,7 +317,8 @@ def test_unlock_names_are_the_extras_names_in_asc():
     names = {"": ("Extras: Apple Cloud", "Extras: Own API Key", "Extras: Both"),
              ".es": ("Extras: Apple Cloud", "Extras: tu propia clave", "Extras: ambos"),
              ".fr": ("Extras : Apple Cloud", "Extras : votre propre clé", "Extras : les deux"),
-             ".ja": ("追加機能：Apple Cloud", "追加機能：自分のAPIキー", "追加機能：両方")}
+             ".ja": ("追加機能：Apple Cloud", "追加機能：自分のAPIキー", "追加機能：両方"),
+             ".pt": ("Extras: Apple Cloud", "Extras: Chave própria", "Extras: Ambos")}
     for suf, (ac, bk, both) in names.items():
         d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
         assert {u["id"]: u["name"] for u in d["unlocks"]} == {
@@ -331,7 +332,7 @@ def test_own_key_extras_never_promise_apple_clouds_five_photos():
     import json
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent / "config/remote"
-    for suf in ("", ".es", ".fr", ".ja"):
+    for suf in ("", ".es", ".fr", ".ja", ".pt"):
         d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
         for u in d["unlocks"]:
             if u["id"] in ("unlock_byok", "unlock_byok_upgrade"):
@@ -348,7 +349,8 @@ def test_apple_cloud_file_attachments_are_a_pack_bullet_in_every_language():
     words = {"": "Send text, Markdown, PDF, Word and RTF files on Apple Cloud",
              ".es": "Envía archivos de texto, Markdown, PDF, Word y RTF en Apple Cloud",
              ".fr": "Envoyez des fichiers texte, Markdown, PDF, Word et RTF sur Apple Cloud",
-             ".ja": "Apple Cloudでテキスト、Markdown、PDF、Word、RTFファイルを送信"}
+             ".ja": "Apple Cloudでテキスト、Markdown、PDF、Word、RTFファイルを送信",
+             ".pt": "Envie arquivos de texto, Markdown, PDF, Word e RTF no Apple Cloud"}
     for suf, bullet in words.items():
         d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
         by = {u["id"]: u for u in d["unlocks"]}
@@ -365,7 +367,7 @@ def test_the_anthropic_note_names_the_current_models():
     import json
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent / "config/remote"
-    for suf in ("", ".es", ".fr", ".ja"):
+    for suf in ("", ".es", ".fr", ".ja", ".pt"):
         d = json.loads((root / f"llm-providers{suf}.json").read_text())
         note = next(p for p in d["providers"] if p["id"] == "anthropic")["notes"]
         assert "Fable 5.1" in note and "Opus 5.5" in note and "Haiku 4.5" in note, suf
@@ -417,7 +419,8 @@ def test_upgrade_bullets_drop_the_old_pack_naming():
         "Adds the Apple Cloud Extras to the Own API Key Extras you already have"
     assert by["unlock_byok_upgrade"]["bullets"][0] == \
         "Adds the Own API Key Extras to the Apple Cloud Extras you already have"
-    for suf, word in (("", "pack"), (".es", "paquete"), (".fr", "pack"), (".ja", "パック")):
+    for suf, word in (("", "pack"), (".es", "paquete"), (".fr", "pack"), (".ja", "パック"),
+                      (".pt", "pacote")):
         d = json.loads((root / f"tiers{suf}.json").read_text(encoding="utf-8"))
         for u in d["unlocks"]:
             for text in [u["name"]] + u["bullets"]:

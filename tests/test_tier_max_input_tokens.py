@@ -59,6 +59,7 @@ def test_remote_config_wire_path_matches_ss_contract():
         "tiers.es.json": {"free": 50_000, "plus": 150_000, "pro": 360_000},
         "tiers.fr.json": {"free": 50_000, "plus": 150_000, "pro": 360_000},
         "tiers.ja.json": {"free": 50_000, "plus": 150_000, "pro": 180_000},
+        "tiers.pt.json": {"free": 50_000, "plus": 150_000, "pro": 360_000},
     }
     for variant, expected in per_locale.items():
         d = json.loads(open(f"config/remote/{variant}").read())

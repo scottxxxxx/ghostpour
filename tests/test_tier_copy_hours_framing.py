@@ -19,7 +19,7 @@ field said five hours.
 import json
 from pathlib import Path
 
-LOCALES = ("tiers.json", "tiers.es.json", "tiers.fr.json", "tiers.ja.json")
+LOCALES = ("tiers.json", "tiers.es.json", "tiers.fr.json", "tiers.ja.json", "tiers.pt.json")
 BANNED = ("credit", "crédit", "credito", "クレジット")
 NUMERALS = ("five", "cinco", "cinq", "5")
 

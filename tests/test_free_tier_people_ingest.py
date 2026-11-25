@@ -20,7 +20,7 @@ import pytest
 
 from app.services.memory_capture_policy import resolve_memory_capture_verdict as verdict
 
-LOCALES = ("", ".es", ".ja", ".fr")
+LOCALES = ("", ".es", ".ja", ".fr", ".pt")
 
 
 # --- the ruling -------------------------------------------------------
@@ -115,4 +115,4 @@ def test_the_copy_states_what_the_system_does(loc):
     s = json.loads(p.read_text())["feature_definitions"]["context_quilt"]["cta_strings"]["free_people_only"]
     for dash in ("—", "–"):
         assert dash not in s
-    assert "People" in s or "Personas" in s or "People" in s or "Personnes" in s or "People" in s
+    assert "People" in s or "Personas" in s or "People" in s or "Personnes" in s or "Pessoas" in s

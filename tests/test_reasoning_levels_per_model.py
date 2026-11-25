@@ -36,6 +36,7 @@ CAPABILITY_FILES = [
     "config/remote/model-capabilities.es.json",
     "config/remote/model-capabilities.ja.json",
     "config/remote/model-capabilities.fr.json",
+    "config/remote/model-capabilities.pt.json",
 ]
 
 
@@ -92,10 +93,11 @@ def test_locales_agree_on_levels():
     en = _load("config/remote/model-capabilities.json")
     es = _load("config/remote/model-capabilities.es.json")
     ja = _load("config/remote/model-capabilities.ja.json")
+    pt = _load("config/remote/model-capabilities.pt.json")
 
     for model_id in en["models"]:
         en_levels = en["models"][model_id].get("reasoningLevels")
-        for variant_name, variant in (("es", es), ("ja", ja)):
+        for variant_name, variant in (("es", es), ("ja", ja), ("pt", pt)):
             v_levels = variant["models"].get(model_id, {}).get("reasoningLevels")
             assert v_levels == en_levels, (
                 f"{model_id}: en has {en_levels!r}, {variant_name} has {v_levels!r}"

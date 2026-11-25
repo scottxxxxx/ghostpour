@@ -165,6 +165,7 @@ OVERCLAIMS = {
     "es": ("encontró", "coincidentes", "no usó"),
     "fr": ("trouvées", "correspondantes", "non utilisées"),
     "ja": ("見つけた", "該当する"),
+    "pt": ("encontrou", "correspondentes", "ignorou"),
 }
 
 
@@ -299,7 +300,7 @@ def test_every_served_locale_uses_the_placeholders_not_tier_names():
     import json
     from pathlib import Path
     root = Path(__file__).parent.parent / "config" / "remote"
-    for loc in ("tiers", "tiers.es", "tiers.fr", "tiers.ja"):
+    for loc in ("tiers", "tiers.es", "tiers.fr", "tiers.ja", "tiers.pt"):
         u = json.loads((root / f"{loc}.json").read_text())["upgrade_nudges"]
         for key in ("memory_excluded_scope", "memory_excluded_window"):
             blob = u[key]["text"] + u[key]["label"]

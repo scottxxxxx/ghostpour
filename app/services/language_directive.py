@@ -71,7 +71,7 @@ def resolve_report_locale(stated_language, accept_language_header: str | None,
     lang = transcript_language(requested_language) or transcript_language(stated_language)
     if lang:
         # Primary subtag only: report-strings.{locale} and
-        # canned-report.{locale} are keyed "es", "ja", "fr", and the
+        # canned-report.{locale} are keyed "es", "ja", "fr", "pt", and the
         # locale directive names a language, not a region. SS sends the
         # RESOLVED locale ("es-US", the model that actually transcribed),
         # which is the right value on the wire and must not miss the
@@ -92,5 +92,5 @@ def accept_language_primary(header: str | None) -> str | None:
     if not header:
         return None
     first = header.split(",")[0].strip().split(";")[0].strip()
-    lang = first.split("-")[0].lower()
+    lang = first.replace("_", "-").split("-")[0].lower()
     return lang or None

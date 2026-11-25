@@ -94,7 +94,7 @@ def test_paid_tiers_are_not_limited(client, pro_user, tmp_db_path, monkeypatch):
 
 def test_every_locale_serves_the_same_numbers():
     nums = set()
-    for suf in ("", ".es", ".fr", ".ja"):
+    for suf in ("", ".es", ".fr", ".ja", ".pt"):
         d = json.load(open(f"config/remote/client-config{suf}.json"))
         nums.add(json.dumps(d["limits"]["meeting_reports"], sort_keys=True))
     assert len(nums) == 1

@@ -60,6 +60,7 @@ SMALL_TALK_BULLETS = (
     "- Por ahora solo charla informal, aún no se habló de trabajo",
     "- Que des banalités pour l'instant, pas encore de travail abordé",
     "- 今のところ雑談のみで、仕事の話はまだ出ていない",
+    "- Por enquanto só conversa informal, nenhum assunto de trabalho ainda",
 )
 
 

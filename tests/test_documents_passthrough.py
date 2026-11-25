@@ -124,7 +124,8 @@ def test_bundled_client_config_documents_live_and_pro_gated():
     # and ja to [] while fr had the user, which meant the override depended
     # on the phone's language. Scott's rule: all languages get what English
     # gets, and tests/test_locale_parity.py holds every slug to that.
-    for f in ("client-config.es.json", "client-config.fr.json", "client-config.ja.json"):
+    for f in ("client-config.es.json", "client-config.fr.json", "client-config.ja.json",
+              "client-config.pt.json"):
         assert json.load(open(f"config/remote/{f}"))["documents"]["allowed_users"] == flat["allowed_users"], f
 
 

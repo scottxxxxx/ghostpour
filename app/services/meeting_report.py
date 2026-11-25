@@ -730,16 +730,18 @@ _MONTHS = {
            "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
     "fr": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
            "août", "septembre", "octobre", "novembre", "décembre"],
+    "pt": ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
+           "agosto", "setembro", "outubro", "novembro", "dezembro"],
 }
 
 
 def format_meeting_time(dt, locale: str | None) -> str:
     """The masthead time in the report's language. English keeps "3:00 PM";
-    es, fr and ja read a 24-hour clock ("15:00"), as their readers write it.
+    es, fr, ja and pt read a 24-hour clock ("15:00"), as their readers write it.
     A French report showed "3:00 AM" (SS capture, 2026-10-13) because both
     report routes formatted the time with %p whatever the locale."""
-    lang = (locale or "en").split("-")[0].lower()
-    if lang in ("es", "fr", "ja"):
+    lang = (locale or "en").replace("_", "-").split("-")[0].lower()
+    if lang in ("es", "fr", "ja", "pt"):
         return dt.strftime("%H:%M")
     return dt.strftime("%-I:%M %p")
 
@@ -749,12 +751,13 @@ def format_meeting_date(dt, locale: str | None) -> str:
     English regardless of locale (a Spanish report read "August 21, 2026"
     under a Spanish header, 2026-08-21), so the month names live here.
     Unknown locales fall back to English rather than to a wrong language."""
-    lang = (locale or "en").split("-")[0].lower()
+    lang = (locale or "en").replace("_", "-").split("-")[0].lower()
     if lang == "ja":
         return f"{dt.year}年{dt.month}月{dt.day}日"
     if lang in _MONTHS:
         month = _MONTHS[lang][dt.month - 1]
-        return f"{dt.day} de {month} de {dt.year}" if lang == "es" else f"{dt.day} {month} {dt.year}"
+        return (f"{dt.day} de {month} de {dt.year}" if lang in ("es", "pt")
+                else f"{dt.day} {month} {dt.year}")
     return dt.strftime("%B %-d, %Y")
 
 

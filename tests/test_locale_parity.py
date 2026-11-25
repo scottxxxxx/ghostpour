@@ -21,14 +21,14 @@ import re
 
 import pytest
 
-LOCALES = ("es", "fr", "ja")
+LOCALES = ("es", "fr", "ja", "pt")
 REMOTE = pathlib.Path("config/remote")
 
 
 def _slugs() -> dict[str, set[str]]:
     out: dict[str, set[str]] = {}
     for p in REMOTE.glob("*.json"):
-        m = re.match(r"^(.*?)(?:\.(es|fr|ja))?\.json$", p.name)
+        m = re.match(r"^(.*?)(?:\.(es|fr|ja|pt))?\.json$", p.name)
         out.setdefault(m.group(1), set()).add(m.group(2) or "en")
     return out
 
@@ -148,6 +148,7 @@ _ACCENTED_LOCALES = {
     # locale -> characters that a correct file in that language must contain
     "es": "áéíóúñ¿¡",
     "fr": "àâçéèêëîïôùûü",
+    "pt": "áâãàçéêíóôõú",
 }
 
 
@@ -187,13 +188,13 @@ def test_the_spanish_tips_do_not_carry_the_stripped_forms():
 def test_no_tip_list_carries_a_stray_leading_token():
     """The first Spanish tip began "Ina, Tocame para iniciar una sesion". No
     other locale had it, and it rendered under the orb on every idle visit."""
-    for loc in ("", ".es", ".fr", ".ja"):
+    for loc in ("", ".es", ".fr", ".ja", ".pt"):
         for tip in _tips(f"idle-tips{loc}"):
             assert not re.match(r"^[A-Z][a-z]{1,4},\s", tip), (
                 f"idle-tips{loc}: {tip!r} starts with a stray token")
 
 
-@pytest.mark.parametrize("loc", [".es", ".fr", ".ja"])
+@pytest.mark.parametrize("loc", [".es", ".fr", ".ja", ".pt"])
 def test_every_locale_has_the_same_number_of_tips_as_english(loc):
     """A translation that silently loses or gains a tip shows a different
     rotation to that language and nothing else notices."""
