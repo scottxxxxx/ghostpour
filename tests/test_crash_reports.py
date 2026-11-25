@@ -468,3 +468,8 @@ def test_crash_reports_purge_at_180_days(tmp_path):
 
     asyncio.run(_run())
     assert [r["report_id"] for r in _rows(db_path)] == ["kept"]
+
+
+def test_crash_route_is_kept_out_of_the_live_log():
+    from app.middleware import request_logging
+    assert "/v1/diagnostics/crash" in request_logging._SKIP_PATHS

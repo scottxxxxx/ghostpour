@@ -222,7 +222,9 @@ async def intake_crash(
     raw = await _read_capped_body(request)
     body, payload_text = _parse(raw)
     row = _validate(body)
-    app_id = getattr(request.state, "app_id", "unknown")
+    # The live log skips this route (no IP or body in its ring), so the
+    # middleware never sets state.app_id here; read the header directly.
+    app_id = getattr(request.state, "app_id", None) or request.headers.get("X-App-ID", "unknown")
 
     extra = sorted(k for k in body if k not in _KNOWN)
     if extra:
