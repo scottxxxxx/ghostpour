@@ -1,5 +1,5 @@
 {
-  "version": 20,
+  "version": 21,
   "defaultPromptReserveTokens": 8000,
   "minPromptReserveTokens": 4096,
   "models": {
