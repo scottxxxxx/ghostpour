@@ -148,13 +148,19 @@ def _stream_done(client, free_user, monkeypatch, accept_language="en-US", **body
 def test_the_streaming_done_event_carries_the_directed_language(
         client, free_user, mock_provider, monkeypatch):
     done = _stream_done(client, free_user, monkeypatch, locale="es")
-    assert done["output_language"] == "es"
+    # 2026-11-25: a query answers in the language the user typed, so GP
+    # directed no single language and the done event says null.
+    assert "output_language" in done
+    assert done["output_language"] is None
 
 
 def test_the_streaming_done_event_says_en_for_an_english_phone(
         client, free_user, mock_provider, monkeypatch):
     done = _stream_done(client, free_user, monkeypatch, locale="en")
-    assert done["output_language"] == "en"
+    # 2026-11-25: a query answers in the language the user typed, so GP
+    # directed no single language and the done event says null.
+    assert "output_language" in done
+    assert done["output_language"] is None
 
 
 def test_the_streaming_done_event_says_null_when_no_locale_was_sent(
@@ -162,3 +168,4 @@ def test_the_streaming_done_event_says_null_when_no_locale_was_sent(
     done = _stream_done(client, free_user, monkeypatch, accept_language=None)
     assert "output_language" in done
     assert done["output_language"] is None
+

@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 import aiosqlite
 from dateutil.relativedelta import relativedelta
 
+from app.services.allowance import ALLOWANCE_USAGE_LOG_FILTER
+
 
 def compute_next_reset(
     now: datetime,
@@ -113,9 +115,12 @@ async def real_spend_alerts(db, now: datetime, threshold: float = 0.8) -> list[d
         # request_timestamp and this ISO string share the same shape
         # (YYYY-MM-DDTHH:MM:SS...+00:00), so the string compare is a time
         # compare. A datetime() on one side and not the other is the trap.
+        # Promo rows (SS compare_summary) are free to the user and never
+        # count toward the cap; the filter lives in app/services/allowance.py.
         cursor = await db.execute(
-            """SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log
-               WHERE user_id = ? AND request_timestamp >= ?""",
+            f"""SELECT COALESCE(SUM(estimated_cost_usd), 0) FROM usage_log
+               WHERE user_id = ? AND request_timestamp >= ?
+                 AND {ALLOWANCE_USAGE_LOG_FILTER}""",
             (u["id"], start.isoformat()),
         )
         spend = float((await cursor.fetchone())[0] or 0)

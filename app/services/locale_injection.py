@@ -46,7 +46,31 @@ def _base_lang(loc: str) -> str:
     return loc.split("-", 1)[0]
 
 
-def language_directive(locale: str | None) -> str | None:
+# Calls where the user asks something (typed in a box, or a preset action
+# tapped in that box). Scott, 2026-11-25: "the query should come back in the
+# language that the user typed the query in", for all queries. A Spanish
+# phone in an English class got Spanish from Help Me Respond (11-23), words
+# the student had to say aloud in English.
+QUERY_CALL_TYPES = frozenset({
+    "query", "query_follow_up", "meeting_chat", "meeting_chat_follow_up",
+    "project_chat", "project_chat_follow_up", "tr_query",
+})
+
+
+def _typed_language_rule(target: str) -> str:
+    return (
+        "Answer in the language of the question or message the user typed. "
+        "Only the user's own typed words decide this. Instructions, preset "
+        "action text, attachments, transcripts, summaries and memory sent "
+        "with the request do not, whatever language they are in. If the user "
+        "typed nothing of their own (they tapped a preset action), then when "
+        "your answer is words for the user to say aloud in the conversation, "
+        "write it in the language that conversation is being held in, and "
+        f"otherwise respond in {target}. "
+    )
+
+
+def language_directive(locale: str | None, call_type: str | None = None) -> str | None:
     """The directive to append to a managed system prompt for `locale`, or None
     when the request carried no locale at all. English injects too (see the
     module docstring): the phone's language wins over the transcript's.
@@ -61,13 +85,20 @@ def language_directive(locale: str | None) -> str | None:
     name = _LANGUAGE_NAMES.get(base)
     target = f"{name} ({loc})" if name else f"the language with ISO code '{loc}'"
     lang = name or "that language"
+    if call_type in QUERY_CALL_TYPES:
+        lead = (_typed_language_rule(target)
+                + "This overrides every other language instruction in this prompt. ")
+        lang = "that language"
+    else:
+        lead = (
+            f"Respond in {target}. This overrides every other language instruction "
+            "in this prompt, including any that says to write in the language of "
+            "the transcript or of the participants. The material you are given may "
+            "be entirely in another language, and that does not change the language "
+            "you write in. ")
     return (
         "\n\n--- RESPONSE LANGUAGE ---\n"
-        f"Respond in {target}. This overrides every other language instruction "
-        "in this prompt, including any that says to write in the language of "
-        "the transcript or of the participants. The material you are given may "
-        "be entirely in another language, and that does not change the language "
-        "you write in. "
+        + lead +
         # 2026-10-26 prod review: a custom prompt saying "always answer in
         # English, this is my English oral exam" lost to a Spanish phone, and
         # three more "NEVER English" lines did not help. A language the user
@@ -96,14 +127,14 @@ def output_language_subtag(output_locale: str | None) -> str | None:
     return _base_lang(loc) if loc else None
 
 
-def apply(system_prompt: str, locale: str | None) -> str:
+def apply(system_prompt: str, locale: str | None, call_type: str | None = None) -> str:
     """Return `system_prompt` with the language directive appended when needed.
 
     A no-op ONLY for a missing locale. English injects like every other
     language since 2026-09-10 (Scott's ruling: the phone's language wins), and
     this docstring said otherwise for a day, which is the kind of sentence
     that gets believed instead of read."""
-    directive = language_directive(locale)
+    directive = language_directive(locale, call_type)
     if not directive:
         return system_prompt
     return (system_prompt or "") + directive

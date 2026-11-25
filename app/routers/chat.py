@@ -1706,7 +1706,14 @@ async def chat(
         if _tid:
             from app.services import chat_turns as _ct
             _ct.abandon(user.id, _tid)
+        await _release_unserved_promo(request, user, db)
         raise
+    if not isinstance(resp, StreamingResponse):
+        # A plain response that never reached a provider (a gate refused it,
+        # a canned answer) leaves the promo for the next tap. A served claim
+        # is untouched: release deletes only status 'claimed'. A streamed
+        # response keeps its claim, because the turn is still running.
+        await _release_unserved_promo(request, user, db)
     if _tid and not isinstance(resp, StreamingResponse):
         from app.services import chat_turns as _ct
         # A replay or a `turn_in_progress` answer for an id that is running
@@ -1715,6 +1722,20 @@ async def chat(
         if not getattr(request.state, "turn_id_not_ours", False):
             _ct.abandon(user.id, _tid)
     return resp
+
+
+async def _release_unserved_promo(request: Request, user: UserRecord,
+                                  db: aiosqlite.Connection) -> None:
+    """Give back a promo this request claimed and never got a response for.
+    Rule: a call that failed upstream does not use the month's promo."""
+    _claim = getattr(request.state, "promo_claim", None)
+    if not _claim:
+        return
+    try:
+        from app.services import promo_metering
+        await promo_metering.release(db, user.id, _claim["promo"], _claim["token"])
+    except Exception:  # noqa: BLE001 (a cleanup must not mask the real outcome)
+        logger.exception("promo_release_failed promo=%s user=%s", _claim.get("promo"), user.id)
 
 
 async def _chat_impl(
@@ -1839,6 +1860,49 @@ async def _chat_impl(
             status_code=500,
             detail={"code": "invalid_request", "message": f"Unknown tier: {effective_tier_name}"},
         )
+
+    # 1.2. Promo calls served off the allowance (Scott, 2026-11-25). SS's
+    # "See what Shoulder Surf AI would write" sends its normal summary
+    # request with metadata.promo = "compare_summary". Honored only on
+    # call_type summary; anything else is logged and metered normally. Here,
+    # before every other gate, so a second tap is a cheap 429 and never
+    # quietly becomes a metered call. See app/services/promo_metering.py.
+    from app.services import promo_metering
+    if body.metadata and promo_metering.APPLIED_META_KEY in body.metadata:
+        # Server-stamped only. A client cannot mark its own rows free.
+        body.metadata.pop(promo_metering.APPLIED_META_KEY, None)
+    _promo: str | None = None
+    _requested_promo = body.get_meta("promo")
+    if _requested_promo is not None:
+        from app.routers.config import load_apps as _load_apps_promo
+        from app.services.app_budget import meters_on_its_own as _own_meter
+        _promo = promo_metering.resolve(
+            _requested_promo, body.get_meta("call_type"),
+            app_meters_on_its_own=_own_meter(_load_apps_promo(), app_id))
+    if _promo:
+        if user.is_anonymous:
+            logger.info("promo_refused promo=%s user=%s reason=anonymous", _promo, user.id)
+            raise HTTPException(status_code=403, detail={
+                "code": promo_metering.CODE_REQUIRES_SIGN_IN,
+                "message": "This offer needs a signed-in account.",
+                "details": {"promo": _promo},
+            })
+        _promo_token = await promo_metering.claim(db, user.id, _promo, app_id)
+        if _promo_token is None:
+            logger.info("promo_refused promo=%s user=%s reason=exhausted month=%s",
+                        _promo, user.id, promo_metering.month_key())
+            raise HTTPException(status_code=429, detail={
+                "code": promo_metering.CODE_EXHAUSTED,
+                "message": "This offer has already been used this month.",
+                "details": {"promo": _promo, "remaining": 0,
+                            "resets_at": promo_metering.next_month_iso()},
+            })
+        request.state.promo_claim = {"promo": _promo, "token": _promo_token}
+        if body.metadata is None:
+            body.metadata = {}
+        body.metadata[promo_metering.APPLIED_META_KEY] = _promo
+        logger.info("promo_claimed promo=%s user=%s month=%s",
+                    _promo, user.id, promo_metering.month_key())
 
     # 1.5. Project Chat policy gate. Re-resolves the routing verdict
     # server-side so we can't be tricked by a client that skipped
@@ -2162,7 +2226,7 @@ async def _chat_impl(
         db, user, cap=n400_device_test.hourly_cap(request.app.state.remote_configs, app_id))
 
     # 5. Monthly allocation + overage check
-    monthly_used, overage_balance = await usage_tracker.check_quota(db, user, tier)
+    monthly_used, overage_balance = await usage_tracker.check_quota(db, user, tier, promo=_promo)
 
     # 5.5. Feature hooks (before LLM)
     #
@@ -2379,10 +2443,18 @@ async def _chat_impl(
         from app.services.language_directive import accept_language_primary
         _effective_locale = accept_language_primary(
             request.headers.get("Accept-Language"))
-    _localized_system = _apply_locale(body.system_prompt, _effective_locale)
+    _localized_system = _apply_locale(body.system_prompt, _effective_locale, body.get_meta("call_type"))
     if _localized_system != body.system_prompt:
         body = body.model_copy(update={"system_prompt": _localized_system})
         _output_locale = _norm_locale(_effective_locale)
+        # A query answers in the language the user typed, so GP directed no
+        # single language: echo null ("the model chose") and SS reads the text
+        # itself. A phone-locale echo would stamp a short Portuguese answer as
+        # English and fire SS's LANGUAGE MISMATCH log on every typed answer
+        # (SS, 2026-11-25).
+        from app.services.locale_injection import QUERY_CALL_TYPES as _QCT
+        if body.get_meta("call_type") in _QCT:
+            _output_locale = None
 
     # Effective allocation limit (trial, regular, or none for an anonymous
     # account with no plan): app/services/allowance.py. An app that gives
@@ -2501,7 +2573,9 @@ async def _chat_impl(
     # all gate too. iOS is the primary "don't start the meeting if over
     # cap" UX; GP is defense-in-depth so a hacked or stale client can't
     # bypass billing by routing through summary endpoints.
-    if effective_limit != -1:
+    # A promo call is served off the allowance, so an exhausted allowance
+    # does not stop it (step 1.2 already capped it at one per month).
+    if effective_limit != -1 and not _promo:
         already_exhausted = monthly_used >= effective_limit
         would_exceed = False
         if not already_exhausted and pricing.is_loaded:
@@ -3232,7 +3306,7 @@ async def _chat_impl(
             _gen_armed = False
             _meter = lambda creq, cresp, cms: usage_tracker.record_and_log(  # noqa: E731
                 db, user=user, tier=tier, app_id=app_id,
-                request=creq, response=cresp, elapsed_ms=cms, pricing=pricing,
+                request=creq, response=cresp, elapsed_ms=cms, pricing=pricing, promo=_promo,
             )
             # Conversational confirmation (handoff Part 1 v2): a send echoing
             # a live offer_id is the user's REPLY to our offer. GP judges it
@@ -3987,7 +4061,7 @@ async def _chat_impl(
                         return usage_tracker.record_and_log(
                             db, user=user, tier=tier, app_id=app_id,
                             request=creq, response=cresp,
-                            elapsed_ms=cms, pricing=pricing,
+                            elapsed_ms=cms, pricing=pricing, promo=_promo,
                         )
                     _bi = await classify_generation_intent(
                         provider_router, body.user_content,
@@ -4239,7 +4313,7 @@ async def _chat_impl(
                 # budget instead of running invisibly.
                 on_subcall=lambda creq, cresp, cms: usage_tracker.record_and_log(
                     db, user=user, tier=tier, app_id=app_id,
-                    request=creq, response=cresp, elapsed_ms=cms, pricing=pricing,
+                    request=creq, response=cresp, elapsed_ms=cms, pricing=pricing, promo=_promo,
                 ),
             )
             if _cleaned:
@@ -4383,6 +4457,13 @@ async def _chat_impl(
             raise
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
+
+        # A provider response exists, so the month's promo is used even if a
+        # guard below fails the turn: the call was billed.
+        _promo_claim = getattr(request.state, "promo_claim", None)
+        if _promo_claim and response is not None:
+            await promo_metering.mark_served(
+                db, user.id, _promo_claim["promo"], _promo_claim["token"])
 
         # 6.5. Unwrap a stray ```json code fence the model wrapped around a JSON
         # response (managed JSON call types say "no code fences" but models still
@@ -4691,9 +4772,11 @@ async def _chat_impl(
             response.cost = cost
             request_cost = cost.get("total_cost", 0.0)
 
-        # 8. Record cost against allocation/overage
+        # 8. Record cost against allocation/overage. A promo call skips the
+        # meter (allowance.counts_toward_allowance); its cost still lands in
+        # usage_log below, on a row marked with the promo.
         await usage_tracker.record_cost(db, user.id, request_cost, tier, user=user,
-                                        app_id=app_id)
+                                        app_id=app_id, promo=_promo)
 
         # 9. Log usage
         await usage_tracker.log_usage(db, user.id, body, response, elapsed_ms, app_id=app_id,
@@ -5040,7 +5123,7 @@ async def _chat_impl(
                     usage_tracker.record_and_log(
                         db, user=user, tier=tier, app_id=app_id,
                         request=treq, response=tresp, elapsed_ms=tms,
-                        pricing=pricing),
+                        pricing=pricing, promo=_promo),
             )
             if _title:
                 response_data["suggested_title"] = _title
@@ -5146,7 +5229,7 @@ async def _chat_impl(
                 on_subcall=lambda creq, cresp, cms: usage_tracker.record_and_log(
                     db, user=user, tier=tier, app_id=app_id,
                     request=creq, response=cresp, elapsed_ms=cms,
-                    pricing=pricing),
+                    pricing=pricing, promo=_promo),
             )
             if _native_action:
                 response_data["native_action"] = _native_action
@@ -5177,7 +5260,12 @@ async def _chat_impl(
         # (translation redesign, 2026-09-09). Streaming carries the same key
         # on its "done" event.
         response_data["output_language"] = output_language_subtag(_output_locale)
+        if _promo:
+            # The echo (rule 4): SS compares this against what it asked for.
+            response_data["promo"] = promo_metering.echo_body(_promo)
         json_response = JSONResponse(content=response_data)
+        if _promo:
+            json_response.headers["X-Promo"] = promo_metering.echo_header(_promo)
 
         # Surface the output-language injection so a Spanish end-to-end run can be
         # confirmed at the wire (GP injected) vs the model merely happening to
@@ -5186,7 +5274,7 @@ async def _chat_impl(
             json_response.headers["X-Output-Locale"] = _output_locale
 
         if effective_limit != -1:
-            new_monthly_used = monthly_used + request_cost
+            new_monthly_used = monthly_used + (0.0 if _promo else request_cost)
             percent = min(100, new_monthly_used / effective_limit * 100)
             json_response.headers["X-Allocation-Percent"] = f"{percent:.1f}"
             if percent >= 80:
