@@ -42,10 +42,16 @@ def test_the_parser_still_maps_the_other_locales():
 
 
 @pytest.mark.parametrize("family", FAMILIES)
-def test_every_family_has_a_pt_file_at_the_english_version(family):
+def test_every_family_has_a_pt_file_at_or_above_the_english_version(family):
+    # The SS client caches one body per family, NOT per locale, and sends that
+    # body's version. A pt phone on 1.20 cached ENGLISH at the version English
+    # had before pt shipped, so pt must ship above that or the phone gets
+    # changed:false and stays English (SS RemoteConfigManager, 2026-11-24).
+    # Every pt file shipped one above its English sibling (llm-providers moved
+    # all its locales together, its own lockstep rule).
     en = json.loads((REMOTE / f"{family}.json").read_text())
     pt = json.loads((REMOTE / f"{family}.pt.json").read_text())
-    assert pt["version"] == en["version"], family
+    assert pt["version"] >= en["version"], family
 
 
 @pytest.mark.parametrize("header", ("pt-BR", "pt_BR", "pt"))
