@@ -40,7 +40,7 @@ COLLECTIONS = [
     ("entitlements", "matrix"),
 ]
 
-LOCALES = ["", ".es", ".ja", ".fr"]
+LOCALES = ["", ".es", ".ja", ".fr", ".pt"]
 
 # Keys a sibling carries that another may legitimately omit. Each needs a
 # reason, and the reason has to be about the client's type rather than
@@ -158,7 +158,7 @@ def test_model_capabilities_universal_keys_are_never_null(loc):
 # siblings cover, or it declares which locales it does not and why. A gap
 # is allowed. A silent gap is not.
 
-SHIPPED_LOCALES = {"en", "es", "ja", "fr"}
+SHIPPED_LOCALES = {"en", "es", "ja", "fr", "pt"}
 
 # Slugs that are structural rather than prose, so they carry no locale
 # variants at all. Each needs a reason, same discipline as OPTIONAL_KEYS.
@@ -218,7 +218,7 @@ def _locale_coverage():
     import collections
     cov = collections.defaultdict(set)
     for f in _REMOTE.glob("*.json"):
-        m = re.match(r"^(.+?)(?:\.(es|ja|fr))?\.json$", f.name)
+        m = re.match(r"^(.+?)(?:\.(es|ja|fr|pt))?\.json$", f.name)
         cov[m.group(1)].add(m.group(2) or "en")
     return cov
 

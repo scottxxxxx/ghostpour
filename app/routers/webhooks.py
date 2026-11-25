@@ -753,7 +753,7 @@ async def sync_config_from_bundle(
 
 class TunableTierFieldRequest(BaseModel):
     """Update a single per-tier numeric field across all locale variants
-    of tiers.json (en + .es + .ja). Locale-independent values like
+    of tiers.json (en + .es + .fr + .ja + .pt). Locale-independent values like
     max_input_tokens stay in lockstep so iOS sees the same number
     regardless of Accept-Language.
 
@@ -835,7 +835,8 @@ async def update_tier_tunable_field(
     # Every shipped locale, in lockstep. French was added 2026-07-27 and
     # this list did not learn it until 2026-08-21, so every tier-field save
     # in between left tiers.fr.json on the old number.
-    locale_slugs = ["tiers", "tiers.es", "tiers.fr", "tiers.ja"]
+    # Portuguese (pt-BR phones) joined 2026-11-24.
+    locale_slugs = ["tiers", "tiers.es", "tiers.fr", "tiers.ja", "tiers.pt"]
     updated: list[dict] = []
     for slug in locale_slugs:
         path = CONFIG_DIR / f"{slug}.json"
@@ -2731,9 +2732,9 @@ async def update_entitlements_documents(
             raise HTTPException(
                 status_code=400,
                 detail="text must not contain em or en dashes")
-    if body.locale is not None and body.locale not in ("en", "es", "ja", "fr"):
+    if body.locale is not None and body.locale not in ("en", "es", "ja", "fr", "pt"):
         raise HTTPException(
-            status_code=400, detail='locale must be en, es, ja, or fr')
+            status_code=400, detail='locale must be en, es, ja, fr, or pt')
     if body.min_tier is not None and body.min_tier not in (
             "free", "plus", "pro"):
         raise HTTPException(
@@ -2742,7 +2743,7 @@ async def update_entitlements_documents(
 
     files_updated: list[dict] = []
     for slug in ("client-config", "client-config.es", "client-config.ja",
-                 "client-config.fr"):
+                 "client-config.fr", "client-config.pt"):
         path = CONFIG_DIR / f"{slug}.json"
         if not path.exists():
             continue

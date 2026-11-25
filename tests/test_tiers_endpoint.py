@@ -72,7 +72,7 @@ def test_tiers_endpoint_localized_response_includes_feature_definitions(client):
     """es/ja locale responses also need to surface feature_definitions, since
     a Japanese-locale user hits /v1/tiers with Accept-Language: ja and gets
     the localized variant — but max_input_tokens must still come through."""
-    for lang in ("es", "ja"):
+    for lang in ("es", "ja", "pt"):
         resp = client.get("/v1/tiers", headers={"Accept-Language": f"{lang}-XX,{lang};q=0.9"})
         assert resp.status_code == 200, f"locale={lang} failed: {resp.text}"
         body = resp.json()

@@ -97,15 +97,29 @@ STRINGS = {
            "readonly": "Lien en lecture seule",
            "full_tx": "Transcription complète incluse", "report_note": "Compte rendu inclus",
            "translated_from": "Traduit de l'{lang}"},
+    "pt": {"report": "RELATÓRIO DA REUNIÃO", "transcript": "TRANSCRIÇÃO", "plus": " + ",
+           "open_one": "1 tarefa em aberto", "open_n": "{n} tarefas em aberto", "open_none": "Nenhuma tarefa em aberto",
+           "urgent": "{n} urgentes", "urgent_one": "1 urgente",
+           "due_who": "Até {day}: {who} deve {text}", "due": "Até {day}: {text}", "who": "{who} deve {text}",
+           "more": "+ {n} a mais, incl. {second}", "more_plain": "+ {n} a mais",
+           "sentiment": "Tom: {s}",
+           "min": "{n} min", "people": "{n} pessoas", "person": "1 pessoa",
+           "stat_actions": "TAREFAS", "stat_urgent": "URGENTES", "stat_sentiment": "TOM",
+           "readonly": "Link somente leitura",
+           "full_tx": "Transcrição completa incluída", "report_note": "Relatório da reunião incluído",
+           "translated_from": "Traduzido do {lang}"},
 }
-LANG_NAMES = {"en": {"en": "English", "es": "Spanish", "fr": "French", "ja": "Japanese"},
-              "es": {"en": "inglés", "es": "español", "fr": "francés", "ja": "japonés"},
-              "fr": {"en": "anglais", "es": "espagnol", "fr": "français", "ja": "japonais"}}
+LANG_NAMES = {"en": {"en": "English", "es": "Spanish", "fr": "French", "ja": "Japanese", "pt": "Portuguese"},
+              "es": {"en": "inglés", "es": "español", "fr": "francés", "ja": "japonés", "pt": "portugués"},
+              "fr": {"en": "anglais", "es": "espagnol", "fr": "français", "ja": "japonais", "pt": "portugais"},
+              "pt": {"en": "inglês", "es": "espanhol", "fr": "francês", "ja": "japonês", "pt": "português"}}
 MONTHS = {"en": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
           "es": ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
-          "fr": ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"]}
+          "fr": ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"],
+          "pt": ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]}
 DAYS = {"en": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], "es": ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"],
-        "fr": ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"]}
+        "fr": ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"],
+        "pt": ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]}
 # R9: the sentiment CATEGORY is a wire enum (English keys, never translated by
 # the model), so it is the one thing that can be said in the card's locale
 # no matter which language the report was generated in.
@@ -119,12 +133,17 @@ SENTIMENT_WORDS = {
     "fr": {"positive": "positif", "collaborative": "collaboratif", "informational": "informatif",
            "cautious": "prudent", "pressured": "sous pression", "tense": "tendu",
            "disconnected": "distant", "decisive": "décisif"},
+    "pt": {"positive": "positivo", "collaborative": "colaborativo", "informational": "informativo",
+           "cautious": "cauteloso", "pressured": "sob pressão", "tense": "tenso",
+           "disconnected": "distante", "decisive": "decidido"},
 }
 _WEEKDAYS = {  # free-text deadlines that name a day, any of our locales
     "monday": 0, "mon": 0, "lunes": 0, "lundi": 0, "tuesday": 1, "tue": 1, "martes": 1, "mardi": 1,
     "wednesday": 2, "wed": 2, "miércoles": 2, "miercoles": 2, "mercredi": 2, "thursday": 3, "thu": 3,
     "jueves": 3, "jeudi": 3, "friday": 4, "fri": 4, "viernes": 4, "vendredi": 4, "saturday": 5, "sat": 5,
     "sábado": 5, "sabado": 5, "samedi": 5, "sunday": 6, "sun": 6, "domingo": 6, "dimanche": 6,
+    "segunda": 0, "segunda-feira": 0, "terça": 1, "terca": 1, "terça-feira": 1, "terca-feira": 1,
+    "quarta": 2, "quarta-feira": 2, "quinta": 3, "quinta-feira": 3, "sexta": 4, "sexta-feira": 4,
 }
 _URGENT = ("critical", "urgent", "high")
 _NOBODY = ("", "multiple", "unknown", "tbd", "unassigned", "n/a", "none")

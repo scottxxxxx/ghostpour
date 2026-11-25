@@ -5208,6 +5208,7 @@ function renderTierCard(name, t) {
             <option value="">Default (en, es, …)</option>
             <option value="es">Spanish only</option>
             <option value="ja">Japanese only</option>
+            <option value="pt">Portuguese only</option>
           </select>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
@@ -6816,7 +6817,7 @@ async function loadEntitlements(appId) {
   h += kv('Below-tier upsell', enabledSel('upsell', ups.enabled));
   h += kv('Upsell copy',
     '<select id="upsell-locale" class="period-select" style="margin-bottom:6px">'
-    + ['en', 'es', 'ja', 'fr'].map(l => `<option value="${l}">${l}</option>`).join('')
+    + ['en', 'es', 'ja', 'fr', 'pt'].map(l => `<option value="${l}">${l}</option>`).join('')
     + '</select>'
     + `<textarea id="upsell-text" rows="3" style="width:100%;font-family:inherit;font-size:13px;padding:6px;box-sizing:border-box">${entEsc(ups.text || '')}</textarea>`
     + '<div style="color:var(--text-dim);font-size:12px;margin:4px 0 6px">'

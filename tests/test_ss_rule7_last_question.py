@@ -26,6 +26,7 @@ RULE7 = {
     ".es": ("la última que se hizo", "no vuelvas a contar la respuesta anterior", "Nunca inventes un dato"),
     ".fr": ("la dernière posée", "ne raconte pas de nouveau la réponse précédente", "N'invente jamais un fait"),
     ".ja": ("最後にされた質問", "前の答えやその例を繰り返さない", "事実を作り出してはいけません"),
+    ".pt": ("a última que foi feita", "não reconte a resposta anterior", "Nunca invente um dado"),
 }
 
 

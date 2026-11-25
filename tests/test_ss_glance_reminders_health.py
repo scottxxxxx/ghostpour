@@ -22,18 +22,22 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent / "config" / "remote"
 LOCALES = {"en": "protected-prompts.json", "es": "protected-prompts.es.json",
-           "fr": "protected-prompts.fr.json", "ja": "protected-prompts.ja.json"}
+           "fr": "protected-prompts.fr.json", "ja": "protected-prompts.ja.json",
+           "pt": "protected-prompts.pt.json"}
 
 NO_BRACKET = {"en": "No part of a card ever contains a square bracket",
               "es": "Ninguna parte de una tarjeta contiene nunca un corchete",
               "fr": "Aucune partie d'une carte ne contient jamais de crochet",
-              "ja": "カードのどの部分にも角かっこを決して入れないでください。"}
+              "ja": "カードのどの部分にも角かっこを決して入れないでください。",
+              "pt": "Nenhuma parte de um cartão jamais contém um colchete"}
 HEALTH = {"en": "Leave out health details:", "es": "Omite los detalles de salud:",
-          "fr": "Omettez les détails de santé :", "ja": "健康に関する詳細は書かないでください"}
+          "fr": "Omettez les détails de santé :", "ja": "健康に関する詳細は書かないでください",
+          "pt": "Omita detalhes de saúde:"}
 DELTA_REMOVE = {"en": "Remove any such detail already in the previous summary.",
                 "es": "Elimina cualquier detalle de ese tipo que ya esté en el resumen anterior.",
                 "fr": "Supprimez tout détail de ce type déjà présent dans le résumé précédent.",
-                "ja": "前回の要約にすでにそのような詳細がある場合は削除してください。"}
+                "ja": "前回の要約にすでにそのような詳細がある場合は削除してください。",
+                "pt": "Remova qualquer detalhe desse tipo que já esteja no resumo anterior."}
 
 
 def _load(loc):

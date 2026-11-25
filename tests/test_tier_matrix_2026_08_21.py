@@ -15,7 +15,7 @@ import yaml
 ROOT = Path(__file__).parent.parent
 ENT = json.loads((ROOT / "config/remote/entitlements.json").read_text())["matrix"]
 TIERS = {loc: json.loads((ROOT / f"config/remote/tiers{loc}.json").read_text())["tiers"]
-         for loc in ("", ".es", ".fr", ".ja")}
+         for loc in ("", ".es", ".fr", ".ja", ".pt")}
 CC = json.loads((ROOT / "config/remote/client-config.json").read_text())
 YML = yaml.safe_load((ROOT / "config/tiers.yml").read_text())["tiers"]
 

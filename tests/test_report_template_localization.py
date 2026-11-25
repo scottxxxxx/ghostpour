@@ -209,7 +209,7 @@ def _full_report():
 
 def _bundled_configs():
     rc = {"report-strings": json.loads((_ROOT / "config/remote/report-strings.json").read_text())}
-    for loc in ("es", "fr", "ja"):
+    for loc in ("es", "fr", "ja", "pt"):
         rc[f"report-strings.{loc}"] = json.loads(
             (_ROOT / f"config/remote/report-strings.{loc}.json").read_text())
     return rc
@@ -220,7 +220,7 @@ def _visible(html: str) -> str:
     return re.sub(r"<[^>]+>", "\n", html)
 
 
-@pytest.mark.parametrize("locale", ["es", "fr", "ja"])
+@pytest.mark.parametrize("locale", ["es", "fr", "ja", "pt"])
 def test_no_english_chrome_in_a_full_localized_report(locale):
     html = render_report_html(_full_report(), _minimal_metadata(), _bundled_configs(), locale)
     assert "{{" not in html and "{count}" not in html
@@ -238,7 +238,8 @@ def test_issue_labels_and_count_land_in_spanish():
 
 
 def test_every_locale_carries_every_default_key():
-    for name in ("report-strings", "report-strings.es", "report-strings.fr", "report-strings.ja"):
+    for name in ("report-strings", "report-strings.es", "report-strings.fr", "report-strings.ja",
+                 "report-strings.pt"):
         strings = _bundled_configs()[name]["strings"]
         missing = set(_DEFAULT_REPORT_STRINGS) - set(strings)
         assert not missing, f"{name} missing {sorted(missing)}"

@@ -23,6 +23,7 @@ LOCALE_FILES = [
     "config/remote/protected-prompts.json",
     "config/remote/protected-prompts.es.json",
     "config/remote/protected-prompts.fr.json",
+    "config/remote/protected-prompts.pt.json",
     "config/remote/techrehearsal/protected-prompts.json",
 ]
 
@@ -76,6 +77,10 @@ def test_image_acknowledgement_rule_present(path):
         assert "image est jointe" in instructions
         assert "ne fais jamais remarquer qu'une image manque" in instructions
         assert "question littérale" in instructions
+    elif "pt.json" in path:
+        assert "imagem anexada" in instructions
+        assert "nunca comente que falta uma imagem" in instructions
+        assert "pergunta literal" in instructions
     else:
         # English content (en and tr-prefixed locales share English).
         assert "image is attached" in instructions
@@ -127,7 +132,8 @@ def test_summarizers_carry_name_grounding(path):
     carry the clause in their own language."""
     data = _load(path)
     assert "never invent" in data["reanalyzeSummaryPrompt"]
-    token = {"es.json": "nunca inventes", "fr.json": "n'invente jamais"}.get(
+    token = {"es.json": "nunca inventes", "fr.json": "n'invente jamais",
+             "pt.json": "nunca invente"}.get(
         path.split("protected-prompts.")[-1], "never invent")
     for k in ("full", "delta", "consolidation"):
         assert token in data["summaryPrompts"][k], (path, k)
@@ -162,6 +168,9 @@ _DASH_BAN_TOKENS = {
     "protected-prompts.fr.json": (
         "tiret cadratin", "trait d'union isolé",
         "ne copie jamais cette ponctuation"),
+    "protected-prompts.pt.json": (
+        "Nunca use travessões", "hífen solto",
+        "nunca copie essa pontuação"),
 }
 
 
@@ -187,7 +196,7 @@ _SPACED_HYPHEN_KEYS = [("summaryPrompts", "full"), ("summaryPrompts", "delta"),
                        ("summaryPrompts", "consolidation"), ("analysisPrompt",),
                        ("analyzeSessionPrompt",), ("reanalyzeSummaryPrompt",),
                        ("followUpInstruction",)]
-_SPACED_HYPHEN_TOKENS = ("(word - word)", "(palabra - palabra)", "(mot - mot)", "（語 - 語）")
+_SPACED_HYPHEN_TOKENS = ("(word - word)", "(palabra - palabra)", "(mot - mot)", "（語 - 語）", "(palavra - palavra)")
 
 
 @pytest.mark.parametrize("path", sorted(SS_LOCALE_FILES + ["config/remote/protected-prompts.ja.json"]))

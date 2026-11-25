@@ -1,0 +1,32 @@
+{
+  "version": 4,
+  "strings": {
+    "header_label": "Relatório da reunião",
+    "speakers_heading": "Participantes identificados",
+    "sentiment_label": "Sentimento",
+    "view_arc_button": "Ver arco de sentimento",
+    "sentiment_arc_heading": "Arco de sentimento",
+    "action_required_heading": "Ação necessária",
+    "critical_issue_heading": "Problema técnico crítico",
+    "decisions_heading": "Decisões tomadas",
+    "decisions_agreed_label": "Acordado",
+    "open_questions_heading": "Perguntas em aberto",
+    "open_questions_question_label": "Pergunta",
+    "open_questions_owner_label": "Responsável",
+    "footer_powered_by": "Notas de reunião geradas por",
+    "project_label": "Projeto",
+    "issue_identified_gap": "Lacuna identificada",
+    "issue_identified_bug": "Bug identificado",
+    "issue_identified_risk": "Risco identificado",
+    "issue_identified_other": "Problema identificado",
+    "issue_position_label": "Posição declarada",
+    "actions_none": "Nenhuma identificada",
+    "mood_confident": "Confiante",
+    "mood_tense": "Tenso",
+    "mood_concern": "Preocupação",
+    "mood_neutral": "Neutro",
+    "development_label": "Novidade",
+    "research_notes_heading": "Notas de pesquisa",
+    "research_notes_count": "{count} pesquisas registradas durante esta reunião"
+  }
+}
