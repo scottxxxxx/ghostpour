@@ -558,3 +558,7 @@ app.include_router(_translations.router, prefix="/v1", tags=["translations"])
 from app.routers import support as _support  # noqa: E402
 app.include_router(_support.router, prefix="/v1", tags=["support"])
 app.include_router(_shares.public, tags=["shares-public"])
+# MetricKit crash and hang intake (no auth) and its admin read side.
+from app.routers import diagnostics as _diagnostics  # noqa: E402
+app.include_router(_diagnostics.router, prefix="/v1", tags=["diagnostics"])
+app.include_router(_diagnostics.admin_router, prefix="/webhooks", tags=["diagnostics-admin"])

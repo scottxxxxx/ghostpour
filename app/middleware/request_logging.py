@@ -15,7 +15,10 @@ logger = logging.getLogger("ghostpour")
 # Paths to skip entirely (no buffer entry, no verbose log)
 _SKIP_PATHS = {"/health", "/docs", "/openapi.json", "/v1/model-pricing",
                "/webhooks/admin/live-log", "/webhooks/admin/dashboard",
-               "/webhooks/admin/configs", "/admin"}
+               "/webhooks/admin/configs", "/admin",
+               # Crash reports promise "not linked to you": keep their
+               # sender IP and body out of the live log ring too (2026-11-25).
+               "/v1/diagnostics/crash"}
 # The per-entry detail route carries the request_id in its path, so an exact
 # match cannot skip it. Since 2026-10-31 the dashboard fetches it on every
 # row expand; without this each expand would write itself into the log it

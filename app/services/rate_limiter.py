@@ -8,13 +8,18 @@ class RateLimiter:
     def __init__(self):
         self._buckets: dict[str, list[float]] = defaultdict(list)
 
-    def check(self, user_id: str, rpm_limit: int) -> tuple[bool, int]:
+    def check(self, user_id: str, rpm_limit: int, window: float = 60.0) -> tuple[bool, int]:
         """Check if request is allowed.
+
+        `rpm_limit` is the number of requests allowed per `window` seconds;
+        the window defaults to a minute, which every caller but one uses.
+        Crash intake (app/routers/diagnostics.py) counts per hour. A key
+        must always be checked with the same window, so callers give each
+        window its own key prefix.
 
         Returns (allowed, retry_after_seconds).
         """
         now = time.monotonic()
-        window = 60.0
 
         bucket = self._buckets[user_id]
         self._buckets[user_id] = [t for t in bucket if now - t < window]
