@@ -42,6 +42,12 @@
     --card-bg: var(--surface);
     --warn: var(--orange);
     --mono: 'SF Mono', Menlo, monospace;
+    /* Narrowest a column of the shared card grid may get. Each grid class
+       sets its own; this is the value anything unclassed falls back to. */
+    --dash-min: 340px;
+    /* Dark native scrollbars and form controls. Without it the scrolling
+       lists inside cards drew a white scrollbar on a dark card. */
+    color-scheme: dark;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -91,7 +97,8 @@
   .refresh-btn:hover, .btn:hover { border-color: var(--accent); color: var(--accent); }
 
   /* Cards */
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .cards { --dash-min: 180px; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .cards > * { min-width: 0; }
   .card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
     padding: 16px;
@@ -108,7 +115,10 @@
   /* Dashboard views (Telemetry, Users): KPI tiles, chart cards, ranked share
      bars, the tier stack bar, insights. The KPI card classes were used here
      with no rule behind them until 2026-11-06. */
-  .kpi-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 10px; }
+  .kpi-row { --dash-min: 240px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 10px; }
+  /* The analytics tiles carry an icon, a 40 px figure and a delta chip on
+     one line; under about 330 px the chip was cut off at the tile edge. */
+  .ana .kpi-row { --dash-min: 330px; }
   @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 560px) { .kpi-row { grid-template-columns: 1fr; } }
   .kpi-row .card { padding: 20px; }
@@ -118,7 +128,73 @@
   .card-hint { font-size: 12px; color: var(--text-dim); margin-top: 6px; }
   .kpi-minor { display: flex; flex-wrap: wrap; gap: 4px 24px; font-size: 13px; color: var(--text-dim); margin: 0 0 16px 2px; }
   .kpi-minor b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-  .viz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; align-items: start; margin-bottom: 16px; }
+  /* Shared layout (2026-11-25): one grid for every row of cards, on every
+     tab. The CSS alone gives auto-fit tracks, dense packing and rows of
+     equal height, and is what renders if the script never runs. On top of
+     it balanceGrids() picks the column count that leaves no card alone on
+     a mostly empty row and stretches whatever ends a short row. A card
+     asks for double width with .span-2 and for the whole row with
+     .span-all. Each balanced class sets its own --dash-min (the narrowest
+     a single column may get) because a custom property inherits, and a
+     KPI strip nested in a card must not pick up the outer grid's value. */
+  .dash-grid {
+    --dash-min: 340px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--dash-min)), 1fr));
+    grid-auto-flow: dense; gap: 16px; align-items: stretch; margin-bottom: 16px;
+  }
+  .dash-grid.roomy { --dash-min: 560px; }
+  .dash-grid.wide { --dash-min: 480px; }
+  .dash-grid > * { min-width: 0; margin-bottom: 0; }
+  .dash-grid > .span-2 { grid-column: span 2; }
+  .dash-grid > .span-all { grid-column: 1 / -1; }
+  @media (max-width: 759px) { .dash-grid > .span-2 { grid-column: 1 / -1; } }
+  @media (max-width: 1039px) { .dash-grid.wide > .span-2 { grid-column: 1 / -1; } }
+  @media (max-width: 1199px) { .dash-grid.roomy > .span-2 { grid-column: 1 / -1; } }
+  /* A heading with its card (or a strip of tiles) as one grid item, and a
+     column of short cards that shares a row with a tall one. */
+  .dash-group, .dash-stack { display: flex; flex-direction: column; min-width: 0; }
+  .dash-group > h3 { margin: 0 0 10px; }
+  .dash-group > .card, .dash-group > .table-wrap, .dash-group > .cards { flex: 1 1 auto; margin-bottom: 0; max-width: none; }
+  .dash-stack { gap: 16px; }
+  .dash-stack > .card { flex: 1 1 auto; }
+  .dash-card { padding: 16px; min-width: 0; }
+  .dash-card > h4 { margin: 0 0 8px; }
+  .dash-note { font-weight: 400; color: var(--text-dim); font-size: 12px; }
+
+  /* Heat maps (renderHeatMap). The canvas is its own element so the wheel
+     guard can sit on the parent, in front of the library's own listener. */
+  .heat-wrap { display: flex; gap: 16px; flex-wrap: wrap; align-items: stretch; }
+  .heat-main { flex: 3 1 420px; min-width: 0; }
+  /* The list takes its height from the map beside it, never the other way
+     round: size containment keeps a long list from stretching the row, and
+     the floor is what it gets once it has wrapped below the map. */
+  .heat-side { flex: 1 1 230px; min-width: 200px; min-height: 220px; contain: size; overflow-y: auto; font-size: 13px; }
+  /* As tall as its width allows, up to 420 px: a world map is about twice
+     as wide as it is tall, so a fixed height in a narrow card was mostly
+     empty box. */
+  .heat-map { position: relative; width: 100%; aspect-ratio: 2 / 1; min-height: 240px; max-height: 420px; border-radius: 10px; background: rgba(11,16,24,.45); outline: 1px solid transparent; transition: outline-color .15s; }
+  .heat-map.active { outline-color: var(--accent); }
+  .heat-canvas { position: absolute; inset: 0; cursor: grab; }
+  .heat-canvas:active { cursor: grabbing; }
+  .heat-canvas .jvm-region { cursor: pointer; }
+  .heat-canvas .jvm-region.heat-selected { stroke: var(--orange); stroke-width: 2px; vector-effect: non-scaling-stroke; }
+  .heat-map .jvm-zoom-btn {
+    width: 32px; height: 32px; left: 10px; padding: 0; box-sizing: border-box;
+    font-size: 18px; line-height: 30px; text-align: center; font-weight: 600;
+    background: var(--surface-hover); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer; user-select: none;
+  }
+  .heat-map .jvm-zoom-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .heat-map .jvm-zoom-btn.jvm-zoomin { top: 10px; }
+  .heat-map .jvm-zoom-btn.jvm-zoomout { top: 46px; }
+  .heat-map .jvm-zoom-btn.heat-reset { top: 82px; font-size: 15px; }
+  .heat-tools { display: flex; gap: 6px 8px; align-items: center; flex-wrap: wrap; min-height: 26px; }
+  .heat-tools button { font-size: 12px; padding: 3px 10px; background: var(--bg-card); color: var(--text-dim); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+  .heat-tools button.on { background: var(--accent); color: #fff; }
+  .heat-hint { font-size: 12px; color: var(--text-dim); }
+  .heat-row { padding: 5px 6px; border-radius: 6px; cursor: pointer; }
+  .heat-row:hover, .heat-row:focus-visible { background: var(--surface-hover); outline: none; }
+  .heat-row.sel, tr.heat-row.sel td { background: rgba(76,154,255,.14); }
   .viz-card { padding: 20px; }
   .viz-card h4 { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
   .share-total { font-size: 13px; color: var(--text-dim); margin-bottom: 10px; }
@@ -171,11 +247,11 @@
   .ana-chip.bad { color: #fb7185; background: rgba(251,113,133,.14); }
   .ana-chip.flat { color: var(--text-dim); background: rgba(148,163,184,.14); }
   .ana-spark { position: absolute; left: 0; right: 0; bottom: 0; height: 88px; }
-  .ana-spark .spark-peak { height: 14px; padding: 0 12px; text-align: right; font-size: 10px; line-height: 14px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+  .ana-spark .spark-peak { height: 14px; padding: 0 12px; text-align: right; font-size: 11px; line-height: 14px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
   .ana-spark .spark-plot { position: relative; height: 56px; }
   .ana-spark svg { display: block; width: 100%; height: 100%; }
   .ana-spark .spark-rule { stroke: var(--text-dim); stroke-opacity: .35; stroke-width: 1; stroke-dasharray: 3 3; }
-  .ana-spark .spark-axis { display: flex; justify-content: space-between; height: 18px; padding: 0 12px; font-size: 10px; line-height: 18px; color: var(--text-dim); }
+  .ana-spark .spark-axis { display: flex; justify-content: space-between; height: 18px; padding: 0 12px; font-size: 11px; line-height: 18px; color: var(--text-dim); }
   .spark-col { position: absolute; top: 0; bottom: 0; }
   .spark-col::after { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 1px solid var(--text-dim); opacity: 0; }
   .spark-dot { position: absolute; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; box-shadow: 0 0 0 2px #121a28; opacity: 0; z-index: 2; }
@@ -184,8 +260,6 @@
   .spark-r .spark-tip { left: auto; right: 0; transform: none; }
   .spark-col:hover::after { opacity: .5; }
   .spark-col:hover .spark-dot, .spark-col:hover .spark-tip { opacity: 1; }
-  .ana-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; align-items: stretch; }
-  @media (max-width: 1100px) { .ana-grid3 { grid-template-columns: 1fr; } }
   .ana .viz-card h4 { font-size: 20px; font-weight: 700; }
   .ana .share-track { height: 16px; }
   .ana .share-fill { border-radius: 4px; }
@@ -208,6 +282,32 @@
      A non-visible overflow-x still clips the y axis, so the rounded corners
      keep hiding the row hover fill exactly as before. */
   .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; margin-bottom: 28px; }
+  /* A long table inside a card scrolls in place under a pinned header
+     (the Subscriptions events table ran to 10,700 px and stretched its row
+     neighbour with it). The header rule is harmless on a wrap that does
+     not scroll vertically. */
+  .table-wrap.scroll-y { max-height: 440px; overflow-y: auto; }
+  /* As a grid item it takes the height of its row (set by the card beside
+     it) and scrolls inside that, with a floor for a row of tables only. */
+  .dash-grid > .table-wrap.scroll-y { max-height: none; min-height: 320px; contain: size; }
+  .table-wrap thead th { position: sticky; top: 0; z-index: 2; background: var(--surface); }
+  /* Wide tables keep their first column in view while the rest scrolls.
+     Opaque fills, because a translucent hover would show the scrolled
+     cells through the pinned one. */
+  .table-wrap.sticky-col th:first-child, .table-wrap.sticky-col td:first-child {
+    position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: 1px 0 0 var(--border);
+  }
+  .table-wrap.sticky-col thead th:first-child { z-index: 3; }
+  .table-wrap.sticky-col tr:hover td:first-child { background: #18212e; }
+  .table-wrap.nowrap th, .table-wrap.nowrap td { white-space: nowrap; }
+  /* The user table: 22 columns never fit, so cells stay on one line, the
+     table scrolls sideways, and both the name and the actions stay put. */
+  #user-table td:first-child { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  #user-table th:last-child, #user-table td:last-child {
+    position: sticky; right: 0; z-index: 1; background: var(--surface); box-shadow: -1px 0 0 var(--border);
+  }
+  #user-table tr:hover td:last-child { background: #18212e; }
+  .cell-sub { font-size: 11px; color: var(--text-dim); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th { text-align: left; padding: 10px 14px; color: var(--text-dim); font-weight: 500; border-bottom: 1px solid var(--border); font-size: 12px; }
   td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
@@ -219,7 +319,7 @@
      property, so these are the values that were actually rendering, merged
      into the first site and the second removed (2026-10-31). */
   .badge {
-    display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 10px; font-weight: 600;
+    display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.04em;
   }
   .badge.admin { background: rgba(188,140,255,0.15); color: var(--purple); }
@@ -266,14 +366,14 @@
      strip uses fixed arrangements that divide nine exactly: one row of
      nine where each tile keeps 150px, three by three below that, and two
      columns with the calls tile spanning both (1 + 8) on narrow screens. */
-  .perf-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 16px; }
+  .perf-kpis { --dash-min: 150px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 16px; }
   @media (min-width: 1100px) { .perf-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
   @media (max-width: 759px) {
     .perf-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   .perf-kpis .card .value { font-size: 22px; font-variant-numeric: normal; }
   .perf-kpis .card .value .cov { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 4px; }
-  .jev-kpis { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 8px; }
+  .jev-kpis { --dash-min: 130px; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 8px; }
   .jev-kpis .card .value { font-size: 20px; }
   .jev-pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; margin-left: 6px; border: 1px solid currentColor; }
   .jev-pill.ok { color: var(--green); }
@@ -319,7 +419,7 @@
   .perf-share-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .perf-share-bar { height: 8px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
   .perf-share-bar > i { display: block; height: 100%; background: #3987e5; border-radius: 0 2px 2px 0; }
-  .perf-multiples { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .perf-multiples { --dash-min: 230px; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-bottom: 12px; }
   .perf-mini { border: 1px solid var(--border); border-radius: 8px; padding: 8px 8px 0; min-width: 0; }
   .perf-mini .t { font-size: 12px; display: flex; justify-content: space-between; gap: 6px; }
   .perf-mini .t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -329,7 +429,7 @@
   .perf-table-wrap th { cursor: pointer; white-space: nowrap; }
   .perf-table-wrap tr.pick { cursor: pointer; }
   .perf-table-wrap tr.sel td { background: rgba(88,166,255,0.10); }
-  .perf-secondary { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .perf-secondary { --dash-min: 260px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
   .perf-secondary .perf-card { margin-bottom: 0; }
   .perf-loading { opacity: .55; transition: opacity .2s; }
   @media (max-width: 480px) {
@@ -356,7 +456,8 @@
   }
 
   /* Tier cards */
-  .tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .tier-grid { --dash-min: 300px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .tier-grid > * { min-width: 0; }
   .tier-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
   .tier-card h4 { font-size: 18px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
   .tier-card .tier-limits { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
@@ -488,65 +589,66 @@
     <div class="ana" id="ana">
       <div class="ana-head"><h3>Usage Analytics</h3><span id="ana-sub"></span></div>
       <div class="kpi-row" id="ana-kpis"></div>
-      <div class="ana-grid3">
+      <!-- One grid, six cards: the balancer lays them three, two or one
+           across so no row is left part filled. -->
+      <!-- Tall cards first, short ones after, so three across puts like
+           heights in the same row. -->
+      <div class="dash-grid">
         <div class="card viz-card"><h4>Meetings by Model</h4><div id="ana-models"></div></div>
-        <div class="card viz-card"><h4>AI Cost by Model</h4><div id="ana-cost"></div></div>
-        <div class="card viz-card"><h4>Tier Mix</h4><div id="ana-tiers"></div></div>
-      </div>
-      <div class="ana-grid3">
         <div class="card viz-card"><h4>Meetings by Device</h4><div id="ana-devices"></div></div>
         <div class="card viz-card"><h4>Devices by iOS Version</h4><div id="ana-os"></div></div>
+        <div class="card viz-card"><h4>AI Cost by Model</h4><div id="ana-cost"></div></div>
+        <div class="card viz-card"><h4>Tier Mix</h4><div id="ana-tiers"></div></div>
         <div class="card viz-card"><h4>Key Takeaways</h4><div id="ana-takeaways"></div></div>
       </div>
     </div>
-    <h3>Today</h3>
-    <div class="cards" id="today-cards"></div>
-    <h3 id="period-label">Last 7 Days</h3>
-    <div class="cards" id="period-cards"></div>
+    <!-- The short KPI strips share rows, so a strip of three tiles is not
+         stretched across the whole page while a strip of seven is squeezed. -->
+    <div class="dash-grid wide" style="margin-bottom:28px">
+      <div class="dash-group"><h3>Today</h3><div class="cards" id="today-cards"></div></div>
+      <div class="dash-group span-2"><h3 id="period-label">Last 7 Days</h3><div class="cards" id="period-cards"></div></div>
+    </div>
     <h3>Users</h3>
     <div class="cards" id="user-cards"></div>
 
-    <h3>Allocation Alerts</h3>
-    <div class="table-wrap" id="alloc-alerts-wrap" style="display:none"><table id="alloc-alerts-table"><thead><tr>
-      <th>User</th><th>Tier</th><th>Used</th><th>Limit</th><th>%</th>
-    </tr></thead><tbody></tbody></table></div>
-    <div id="alloc-alerts-none" class="card" style="max-width:400px;text-align:center;color:var(--text-dim)">No users above 80% allocation</div>
+    <div class="dash-grid wide" style="margin-bottom:28px">
+      <div class="dash-group">
+        <h3>Allocation Alerts</h3>
+        <div class="table-wrap" id="alloc-alerts-wrap" style="display:none"><table id="alloc-alerts-table"><thead><tr>
+          <th>User</th><th>Tier</th><th>Used</th><th>Limit</th><th>%</th>
+        </tr></thead><tbody></tbody></table></div>
+        <div id="alloc-alerts-none" class="card" style="text-align:center;color:var(--text-dim)">No users above 80% allocation</div>
+      </div>
+      <div class="dash-group"><h3>Trial Funnel</h3><div class="cards" id="trial-cards"></div></div>
+      <div class="dash-group"><h3>Cache Savings</h3><div class="cards" id="cache-cards"></div></div>
+    </div>
 
-    <h3>Trial Funnel</h3>
-    <div class="cards" id="trial-cards"></div>
-
-    <h3>Cache Savings</h3>
-    <div class="cards" id="cache-cards"></div>
-
-    <h3 id="trend-label">Daily Trend</h3>
-    <div class="card" id="daily-trend-chart" style="padding:16px;overflow-x:auto"></div>
-
-    <h3>Cost by Model</h3>
-    <div class="card" id="cost-by-model-chart" style="padding:16px;max-width:560px"></div>
-
-    <h3>Requests by Scenario</h3>
-    <div class="card" id="scenario-chart" style="padding:16px;max-width:560px"></div>
-
-    <h3>Avg Latency by Model</h3>
-    <div class="card" id="latency-by-model-chart" style="padding:16px;max-width:560px"></div>
+    <div class="dash-grid wide" style="margin-bottom:28px">
+      <div class="dash-group span-all"><h3 id="trend-label">Daily Trend</h3><div class="card" id="daily-trend-chart" style="padding:16px;overflow-x:auto"></div></div>
+      <div class="dash-group"><h3>Cost by Model</h3><div class="card" id="cost-by-model-chart" style="padding:16px"></div></div>
+      <div class="dash-group"><h3>Requests by Scenario</h3><div class="card" id="scenario-chart" style="padding:16px"></div></div>
+      <div class="dash-group"><h3>Avg Latency by Model</h3><div class="card" id="latency-by-model-chart" style="padding:16px"></div></div>
+    </div>
 
     <div id="usage-by-place">
     <div id="usage-by-place-state" class="panel-state"><span id="usage-by-place-state-text"></span><button id="usage-by-place-state-retry" class="refresh-btn" onclick="panelRetry('usage-by-place')" style="display:none">Retry</button></div>
     <h3>Usage by Place</h3>
     <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">Spend, cases (distinct case ids) and users by where the call came from. Three sources: the state picked in the app, the applicant's city the app sends, and the request IP. N-400 only today; the app filter applies. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
-    <div class="card" style="padding:16px;max-width:720px">
+    <div class="dash-grid wide">
+    <div class="card dash-card span-2">
       <div id="place-map-toggle" style="margin-bottom:6px"></div>
-      <div id="place-map" style="height:250px"></div>
+      <div id="place-map" class="heat-map"></div>
     </div>
-    <div class="table-wrap"><table id="place-jurisdiction"><thead><tr>
+    <div class="table-wrap scroll-y"><table id="place-jurisdiction"><thead><tr>
       <th>App</th><th>State picked</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
     </tr></thead><tbody></tbody></table></div>
-    <div class="table-wrap"><table id="place-form"><thead><tr>
+    <div class="table-wrap scroll-y"><table id="place-form"><thead><tr>
       <th>App</th><th>State picked</th><th>Applicant city</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
     </tr></thead><tbody></tbody></table></div>
-    <div class="table-wrap"><table id="place-ip"><thead><tr>
+    <div class="table-wrap scroll-y span-2"><table id="place-ip"><thead><tr>
       <th>App</th><th>IP country</th><th>IP region</th><th>IP city</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
     </tr></thead><tbody></tbody></table></div>
+    </div>
     </div>
   </div>
 
@@ -572,36 +674,41 @@
   <!-- Users -->
   <div id="tab-users" class="section">
     <div id="tab-users-state" class="panel-state"><span id="tab-users-state-text"></span><button id="tab-users-state-retry" class="refresh-btn" onclick="panelRetry('tab-users')" style="display:none">Retry</button></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px">
-      <div class="card" style="padding:14px;grid-column:span 2;min-width:0">
-        <h4 style="margin:0 0 8px">Users by country <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— country-level GeoIP; coordinates are never stored. Arrow = gained users in the last 7 days</span></h4>
-        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:stretch">
-          <div style="flex:2 1 380px;min-width:0">
+    <!-- Map takes two columns with the country list beside it (below it
+         when the card is narrow); the two short cards stack in the column
+         next to the map so neither sits in a row with dead space. -->
+    <div class="dash-grid roomy">
+      <div class="card dash-card span-2">
+        <h4>Users by country <span class="dash-note">country-level GeoIP; coordinates are never stored. Arrow = gained users in the last 7 days</span></h4>
+        <div class="heat-wrap">
+          <div class="heat-main">
             <div id="users-world-map-toggle" style="margin-bottom:6px"></div>
-            <div id="users-world-map" style="height:290px"></div>
+            <div id="users-world-map" class="heat-map"></div>
           </div>
-          <div id="users-country-rank" style="flex:1 1 200px;min-width:200px;max-height:290px;overflow-y:auto;font-size:13px"></div>
+          <div id="users-country-rank" class="heat-side"></div>
         </div>
       </div>
-      <div class="card" style="padding:14px;min-width:0">
-        <h4 style="margin:0 0 8px">Tier mix</h4>
-        <div id="users-tier-donut"></div>
+      <div class="dash-stack">
+        <div class="card dash-card">
+          <h4>Tier mix</h4>
+          <div id="users-tier-donut"></div>
+        </div>
+        <div class="card dash-card">
+          <h4>Top locations</h4>
+          <div id="users-top-locations" style="font-size:13px"></div>
+        </div>
       </div>
-      <div class="card" style="padding:14px;min-width:0">
-        <h4 style="margin:0 0 8px">Total users over time</h4>
+      <div class="card dash-card">
+        <h4>Total users over time</h4>
         <div id="users-growth"></div>
       </div>
-      <div class="card" style="padding:14px;min-width:0">
-        <h4 style="margin:0 0 8px">Signups by day <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— last 14 days</span></h4>
+      <div class="card dash-card">
+        <h4>Signups by day <span class="dash-note">last 14 days</span></h4>
         <div id="users-signups"></div>
-      </div>
-      <div class="card" style="padding:14px;min-width:0">
-        <h4 style="margin:0 0 8px">Top locations</h4>
-        <div id="users-top-locations" style="font-size:13px"></div>
       </div>
     </div>
     <h3 style="margin:6px 0 8px">All Users</h3>
-    <div class="table-wrap"><table id="user-table"><thead><tr>
+    <div class="table-wrap sticky-col nowrap"><table id="user-table"><thead><tr>
       <th onclick="sortUserTable('user')" style="cursor:pointer">User<span class="sa" data-sk="user"></span></th>
       <th onclick="sortUserTable('tier')" style="cursor:pointer">Tier<span class="sa" data-sk="tier"></span></th>
       <th onclick="sortUserTable('channel')" style="cursor:pointer" title="Install channel: telemetry distribution, with StoreKit environment as fallback. TestFlight subscriptions are sandbox money, not revenue">Channel<span class="sa" data-sk="channel"></span></th>
@@ -760,12 +867,12 @@
       <div class="perf-card-head"><h4>By model</h4><span class="perf-sub" id="perf-models-note"></span></div>
       <div id="perf-model-share" class="perf-share"></div>
       <div id="perf-models-multiples" class="perf-multiples"></div>
-      <div class="table-wrap perf-table-wrap"><table id="perf-models-table"><thead></thead><tbody></tbody></table></div>
+      <div class="table-wrap perf-table-wrap sticky-col"><table id="perf-models-table"><thead></thead><tbody></tbody></table></div>
     </div>
     <div class="card perf-card">
       <div class="perf-card-head"><h4>By query type</h4><span class="perf-sub" id="perf-cts-note"></span></div>
       <div id="perf-cts-multiples" class="perf-multiples"></div>
-      <div class="table-wrap perf-table-wrap"><table id="perf-cts-table"><thead></thead><tbody></tbody></table></div>
+      <div class="table-wrap perf-table-wrap sticky-col"><table id="perf-cts-table"><thead></thead><tbody></tbody></table></div>
     </div>
     </details>
     <!-- TypeSafe (Jev) judge. Same window and same app filter as the rest of
@@ -779,8 +886,8 @@
       <p class="perf-caption" id="jev-caption"></p>
       <div class="perf-card-head"><h4>By judgment</h4><span class="perf-sub" id="jev-multiples-note"></span></div>
       <div id="jev-multiples" class="perf-multiples"></div>
-      <div class="table-wrap perf-table-wrap"><table id="jev-judgments-table"><thead></thead><tbody></tbody></table></div>
-      <div class="table-wrap perf-table-wrap"><table id="jev-days-table"><thead></thead><tbody></tbody></table></div>
+      <div class="table-wrap perf-table-wrap sticky-col"><table id="jev-judgments-table"><thead></thead><tbody></tbody></table></div>
+      <div class="table-wrap perf-table-wrap sticky-col"><table id="jev-days-table"><thead></thead><tbody></tbody></table></div>
       <h4 style="margin-top:14px">Recent failures and skipped calls</h4>
       <div class="table-wrap perf-table-wrap"><table id="jev-failures-table"><thead></thead><tbody></tbody></table></div>
       </details>
@@ -801,7 +908,7 @@
     <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px;">
       Check credit balances and update API keys. Changes take effect immediately and persist to Secret Manager.
     </p>
-    <div id="provider-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;"></div>
+    <div id="provider-cards" class="dash-grid"></div>
   </div>
 
   <!-- Remote Configs -->
@@ -828,7 +935,7 @@
       <div id="registry-testers" style="font-size:12px;color:var(--text-dim);margin-bottom:8px"></div>
       <div id="registry-table"></div>
     </div>
-    <div id="config-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px"></div>
+    <div id="config-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,max(300px,30%)),1fr));gap:12px;margin-bottom:16px"></div>
     <div id="config-editor-wrap" style="display:none">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
         <h3 id="config-editor-title" style="margin:0"></h3>
@@ -843,7 +950,7 @@
 
     <!-- Sync-from-bundle modal -->
     <div id="sync-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:480px;max-width:760px;max-height:80vh;overflow:auto">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:min(480px,92vw);max-width:760px;max-height:80vh;overflow:auto">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <h3 id="sync-modal-title" style="margin:0">Sync from bundle</h3>
           <button class="refresh-btn" onclick="closeSyncFromBundle()" style="background:transparent;border:1px solid var(--border)">Close</button>
@@ -870,7 +977,7 @@
       <button class="refresh-btn" onclick="newCampaign()" style="background:var(--green);color:#000;font-weight:600">+ New campaign</button>
     </div>
     <p style="color:var(--text-dim);font-size:13px;margin-bottom:16px">Server-decided promo campaigns. GP owns targeting, frequency and scheduling; <code style="color:var(--accent)">variants</code> carry the app-facing render payload. The decision engine picks what (and whether) to show per device at <code style="color:var(--accent)">app_start</code>.</p>
-    <div id="campaign-list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px"></div>
+    <div id="campaign-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,max(300px,30%)),1fr));gap:12px;margin-bottom:16px"></div>
 
     <!-- Editor -->
     <div id="campaign-editor-wrap" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:24px">
@@ -883,7 +990,7 @@
           <button class="refresh-btn" onclick="saveCampaign()" style="background:var(--green);color:#000;font-weight:600">Save</button>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:16px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px;margin-bottom:16px">
         <label class="cf"><span>ID (slug)</span><input id="cf-id" placeholder="tr_crosspromo_2026_07"></label>
         <label class="cf"><span>Name</span><input id="cf-name" placeholder="Cross-promote Tech Rehearsal"></label>
         <label class="cf"><span>App</span><select id="cf-app"><option value="shouldersurf">ShoulderSurf</option><option value="techrehearsal">Tech Rehearsal</option><option value="n400">N-400 Helper</option><option value="i765">Forms Helper: Immigration</option></select></label>
@@ -897,7 +1004,7 @@
       <div style="border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
         <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:2px">Targeting builder</div>
         <div style="font-size:11px;color:var(--text-dim);margin-bottom:12px">Fill what you want to constrain; blanks mean no constraint. Writes the <code style="color:var(--accent)">targeting</code> JSON below (which stays the source of truth — you can also edit it directly).</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px">
           <label class="cf"><span>Signed in</span><select id="tg-signed" onchange="_targetingFromFields()"><option value="">any</option><option value="true">signed-in only</option><option value="false">anonymous only</option></select></label>
           <label class="cf"><span>Tiers (comma)</span><input id="tg-tiers" placeholder="free, plus, pro" oninput="_targetingFromFields()"></label>
           <label class="cf"><span>Locales (comma)</span><input id="tg-locales" placeholder="en, en_US" oninput="_targetingFromFields()"></label>
@@ -916,7 +1023,7 @@
         </div>
       </div>
       <p style="color:var(--text-dim);font-size:12px;margin:0 0 8px">The four structured fields below are edited as JSON. <code style="color:var(--accent)">variants</code> weights must sum to 100 when the campaign is <em>active</em>.</p>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px">
         <label class="cf"><span>targeting</span><textarea id="cf-targeting" class="cf-json" spellcheck="false" oninput="_fieldsFromTargeting()"></textarea></label>
         <label class="cf"><span>frequency</span>
           <div style="display:flex;gap:6px;align-items:center;margin:2px 0 5px">
@@ -974,23 +1081,23 @@
     </div>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Apple Ads install attribution from the AdServices token iOS posts on first launch. "Limited ads" installs came from Apple Ads but the device opted out of personalized ads, so Apple hides campaign and keyword ids. Campaign and keyword names plus spend (true CAC) arrive with the Apple Ads API integration (phase 2); until then rows show raw ids. "Activated" = device has at least one meeting_start in raw telemetry (30-day retention, so it undercounts on longer ranges). The subscriber columns are three because a free trial start looks identical to a purchase in Apple's data: "Started" means a trial OR a purchase began, "Trialing" is a trial right now, and "Paid" means Apple actually billed a renewal. A seven-day trial that lapses counts in Started only, never in Paid. A subscriber who bought with no trial reads as Started until their first renewal. "Paid?" counts exactly that ambiguous case (paid tier, not trialing, no renewal recorded yet), so the size of that undercount is visible rather than assumed: if it stays at zero, it never happens here. Reddit / campaign-link installs are not here; read those in App Store Connect Analytics. "By country" crosses country with campaign rather than rolling country up, because one campaign can span several storefronts (LatAm) and one storefront can be served by several campaigns (US exact and discovery); a rollup answers neither question. Limited-ads installs are excluded from the country and keyword tables because their campaign id is the placeholder, and they stay counted in the KPI row.</p>
     <div class="cards" id="acq-kpis"></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Install source</h4><div id="acq-chart-source"></div></div>
-      <div class="card" style="padding:16px">
-        <h4 style="margin:0 0 8px">By campaign</h4>
-        <div class="table-wrap"><table id="acq-campaign-table"><thead><tr>
+    <div class="dash-grid roomy" style="margin-top:16px">
+      <div class="card dash-card"><h4>Install source</h4><div id="acq-chart-source"></div></div>
+      <div class="card dash-card">
+        <h4>By campaign</h4>
+        <div class="table-wrap sticky-col"><table id="acq-campaign-table"><thead><tr>
           <th>Campaign</th><th>Installs</th><th>Linked</th><th>Activated</th><th>Started</th><th>Trialing</th><th>Paid</th><th>Paid?</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">By country</h4>
-        <div class="table-wrap"><table id="acq-country-table"><thead><tr>
+      <div class="card dash-card span-2">
+        <h4>By country</h4>
+        <div class="table-wrap sticky-col scroll-y"><table id="acq-country-table"><thead><tr>
           <th>Country</th><th>Campaign</th><th>Installs</th><th>Linked</th><th>Activated</th><th>Started</th><th>Trialing</th><th>Paid</th><th>Paid?</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">By keyword</h4>
-        <div class="table-wrap"><table id="acq-keyword-table"><thead><tr>
+      <div class="card dash-card span-2">
+        <h4>By keyword</h4>
+        <div class="table-wrap sticky-col scroll-y"><table id="acq-keyword-table"><thead><tr>
           <th>Keyword</th><th>Campaign</th><th>Installs</th><th>Linked</th><th>Activated</th><th>Started</th><th>Trialing</th><th>Paid</th><th>Paid?</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
@@ -1062,11 +1169,11 @@
         </div>
       </div>
       <p style="color:var(--text-dim);margin:6px 0 8px;font-size:12px">A start with no stop yet, in the last 6 hours. <b>live</b> = heard from inside the last 3 min (heartbeat) or 20 min (AutoSummary or a question, older builds); <b>paused</b> = the phone says so; <b>early</b> = too young for any signal; <b>quiet</b> = nothing heard, so paused, suspended or dead. Running time is GP's clock from the start ping; the phone's own clock shows in parentheses when it sent one.</p>
-      <div id="live-meetings-body"></div>
+      <div id="live-meetings-body" style="overflow-x:auto"></div>
     </div>
     <div class="kpi-row" id="tel-kpis"></div>
     <div class="kpi-minor" id="tel-kpis-minor"></div>
-    <div class="viz-grid">
+    <div class="dash-grid">
       <div class="card viz-card"><h4>Meetings by model</h4><div id="tel-chart-models"></div></div>
       <div class="card viz-card"><h4>Devices by iOS version</h4><div id="tel-chart-os"></div></div>
       <div class="card viz-card"><h4>Key insights</h4><div id="tel-insights"></div></div>
@@ -1074,34 +1181,34 @@
       <div class="card viz-card"><h4>Devices by distribution</h4><div id="tel-chart-distribution"></div></div>
       <div class="card viz-card" id="tel-card-language"><h4>Devices by language</h4><div id="tel-chart-language"></div></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));grid-auto-flow:dense;gap:12px;margin-top:12px">
-      <div class="card" style="padding:12px 14px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">Daily active <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">(bars: devices that pinged that day; purple line: signed-in users; green dashed: users active in the 7 days ending that day; orange dashed: regular users, the green ones whose account existed before those 7 days.) From daily rollups (kept forever), so the trend outlives the 30-day raw purge. Not affected by the filters above</span></h4>
+    <div class="dash-grid">
+      <div class="card dash-card span-2">
+        <h4>Daily active <span class="dash-note">(bars: devices that pinged that day; purple line: signed-in users; green dashed: users active in the 7 days ending that day; orange dashed: regular users, the green ones whose account existed before those 7 days.) From daily rollups (kept forever), so the trend outlives the 30-day raw purge. Not affected by the filters above</span></h4>
         <div id="tel-chart-active"></div>
       </div>
-      <div class="card" style="padding:12px 14px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">New per day <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— first ping ever from a device (install proxy); line = new accounts. Days before 2026-07-27 undercount: first-seen was backfilled from 30-day raw history. Not affected by the filters above</span></h4>
+      <div class="card dash-card span-2">
+        <h4>New per day <span class="dash-note">first ping ever from a device (install proxy); line = new accounts. Days before 2026-07-27 undercount: first-seen was backfilled from 30-day raw history. Not affected by the filters above</span></h4>
         <div id="tel-chart-new"></div>
       </div>
-      <div class="card" style="padding:12px 14px;grid-column:span 2"><h4 style="margin:0 0 8px">App starts by version (daily)</h4><div id="tel-chart-versions"></div></div>
-      <div class="card" style="padding:12px 14px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">Users by location <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— heat by devices in the window; region detail beside. Per-user city shows in the Users table</span></h4>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:stretch">
-          <div style="flex:1 1 320px;min-width:0">
+      <div class="card dash-card span-2"><h4>App starts by version (daily)</h4><div id="tel-chart-versions"></div></div>
+      <div class="card dash-card span-all">
+        <h4>Users by location <span class="dash-note">heat by devices in the window; region detail beside. Per-user city shows in the Users table</span></h4>
+        <div class="heat-wrap">
+          <div class="heat-main">
             <div id="tel-world-map-toggle" style="margin-bottom:6px"></div>
-            <div id="tel-world-map" style="height:250px"></div>
+            <div id="tel-world-map" class="heat-map"></div>
           </div>
-          <div style="flex:1 1 260px;min-width:240px;max-height:250px;overflow-y:auto">
-            <div class="table-wrap"><table id="tel-location"><thead><tr>
+          <div class="heat-side" style="flex:2 1 340px">
+            <div class="table-wrap" style="margin-bottom:0;overflow:visible"><table id="tel-location"><thead><tr>
               <th>Country</th><th>Region</th><th>Devices</th><th>Users</th><th>Events</th>
             </tr></thead><tbody></tbody></table></div>
           </div>
         </div>
       </div>
-      <div class="card" style="padding:12px 14px;grid-column:span 2"><h4 style="margin:0 0 8px">Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
-      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Funnel: start → meeting → stop</h4><div id="tel-chart-funnel"></div></div>
-      <div class="card" style="padding:12px 14px">
-        <h4 style="margin:0 0 8px">Devices by build <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">— build column fills as clients send app_build</span></h4>
+      <div class="card dash-card span-2"><h4>Meeting starts by hour × day-of-week (UTC)</h4><div id="tel-chart-heatmap"></div></div>
+      <div class="card dash-card"><h4>Funnel: start → meeting → stop</h4><div id="tel-chart-funnel"></div></div>
+      <div class="card dash-card">
+        <h4>Devices by build <span class="dash-note">build column fills as clients send app_build</span></h4>
         <div class="table-wrap" style="max-height:330px;overflow-y:auto"><table id="tel-builds"><thead><tr>
           <th>Version</th><th>Build</th><th>Devices</th><th>Events</th><th>Last seen</th>
         </tr></thead><tbody></tbody></table></div>
@@ -1110,10 +1217,10 @@
     <h3 style="margin:28px 0 8px">Onboarding funnel</h3>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">First-run onboarding outcomes from the <code>onboarding_completed</code> event. Booleans are end-state — name / voice / Apple sign-in reflect whether the user has done it at all, not just this run. Dev and TestFlight rows are included; the correlation view will filter by distribution when a real cohort matters.</p>
     <div class="cards" id="onb-kpis"></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));grid-auto-flow:dense;gap:12px;margin-top:12px">
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Completion (completed vs abandoned)</h4><div id="onb-chart-completion"></div></div>
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Auth choice</h4><div id="onb-chart-auth"></div></div>
-      <div class="card" style="padding:16px"><h4 style="margin:0 0 8px">Where abandoners dropped</h4><div id="onb-chart-dropoff"></div></div>
+    <div class="dash-grid">
+      <div class="card dash-card"><h4>Completion (completed vs abandoned)</h4><div id="onb-chart-completion"></div></div>
+      <div class="card dash-card"><h4>Auth choice</h4><div id="onb-chart-auth"></div></div>
+      <div class="card dash-card"><h4>Where abandoners dropped</h4><div id="onb-chart-dropoff"></div></div>
     </div>
     <h3 style="margin:28px 0 8px">Cases and purchases <span style="font-size:11px;font-weight:normal;color:var(--text-dim)">(form apps: N-400 today)</span></h3>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Usage is measured from interview turns: a case is one application, a new session starts after a 30 minute gap, and active time counts gaps between turns up to 5 minutes. Purchases are measured from Apple's server notifications. <b>Who</b> bought is not: the purchase token is a hash of an A-Number GP never sees, so a purchase is tied to the one case active in the hour before it, and the time-to-purchase numbers are <b>inferred</b> from those matches only. Flagged test accounts are left out of usage; purchases cannot be, since they carry no account. Follows the header's app filter.</p>
@@ -1123,10 +1230,10 @@
     <div class="table-wrap"><table id="comp-platforms"><thead><tr>
       <th>Platform</th><th>Downloads</th><th>Installs</th><th>Active installs</th><th>Launches</th><th>Linked accounts</th><th>Sessions</th><th>Minutes</th><th>Installs, all time</th>
     </tr></thead><tbody></tbody></table></div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-top:12px">
-      <div class="card" style="padding:12px 14px"><h4 style="margin:0 0 8px">Downloads and installs per day</h4><div id="comp-chart-daily"></div></div>
-      <div class="card" style="padding:12px 14px">
-        <h4 style="margin:0 0 8px">Versions in use <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">(installs seen in the window, by latest build)</span></h4>
+    <div class="dash-grid">
+      <div class="card dash-card"><h4>Downloads and installs per day</h4><div id="comp-chart-daily"></div></div>
+      <div class="card dash-card">
+        <h4>Versions in use <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">(installs seen in the window, by latest build)</span></h4>
         <div class="table-wrap" style="max-height:330px;overflow-y:auto"><table id="comp-versions"><thead><tr>
           <th>Platform</th><th>Version</th><th>Build</th><th>Installs</th><th>Last seen</th>
         </tr></thead><tbody></tbody></table></div>
@@ -1152,7 +1259,7 @@
         <span id="sub-truth-checked" style="color:var(--text-dim);font-size:12px"></span>
         <button class="btn" style="margin-left:auto" onclick="refreshSubsFromApple()">Refresh from Apple</button>
       </div>
-      <div class="table-wrap"><table id="sub-truth-table"><thead><tr>
+      <div class="table-wrap sticky-col"><table id="sub-truth-table"><thead><tr>
         <th>User</th><th title="What the Apple subscription is for">Plan</th><th title="The account's tier in GhostPour right now">Tier now</th><th>State</th><th>Auto-renew</th><th>Offer</th><th>This period</th><th>Period ends</th><th>Env</th><th>Paid ever</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
@@ -1171,28 +1278,28 @@
         <th>CTA</th><th>Impressions</th><th title="Distinct users or devices that saw it">Viewers</th><th>Taps</th><th title="Distinct tappers over distinct viewers">Tap rate</th><th title="Trials or purchases started within 30 min of a tap on this CTA">Starts after tap</th><th title="Of those, Apple charged real money">Paid</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:16px;margin-top:16px">
-      <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">Run-rate if every trial and offer converted <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">daily, at list price; net line is after Apple's 15%. Trials and offer periods count until they lapse. This is NOT recognised revenue; see the headline cards</span></h4>
+    <div class="dash-grid roomy" style="margin-top:16px">
+      <div class="card dash-card">
+        <h4>Run-rate if every trial and offer converted <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">daily, at list price; net line is after Apple's 15%. Trials and offer periods count until they lapse. This is NOT recognised revenue; see the headline cards</span></h4>
         <div id="sub-chart-mrr"></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Active subscribers by tier (month-end)</h4><div id="sub-chart-active"></div></div>
-      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">New vs churned per month</h4><div id="sub-chart-flow"></div></div>
-      <div class="card" style="padding:16px;grid-column:span 2"><h4 style="margin:0 0 8px">Net run-rate per month <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">list price after Apple's 15%, trials and offers included. Not received revenue; see Received to date</span></h4><div id="sub-chart-rev"></div></div>
-      <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">Month-by-month <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">Gross and Net are list-price run-rates, not money received</span></h4>
-        <div class="table-wrap"><table id="sub-monthly-table"><thead><tr>
+      <div class="card dash-card"><h4>Active subscribers by tier (month-end)</h4><div id="sub-chart-active"></div></div>
+      <div class="card dash-card"><h4>New vs churned per month</h4><div id="sub-chart-flow"></div></div>
+      <div class="card dash-card"><h4>Net run-rate per month <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">list price after Apple's 15%, trials and offers included. Not received revenue; see Received to date</span></h4><div id="sub-chart-rev"></div></div>
+      <div class="card dash-card">
+        <h4>Month-by-month <span class="dash-note">Gross and Net are list-price run-rates, not money received</span></h4>
+        <div class="table-wrap scroll-y"><table id="sub-monthly-table"><thead><tr>
           <th>Month</th><th>Active</th><th>By tier</th><th>New</th><th>Churn</th><th>Gross run-rate</th><th>Net run-rate</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">Recent events</h4>
-        <div class="table-wrap"><table id="sub-events-table"><thead><tr>
+      <div class="card dash-card span-2">
+        <h4>Recent events</h4>
+        <div class="table-wrap scroll-y"><table id="sub-events-table"><thead><tr>
           <th>When</th><th>User</th><th>Event</th><th>From → To</th><th>Source</th><th>Env</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">One-time unlocks <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">Shoulder Surf in-app purchases (Apple Cloud, BYOK, bundle, upgrades), last 365 days. Money is Production only and gross, before Apple's cut; Sandbox is TestFlight and review. Price is recorded from 2026-10-22 on, so older rows show none</span></h4>
+      <div class="card dash-card">
+        <h4>One-time unlocks <span style="font-weight:400;color:var(--text-dim);font-size:0.8em">Shoulder Surf in-app purchases (Apple Cloud, BYOK, bundle, upgrades), last 365 days. Money is Production only and gross, before Apple's cut; Sandbox is TestFlight and review. Price is recorded from 2026-10-22 on, so older rows show none</span></h4>
         <div class="cards" id="unlock-kpis"></div>
         <div class="table-wrap" style="margin-top:8px"><table id="unlock-products-table"><thead><tr>
           <th>Product</th><th>Production</th><th>Sandbox</th><th>Other</th><th>Refunded</th>
@@ -1201,8 +1308,8 @@
           <th>When</th><th>User</th><th>Product</th><th>Status</th><th>Price</th><th>Env</th><th>Source</th>
         </tr></thead><tbody></tbody></table></div>
       </div>
-      <div class="card" style="padding:16px;grid-column:span 2">
-        <h4 style="margin:0 0 8px">Apple Cloud users <span id="apple-cloud-note" style="font-weight:400;color:var(--text-dim);font-size:0.8em">Shoulder Surf meetings the app reports on Apple Private Cloud Compute, last 30 d (raw events only last 30 d). Those meetings never touch GP, so this is what the app says it selected.</span></h4>
+      <div class="card dash-card">
+        <h4>Apple Cloud users <span id="apple-cloud-note" style="font-weight:400;color:var(--text-dim);font-size:0.8em">Shoulder Surf meetings the app reports on Apple Private Cloud Compute, last 30 d (raw events only last 30 d). Those meetings never touch GP, so this is what the app says it selected.</span></h4>
         <div class="table-wrap" style="max-height:360px;overflow-y:auto"><table id="apple-cloud-users-table"><thead><tr>
           <th>User</th><th>Meetings</th><th>Last used</th><th>Bought the pack</th>
         </tr></thead><tbody></tbody></table></div>
@@ -1236,7 +1343,7 @@
     <h3>Error Summary</h3>
     <div class="cards" id="error-summary-cards"></div>
     <h3>Recent Errors</h3>
-    <div class="table-wrap"><table id="error-table"><thead><tr>
+    <div class="table-wrap sticky-col"><table id="error-table"><thead><tr>
       <th>Time</th><th>User</th><th>Provider</th><th>Model</th><th>Status</th><th>Error</th><th>Latency</th><th>Type</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
@@ -1775,8 +1882,13 @@ function _renderChart(divId, options) {
   }
   const el = document.getElementById(divId);
   if (!el) return;
-  const merged = Object.assign({
-    theme: _telTheme,
+  // The caller's `chart`, `grid` and `tooltip` EXTEND the dark defaults. Until
+  // 2026-11-25 the defaults were the first argument of one outer
+  // Object.assign with `options` after them, so any caller that passed its
+  // own `chart` (all of them, for type and height) replaced the whole
+  // object: sixteen charts lost the transparent background and the hidden
+  // toolbar and drew a grey panel with zoom and download buttons.
+  const merged = Object.assign({theme: _telTheme}, options, {
     chart: Object.assign({
       foreColor: _telForeground,
       toolbar: {show: false},
@@ -1785,7 +1897,7 @@ function _renderChart(divId, options) {
     }, options.chart || {}),
     grid: Object.assign({borderColor: _telGrid, strokeDashArray: 0}, options.grid || {}),
     tooltip: Object.assign({theme: 'dark'}, options.tooltip || {}),
-  }, options);
+  });
   _telCharts[divId] = new ApexCharts(el, merged);
   _telCharts[divId].render();
 }
@@ -2936,12 +3048,13 @@ function _renderTelemetry(d, current) {
     const code = usStateCode(x.region);
     if (code) telByState[code] = (telByState[code] || 0) + (x.devices || 0);
   });
-  renderHeatMap('tel-world-map', telByCountry, telByState, 'device');
+  renderHeatMap('tel-world-map', telByCountry, telByState, 'device', 'tel-location');
 
   // --- Location table: distinct devices/users by country + region ---
   const locBody = document.querySelector('#tel-location tbody');
   if (locBody) {
-    locBody.innerHTML = (d.by_location || []).map(x => `<tr>
+    // A row focuses its country on the map (its state, on the US view).
+    locBody.innerHTML = (d.by_location || []).map(x => `<tr${/^[A-Z]{2}$/.test(x.country || '') ? ` class="heat-row" data-region="${x.country}" data-state="${(x.country === 'US' && usStateCode(x.region)) || ''}" onclick="focusHeatMapRegion('tel-world-map','${x.country}',this.dataset.state)"` : ''}>
       <td>${telEsc(x.country)}</td>
       <td>${x.region ? telEsc(x.region) : '<span style="color:var(--text-dim)">—</span>'}</td>
       <td>${(x.devices || 0).toLocaleString()}</td>
@@ -2987,7 +3100,7 @@ function _renderTelemetry(d, current) {
         {from: 10, to: 9999, color: '#39d353', name: '10+'},
       ]},
     }},
-    xaxis: {labels: {style: {colors: _telForeground, fontSize: '10px'}}},
+    xaxis: {labels: {style: {colors: _telForeground, fontSize: '11px'}}},
     yaxis: {labels: {style: {colors: _telForeground}}},
     noData: {text: 'No meeting events in this window.'},
   });
@@ -3210,7 +3323,7 @@ function signedOutTime(u) {
   if (!n) return '';
   const hrs = u.signed_out_meeting_hours || 0;
   const label = hrs >= 1 ? hrs.toFixed(1) + ' hrs' : Math.round(hrs * 60) + ' min';
-  return `<div style="color:var(--text-dim);font-size:0.8em" title="${n} meeting${n === 1 ? '' : 's'} recorded signed out on a phone this account last signed in on (a shared phone credits whoever signed in last)">+ ${label} / ${n} signed out</div>`;
+  return `<div style="color:var(--text-dim);font-size:11px" title="${n} meeting${n === 1 ? '' : 's'} recorded signed out on a phone this account last signed in on (a shared phone credits whoever signed in last)">+ ${label} / ${n} signed out</div>`;
 }
 
 function meetingTime(u) {
@@ -3221,10 +3334,10 @@ function meetingTime(u) {
   // A start with no stop contributes zero seconds, so the total is a floor.
   const missing = u.meetings_unfinished || 0;
   const flag = missing
-    ? ` <span style="color:var(--orange);font-size:0.8em" title="${missing} of ${n} meetings never reported a stop, so their time is missing from this total">+${missing}?</span>`
+    ? ` <span style="color:var(--orange);font-size:11px" title="${missing} of ${n} meetings never reported a stop, so their time is missing from this total">+${missing}?</span>`
     : '';
   return `<span title="${n} meeting${n === 1 ? '' : 's'} in this period">${label}</span>` +
-    `<span style="color:var(--text-dim);font-size:0.8em"> / ${n}</span>${flag}` + signedOutTime(u);
+    `<span style="color:var(--text-dim);font-size:11px"> / ${n}</span>${flag}` + signedOutTime(u);
 }
 
 // --- User table: client-side sortable columns ---------------------------
@@ -3363,12 +3476,12 @@ function renderUserRows() {
     // independent of trial state; genuine intro trials wear TRIAL.
     const trialBadge =
       (u.subscription_offer_id
-        ? ` <span style="color:var(--accent);font-size:0.75em" title="offer code: ${u.subscription_offer_id}">OFFER</span>`
+        ? ` <span style="color:var(--accent);font-size:11px" title="offer code: ${u.subscription_offer_id}">OFFER</span>`
         : '')
       + (u.is_trial && !u.subscription_offer_id
-        ? ' <span style="color:var(--accent);font-size:0.75em">TRIAL</span>'
+        ? ' <span style="color:var(--accent);font-size:11px">TRIAL</span>'
         : '');
-    const simBadge = u.simulated_tier ? ` <span style="color:#FF9500;font-size:0.75em" title="Simulated as ${u.simulated_tier}">SIM:${u.simulated_tier}</span>` : '';
+    const simBadge = u.simulated_tier ? ` <span style="color:#FF9500;font-size:11px" title="Simulated as ${u.simulated_tier}">SIM:${u.simulated_tier}</span>` : '';
     const hrsUsed = u.hours_used != null ? u.hours_used.toFixed(1) : '0';
     const hrsLimit = u.hours_limit === -1 ? '&infin;' : (u.hours_limit != null ? u.hours_limit.toFixed(1) : '?');
     const pct = u.percent_used || 0;
@@ -3397,7 +3510,7 @@ function renderUserRows() {
     <td>${u.is_anonymous
       ? `<span style="color:var(--text-dim)">Anonymous</span>${(u.linked_devices||1) > 1 ? ` <span class="badge" title="One person, ${u.linked_devices} devices (linked by a restore or sign-in)">${u.linked_devices} devices</span>` : ''}`
       : u.display_name
-      ? `<div>${esc(u.display_name)}</div><div style="font-size:0.8em;color:var(--text-dim)">${u.email?esc(u.email):'Private relay'}</div>`
+      ? `<div>${esc(u.display_name)}</div><div class="cell-sub">${u.email?esc(u.email):'Private relay'}</div>`
       : (u.email?esc(u.email):'<span style="color:var(--text-dim)">Private relay</span>')}${!u.is_anonymous && (u.linked_devices||1) > 1 ? ` <span class="badge" title="One person, ${u.linked_devices} accounts (an anonymous purchase merged in)">${u.linked_devices} accounts</span>` : ''}</td>
     <td><span class="badge ${u.tier}">${tierLabel}</span>${trialBadge}${simBadge}</td>
     <td>${chBadge(u)}</td>
@@ -3419,12 +3532,12 @@ function renderUserRows() {
     <td>${u.device ? esc(u.device) : '<span style="color:var(--text-dim)">—</span>'}</td>
     <td>${(u.telemetry_events || 0).toLocaleString()}</td>
     <td>${u.location ? esc([u.location.city, u.location.region, u.location.country].filter(Boolean).join(', ')) : '<span style="color:var(--text-dim)">—</span>'}</td>
-    <td style="display:flex;gap:4px;align-items:center">
+    <td><div style="display:flex;gap:4px;align-items:center">
       <select class="period-select" style="font-size:11px;padding:3px 6px" onchange="changeTier('${u.id}',this.value,'${u.tier}')" ${u.tier === 'admin' ? 'disabled' : ''}>
         ${tierNames.map(t => `<option value="${t}" ${t === u.tier ? 'selected' : ''}>${t}</option>`).join('')}
       </select>
       <button class="refresh-btn" onclick="showUserDetail('${u.id}','${u.email||"User"}')">Detail</button>
-    </td>
+    </div></td>
   </tr>`;
   }).join('') || '<tr><td colspan="22" style="text-align:center;color:var(--text-dim)">No users yet</td></tr>';
   // Update sort-direction arrows on the headers.
@@ -3472,9 +3585,9 @@ function renderUserAnalytics(rows) {
         const name = (regionNames && regionNames.of(code)) || code;
         const grew = newByCountry[code] || 0;
         const act = activeByCountry[code] || 0;
-        return `<div style="margin:7px 0">
+        return `<div class="heat-row" data-region="${code}" role="button" tabindex="0" title="Show ${esc(name)} on the map" onclick="focusHeatMapRegion('users-world-map','${code}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</span>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</span>
             <span style="white-space:nowrap">${n} · ${act}${grew ? ` <span style=\"color:#3fb950;font-size:11px\" title=\"${grew} new this week\">&#8593;${grew}</span>` : ''}</span>
           </div>
           <div style="height:3px;background:var(--bg-card);border-radius:2px;margin-top:3px;overflow:hidden">
@@ -3483,7 +3596,7 @@ function renderUserAnalytics(rows) {
         </div>`;
       }).join('') || '<div style="color:var(--text-dim)">No location data yet.</div>';
   }
-  renderHeatMap('users-world-map', byCountry, byState, 'user');
+  renderHeatMap('users-world-map', byCountry, byState, 'user', 'users-country-rank');
 
   // Tier mix (SIM overrides shown as their real tier).
   const tierCounts = {};
@@ -3590,64 +3703,282 @@ window.addEventListener('resize', () => {
 // re-measure (see switchTab) can reach them.
 const _heatMaps = {};
 
-function renderHeatMap(elId, countryValues, stateValues, noun) {
+// Same counts, key for key. Lets a refresh that changed nothing leave the
+// map (and whatever the operator zoomed to) exactly as it is.
+function _sameCounts(a, b) {
+  const ka = Object.keys(a || {}), kb = Object.keys(b || {});
+  return ka.length === kb.length && ka.every(k => a[k] === b[k]);
+}
+
+// listId names the element whose .heat-row children mirror the map's
+// selection (the country list on Users, the location table on Telemetry).
+function renderHeatMap(elId, countryValues, stateValues, noun, listId) {
   const el = document.getElementById(elId);
   if (!el || !window.jsVectorMap) return;
   const prev = _heatMaps[elId];
-  _heatMaps[elId] = {
-    view: (prev && prev.view) || 'world',
-    countryValues: countryValues || {},
-    stateValues: stateValues || {},
-    noun: noun || 'user',
-    map: null,
-  };
-  _drawHeatMap(elId);
+  const st = prev || {view: 'world', map: null, selected: null, active: false};
+  const cv = countryValues || {}, sv = stateValues || {};
+  // Every refresh and every range change lands here. Rebuilding each time
+  // threw away the zoom and pan, so: identical data on a live map is a
+  // no-op, and changed data rebuilds but carries the viewport across.
+  const unchanged = !!(prev && prev.map && prev.noun === (noun || 'user') &&
+    _sameCounts(prev.countryValues, cv) && _sameCounts(prev.stateValues, sv));
+  st.countryValues = cv;
+  st.stateValues = sv;
+  st.noun = noun || 'user';
+  if (listId) st.listId = listId;
+  _heatMaps[elId] = st;
+  if (unchanged) { _markHeatSelection(elId); return; }
+  _drawHeatMap(elId, true);
 }
 
 function setHeatMapView(elId, view) {
   const st = _heatMaps[elId];
   if (!st || st.view === view) return;
   st.view = view;
+  st.selected = null;
   _drawHeatMap(elId);
 }
 
-function _drawHeatMap(elId) {
+function _heatHint(st) {
+  const place = st.view === 'us' ? 'state' : 'country';
+  return st.active
+    ? 'Wheel zooms the map. Move the pointer off it to scroll the page.'
+    : `Click the map, then the wheel zooms. Drag to pan. Click a ${place} to center it.`;
+}
+
+function _setHeatActive(elId, on) {
+  const st = _heatMaps[elId];
+  const el = document.getElementById(elId);
+  if (!st || !el || st.active === on) return;
+  st.active = on;
+  el.classList.toggle('active', on);
+  const hint = document.getElementById(elId + '-hint');
+  if (hint) hint.textContent = _heatHint(st);
+}
+
+// Paint the selected region and the matching list row. The outline is a
+// class on the path rather than the library's `selected` style, so the
+// heat fill underneath stays readable.
+function _markHeatSelection(elId) {
+  const st = _heatMaps[elId];
+  const el = document.getElementById(elId);
+  if (!st || !el) return;
+  el.querySelectorAll('.heat-selected').forEach(n => n.classList.remove('heat-selected'));
+  const region = st.selected && st.map && st.map.regions && st.map.regions[st.selected];
+  if (region) {
+    try {
+      const node = region.element.shape.node;
+      node.classList.add('heat-selected');
+      node.parentNode.appendChild(node);  // last in the group, so neighbours do not cover the outline
+    } catch (e) {}
+  }
+  const list = st.listId && document.getElementById(st.listId);
+  if (list) {
+    list.querySelectorAll('.heat-row').forEach(row => {
+      const key = st.view === 'us' ? row.dataset.state : row.dataset.region;
+      row.classList.toggle('sel', !!st.selected && key === st.selected);
+    });
+  }
+}
+
+function resetHeatMap(elId) {
+  const st = _heatMaps[elId];
+  if (!st || !st.map) return;
+  st.selected = null;
+  _markHeatSelection(elId);
+  const m = st.map;
+  try {
+    m.scale = m._baseScale; m.transX = m._baseTransX; m.transY = m._baseTransY;
+    m._applyTransform();
+  } catch (e) {}
+}
+
+// Zoom to a country (or a US state) and mark it. Called by a click on the
+// map and by a click on a row of the list beside it; a second click on the
+// selected place lets go of it and shows the whole map again.
+function focusHeatMapRegion(elId, code, stateCode, fromMap) {
+  const st = _heatMaps[elId];
+  if (!st || !st.map) return;
+  if (!fromMap && st.view === 'us') {
+    // A list row names a country. On the US view a US row means its state;
+    // any other row needs the world map back.
+    if (code === 'US' && stateCode) code = stateCode;
+    else { st.view = 'world'; st.selected = null; _drawHeatMap(elId); }
+  }
+  const m = st.map;
+  const region = m && m.regions && m.regions[code];
+  if (!region) return;
+  if (st.selected === code) { resetHeatMap(elId); return; }
+  st.selected = code;
+  _markHeatSelection(elId);
+  try {
+    // The library's own setFocus fits the region edge to edge. Leave it
+    // some surroundings, and keep the zoom inside a useful band: a country
+    // that spans the map still moves, a tiny one does not fill the card.
+    const box = _heatFocusBox(region.element.shape.node);
+    const fit = Math.min(m._width / box.width, m._height / box.height);
+    const scale = Math.max(m._baseScale * 1.6, Math.min(fit * 0.6, m._baseScale * 12));
+    m._setScale(scale, -(box.x + box.width / 2), -(box.y + box.height / 2), true, true);
+  } catch (e) {
+    try { m.setFocus({region: code, animate: true}); } catch (e2) {}
+  }
+}
+
+// The box to center on. A region's own bounding box is wrong for any country
+// with far-flung pieces: the United States path reaches both edges of the
+// world map (the Aleutians cross the date line), so its box was the whole
+// map and "focus" went to the middle of it. Take the largest piece of the
+// path and add the others only while the box stays within two and a half
+// times that piece, which keeps Alaska with the US and drops the outliers.
+function _heatFocusBox(node) {
+  const full = node.getBBox();
+  const d = node.getAttribute('d') || '';
+  const argc = {m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7, z: 0};
+  const tokens = d.match(/[a-zA-Z]|-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?/g) || [];
+  const pieces = [];
+  let cur = null, x = 0, y = 0, sx = 0, sy = 0, cmd = null, i = 0;
+  const grow = () => {
+    cur.x0 = Math.min(cur.x0, x); cur.x1 = Math.max(cur.x1, x);
+    cur.y0 = Math.min(cur.y0, y); cur.y1 = Math.max(cur.y1, y);
+  };
+  while (i < tokens.length) {
+    if (/[a-zA-Z]/.test(tokens[i])) cmd = tokens[i++];
+    if (!cmd) break;
+    const lower = cmd.toLowerCase(), rel = cmd === lower, n = argc[lower];
+    if (n == null) return full;  // a command this does not know; use the plain box
+    if (lower === 'z') { x = sx; y = sy; cmd = null; continue; }
+    if (i + n > tokens.length) break;
+    const a = tokens.slice(i, i + n).map(Number);
+    i += n;
+    if (lower === 'h') x = rel ? x + a[0] : a[0];
+    else if (lower === 'v') y = rel ? y + a[0] : a[0];
+    else { x = rel ? x + a[n - 2] : a[n - 2]; y = rel ? y + a[n - 1] : a[n - 1]; }
+    if (lower === 'm') {
+      cur = {x0: x, x1: x, y0: y, y1: y};
+      pieces.push(cur);
+      sx = x; sy = y;
+      cmd = rel ? 'l' : 'L';  // further pairs after a move are line-tos
+    } else if (cur) grow();
+  }
+  if (pieces.length < 2) return full;
+  const area = b => (b.x1 - b.x0) * (b.y1 - b.y0);
+  pieces.sort((p, q) => area(q) - area(p));
+  const box = Object.assign({}, pieces[0]);
+  const limit = 2.5 * Math.max(box.x1 - box.x0, box.y1 - box.y0, 1);
+  pieces.slice(1).forEach(b => {
+    const u = {x0: Math.min(box.x0, b.x0), x1: Math.max(box.x1, b.x1), y0: Math.min(box.y0, b.y0), y1: Math.max(box.y1, b.y1)};
+    if (Math.max(u.x1 - u.x0, u.y1 - u.y0) <= limit) Object.assign(box, u);
+  });
+  return {x: box.x0, y: box.y0, width: Math.max(box.x1 - box.x0, 1), height: Math.max(box.y1 - box.y0, 1)};
+}
+
+// Listeners that belong to the map's own element, added once: they survive
+// every rebuild because only the canvas inside is replaced.
+function _wireHeatMap(elId) {
+  const st = _heatMaps[elId];
+  const el = document.getElementById(elId);
+  if (!st || !el || st.wired) return;
+  st.wired = true;
+  // The wheel reaches the library only once the map has been clicked, or
+  // with Ctrl or Cmd held (which is also what a trackpad pinch sends).
+  // Otherwise it is stopped on the way down and the page scrolls as usual.
+  el.addEventListener('wheel', e => {
+    if (!st.active && !e.ctrlKey && !e.metaKey) e.stopPropagation();
+  }, {capture: true, passive: true});
+  el.addEventListener('mousedown', e => {
+    st.downX = e.pageX; st.downY = e.pageY; st.dragged = false;
+    _setHeatActive(elId, true);
+  }, true);
+  el.addEventListener('mousemove', e => {
+    if (e.buttons && Math.abs(e.pageX - st.downX) + Math.abs(e.pageY - st.downY) > 4) st.dragged = true;
+  }, true);
+  el.addEventListener('mouseleave', () => _setHeatActive(elId, false));
+  // jsvectormap measures once. Re-measure whenever the card changes size
+  // (a tab coming on screen, the layout changing column count), and finish
+  // a viewport restore that had to wait for a map built while hidden.
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(() => {
+      const m = st.map;
+      if (!m || !el.offsetWidth) return;
+      try {
+        m.updateSize();
+        if (st.pendingView && m._baseScale > 0) { _restoreHeatView(st, st.pendingView); st.pendingView = null; }
+      } catch (e) {}
+    }).observe(el);
+  }
+}
+
+function _restoreHeatView(st, keep) {
+  const m = st.map;
+  m.scale = keep.k * m._baseScale; m.transX = keep.x; m.transY = keep.y;
+  m._applyTransform();
+}
+
+if (typeof document !== 'undefined' && document.addEventListener) {
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') Object.keys(_heatMaps).forEach(id => _setHeatActive(id, false));
+  });
+}
+
+function _drawHeatMap(elId, keepViewport) {
   const st = _heatMaps[elId];
   const el = document.getElementById(elId);
   if (!st || !el) return;
 
   // The US view needs the vendored map to have registered itself.
-  const usReady = !!(window.jsVectorMap && jsVectorMap.maps && jsVectorMap.maps['us-states']);
+  // jsVectorMap.maps is not public in the 1.6 build the CDN serves today
+  // (addMap writes to a private registry), so asking it alone reported "not
+  // ready" every time and the United States button never appeared. The
+  // vendored file sets US_STATE_CODE_BY_NAME on its last line, after its
+  // addMap call, so that global existing means the map registered.
+  const usReady = !!(window.jsVectorMap &&
+    ((jsVectorMap.maps && jsVectorMap.maps['us-states']) || window.US_STATE_CODE_BY_NAME));
   if (st.view === 'us' && !usReady) st.view = 'world';
   const values = st.view === 'us' ? st.stateValues : st.countryValues;
 
   const toggle = document.getElementById(elId + '-toggle');
   if (toggle) {
     const btn = (v, label, on) =>
-      `<button onclick="setHeatMapView('${elId}','${v}')" style="font-size:11px;padding:2px 9px;` +
-      `background:${on ? 'var(--accent)' : 'var(--bg-card)'};color:${on ? '#fff' : 'var(--text-dim)'};` +
-      `border:1px solid var(--border);border-radius:4px;cursor:pointer">${label}</button>`;
+      `<button type="button" class="${on ? 'on' : ''}" onclick="setHeatMapView('${elId}','${v}')">${label}</button>`;
     const stateCount = Object.keys(st.stateValues).length;
     toggle.innerHTML =
-      `<div style="display:flex;gap:6px;align-items:center">` +
+      `<div class="heat-tools">` +
       btn('world', 'World', st.view === 'world') +
       (usReady && stateCount
         ? btn('us', 'United States', st.view === 'us')
-        : `<span style="font-size:11px;color:var(--text-dim)">${usReady ? 'no US region data in this window' : ''}</span>`) +
-      `<span style="font-size:11px;color:var(--text-dim);margin-left:4px">scroll to zoom, drag to pan</span>` +
+        : `<span class="heat-hint">${usReady ? 'no US region data in this window' : ''}</span>`) +
+      `<span class="heat-hint" id="${elId}-hint">${_heatHint(st)}</span>` +
       `</div>`;
   }
 
+  // Zoom and pan to carry across a rebuild of the same view, as a multiple
+  // of the fitted scale so it survives a change of card size.
+  let keep = null;
+  if (keepViewport && st.map && st.drawnView === st.view) {
+    try {
+      const m = st.map;
+      const k = m.scale / m._baseScale;
+      if (isFinite(k) && k > 1.001) keep = {k, x: m.transX, y: m.transY};
+    } catch (e) {}
+    if (!keep && st.pendingView) keep = st.pendingView;
+  } else if (st.drawnView && st.drawnView !== st.view) {
+    st.selected = null;
+  }
+  st.pendingView = null;
+
   try {
     if (st.map) { try { st.map.destroy(); } catch (e) {} st.map = null; }
-    el.innerHTML = '';
+    el.innerHTML = '<div class="heat-canvas"></div>';
     st.map = new jsVectorMap({
-      selector: '#' + elId,
+      selector: `#${elId} .heat-canvas`,
       map: st.view === 'us' ? 'us-states' : 'world',
       backgroundColor: 'transparent',
       zoomButtons: true,
       draggable: true,
       zoomMax: 20,
+      zoomStep: 1.6,
+      zoomAnimate: true,
       regionStyle: {
         initial: { fill: '#21262d', stroke: '#30363d', strokeWidth: 0.4 },
         hover: { fill: '#388bfd' },
@@ -3657,11 +3988,191 @@ function _drawHeatMap(elId) {
         const n = values[code] || 0;
         tooltip.text(`${tooltip.text()}: ${n} ${st.noun}${n === 1 ? '' : 's'}`);
       },
+      // The library reports a click at the end of a drag too; only a press
+      // and release in one spot selects.
+      onRegionClick(event, code) {
+        if (!st.dragged) focusHeatMapRegion(elId, code, null, true);
+      },
     });
+    st.drawnView = st.view;
+    const canvas = el.querySelector('.heat-canvas');
+    const zin = canvas.querySelector('.jvm-zoomin'), zout = canvas.querySelector('.jvm-zoomout');
+    if (zin) { zin.title = 'Zoom in'; zin.setAttribute('role', 'button'); }
+    if (zout) { zout.title = 'Zoom out'; zout.setAttribute('role', 'button'); }
+    const reset = document.createElement('div');
+    reset.className = 'jvm-zoom-btn heat-reset';
+    reset.title = 'Reset the view';
+    reset.setAttribute('role', 'button');
+    reset.innerHTML = '&#8634;';
+    reset.addEventListener('click', () => resetHeatMap(elId));
+    canvas.appendChild(reset);
+    _wireHeatMap(elId);
+    if (keep) {
+      if (st.map._baseScale > 0) _restoreHeatView(st, keep);
+      else st.pendingView = keep;  // built while hidden; the resize observer finishes it
+    }
+    _markHeatSelection(elId);
   } catch (e) {
     console.error(`[dashboard] heat map ${elId} failed:`, e);
+    st.map = null;
+    // A US view that will not build falls back to the world once.
+    if (st.view === 'us') { st.view = 'world'; st.drawnView = null; return _drawHeatMap(elId); }
     el.innerHTML = '<div style="color:var(--text-dim);padding:16px">Map unavailable; see the table.</div>';
   }
+}
+
+// --- Shared layout: balance every grid of cards ------------------------------
+// The CSS grid (auto-fit tracks, dense flow) is the fallback. It cannot stop
+// the two things Scott called out on 2026-11-25: a card left alone on a row
+// that is mostly empty (five tracks, six units of card), and strips whose
+// tiles are a different width on every row. So for each grid this picks the
+// column count itself: as many columns as fit at the grid's --dash-min,
+// stepping down (never below half of that) when fewer columns pack better.
+// A row that still comes up short is widened in proportion, so its cards
+// share the row instead of leaving a gap. "Packs better" weighs the
+// emptiest row against the columns given up (see _planGrid): fewest empty
+// cells alone always preferred two columns, which turned every chart into a
+// full-width band and made Telemetry longer, not shorter.
+const _GRID_SEL = '.dash-grid, .cards, .kpi-row, .tier-grid, .perf-multiples, .perf-secondary';
+
+function _gcd(a, b) { return b ? _gcd(b, a % b) : a; }
+
+// Dense auto-placement of items spanning 1..n columns, the same order the
+// browser's grid-auto-flow: dense would use. Infinity means the whole row.
+function _packGrid(spans, n) {
+  const rows = [];
+  const cells = spans.map(want => {
+    const span = Math.min(want, n);
+    for (let r = 0; ; r++) {
+      if (!rows[r]) rows[r] = new Array(n).fill(false);
+      for (let c = 0; c + span <= n; c++) {
+        if (rows[r].slice(c, c + span).every(v => !v)) {
+          rows[r].fill(true, c, c + span);
+          return {row: r, col: c, span};
+        }
+      }
+    }
+  });
+  // How full the emptiest row is, 0..1. That row is the one that will be
+  // stretched the most, so it is what the choice of n is judged on.
+  const minFill = Math.min(...rows.map(r => r.filter(Boolean).length / n));
+  return {n, cells, minFill};
+}
+
+function _planGrid(spans, maxCols) {
+  const finite = spans.filter(x => x !== Infinity);
+  const total = finite.reduce((a, b) => a + b, 0);
+  let best = null;
+  if (total && total <= maxCols) {
+    best = _packGrid(spans, total);  // everything fits on one row
+  } else {
+    // Cost of a column count: how empty its emptiest row is, plus 1.2 times
+    // the share of columns given up. The weight is what makes four columns
+    // with a half-filled last row (two cards sharing it) beat two columns
+    // packed solid, while six cards still go three across rather than five
+    // and one.
+    const cost = p => (1 - p.minFill) + 1.2 * (1 - p.n / maxCols);
+    for (let n = maxCols; n >= Math.max(1, Math.ceil(maxCols / 2)); n--) {
+      const p = _packGrid(spans, n);
+      if (!best || cost(p) < cost(best) - 1e-9) best = p;
+    }
+  }
+  // Short rows: put every row on a common finer grid so a row holding t of
+  // n units stretches to the full width with its cards in proportion.
+  const rowTotal = [];
+  best.cells.forEach(c => { rowTotal[c.row] = (rowTotal[c.row] || 0) + c.span; });
+  let T = best.n;
+  rowTotal.forEach(t => { T = T * t / _gcd(T, t); });
+  const fine = T <= 48;
+  if (!fine) T = best.n;
+  const cursor = [];
+  const order = best.cells.map((c, i) => i).sort((i, j) =>
+    best.cells[i].row - best.cells[j].row || best.cells[i].col - best.cells[j].col);
+  const place = [];
+  order.forEach((i, k) => {
+    const c = best.cells[i];
+    const lastInRow = k === order.length - 1 || best.cells[order[k + 1]].row !== c.row;
+    const start = cursor[c.row] || 0;
+    // Without the finer grid, the last card of a short row takes the rest.
+    const span = fine ? c.span * T / rowTotal[c.row] : (lastInRow ? T - start : c.span);
+    place[i] = {row: c.row + 1, start: start + 1, span};
+    cursor[c.row] = start + span;
+  });
+  return {cols: best.n, tracks: T, place};
+}
+
+function _balanceGrid(g) {
+  const width = g.clientWidth;
+  if (!width) return;  // hidden tab; the resize observer calls back when it shows
+  const kids = [...g.children].filter(c => c.offsetParent !== null);
+  [...g.children].forEach(c => {
+    if (c.offsetParent === null && c._gridPlace) {
+      c.style.gridColumn = ''; c.style.gridRow = ''; c._gridPlace = null;
+    }
+  });
+  if (!kids.length) return;
+  const cs = getComputedStyle(g);
+  const min = parseFloat(cs.getPropertyValue('--dash-min')) || 340;
+  const gap = parseFloat(cs.columnGap) || 0;
+  const spans = kids.map(c => c.classList.contains('span-all') ? Infinity : c.classList.contains('span-2') ? 2 : 1);
+  // A few pixels of width change (a scrollbar coming or going because this
+  // very layout changed the page height) must not flip the column count
+  // back and forth, so the plan is kept until the width really moves.
+  const key = spans.join(',');
+  let plan = g._gridPlan;
+  if (!plan || plan.key !== key || Math.abs(plan.width - width) > 24) {
+    const maxCols = Math.max(1, Math.floor((width + gap) / (min + gap)));
+    plan = Object.assign(_planGrid(spans, maxCols), {key, width});
+    g._gridPlan = plan;
+  }
+  const tpl = `repeat(${plan.tracks}, minmax(0, 1fr))`;
+  if (g._gridTpl !== tpl) { g.style.gridTemplateColumns = tpl; g._gridTpl = tpl; }
+  kids.forEach((c, i) => {
+    const at = plan.place[i];
+    const want = `${at.row}|${at.start}|${at.span}`;
+    if (c._gridPlace === want) return;
+    c.style.gridColumn = `${at.start} / span ${at.span}`;
+    c.style.gridRow = String(at.row);
+    c._gridPlace = want;
+  });
+}
+
+let _balanceQueued = false;
+let _gridResize = null;
+const _gridSeen = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
+function balanceGrids() {
+  _balanceQueued = false;
+  document.querySelectorAll(_GRID_SEL).forEach(g => {
+    if (_gridResize && _gridSeen && !_gridSeen.has(g)) { _gridSeen.add(g); _gridResize.observe(g); }
+    try { _balanceGrid(g); } catch (e) { console.error('[dashboard] grid balance failed:', e); }
+  });
+}
+function queueBalance() {
+  if (_balanceQueued) return;
+  _balanceQueued = true;
+  requestAnimationFrame(balanceGrids);
+}
+function wireGridBalance() {
+  if (typeof ResizeObserver === 'undefined' || typeof MutationObserver === 'undefined') return;
+  _gridResize = new ResizeObserver(queueBalance);
+  const dash = document.getElementById('dashboard');
+  if (!dash) return;
+  // Panels repaint with innerHTML and show or hide cards with inline
+  // styles, so watch for new grids, new cards and cards changing state.
+  // The balancer's own writes come back through here once and find nothing
+  // left to change.
+  new MutationObserver(records => {
+    for (const r of records) {
+      const t = r.target;
+      if (r.type === 'attributes') {
+        if (t.parentElement && t.parentElement.matches(_GRID_SEL)) return queueBalance();
+      } else if (t.nodeType === 1 && (t.matches(_GRID_SEL) ||
+          [...r.addedNodes].some(n => n.nodeType === 1 && (n.matches(_GRID_SEL) || n.querySelector(_GRID_SEL))))) {
+        return queueBalance();
+      }
+    }
+  }).observe(dash, {childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden']});
+  queueBalance();
 }
 
 // GeoIP gives region names ("Texas"), sometimes the abbreviation. The lookup
@@ -4134,7 +4645,7 @@ async function refresh(filterChanged = false) {
         categories: daily.map(d => d.day),
         labels: {
           rotate: -45, rotateAlways: daily.length > 12, hideOverlappingLabels: true,
-          formatter: v => (v || '').slice(5), style: {colors: _telForeground, fontSize: '10px'},
+          formatter: v => (v || '').slice(5), style: {colors: _telForeground, fontSize: '11px'},
         },
         axisBorder: {show: false}, axisTicks: {show: false},
         tooltip: {enabled: false},
@@ -4255,9 +4766,15 @@ async function _loadUsageByPlace(days, app) {
   const byState = {};
   (d.by_jurisdiction || []).forEach(x => {
     const code = (x.jurisdiction || '').replace(/^US-/, '');
-    if (/^[A-Z]{2}$/.test(code)) byState[code] = (byState[code] || 0) + (x.users || 0);
+    // The US map's regions are keyed "US-TX". Keyed by the bare "TX" (as this
+    // was) no state ever matched, which nobody saw while the US view could
+    // not be opened at all.
+    if (/^[A-Z]{2}$/.test(code)) byState['US-' + code] = (byState['US-' + code] || 0) + (x.users || 0);
   });
   const usTotal = Object.values(byState).reduce((a, b) => a + b, 0);
+  // State-level data opens on the state-level view (first paint only; the
+  // toggle is the operator's after that).
+  if (!_heatMaps['place-map']) _heatMaps['place-map'] = {view: 'us', map: null, selected: null, active: false};
   renderHeatMap('place-map', usTotal ? {US: usTotal} : {}, byState, 'user');
 }
 
@@ -4783,10 +5300,9 @@ function _perfChart(id, options) {
   _renderChart(id, options);
 }
 
-// _renderChart's outer Object.assign lets a caller's `chart` and `tooltip`
-// REPLACE its merged defaults rather than extend them, so the toolbar and
-// the dark tooltip have to be restated here or every chart grows a zoom
-// and download toolbar.
+// _renderChart now extends its defaults with the caller's `chart` and
+// `tooltip` (it used to let them replace the defaults), so the toolbar and
+// tooltip settings here are restated out of caution, not need.
 function _perfChartBase(height) {
   return {type: 'line', height, toolbar: {show: false}, animations: {enabled: false},
           background: 'transparent', foreColor: _telForeground};
@@ -4802,7 +5318,7 @@ function _perfXAxis(labels, compact) {
     // 168 hourly labels overlap into a smear; two dozen ticks read as time.
     tickAmount: labels.length > 30 ? (compact ? 8 : 24) : undefined,
     labels: {rotate: -45, rotateAlways: !compact && labels.length > 14, hideOverlappingLabels: true,
-             style: {colors: _telForeground, fontSize: '10px'}},
+             style: {colors: _telForeground, fontSize: '11px'}},
     axisBorder: {show: false}, axisTicks: {show: false}, tooltip: {enabled: false},
   };
 }
@@ -5023,7 +5539,7 @@ function renderPerfMultiples(containerId, noteId, rows, field, plural, d) {
       legend: {show: false},
       grid: {borderColor: _PERF_C.grid, strokeDashArray: 0, padding: {left: 0, right: 4, top: -8, bottom: -8}},
       xaxis: {categories: labels, labels: {show: false}, axisBorder: {show: false}, axisTicks: {show: false}, tooltip: {enabled: false}},
-      yaxis: {min: 0, max: ymax || undefined, tickAmount: 2, labels: {formatter: v => fmtMs(Math.round(v || 0)), style: {colors: _telForeground, fontSize: '10px'}}},
+      yaxis: {min: 0, max: ymax || undefined, tickAmount: 2, labels: {formatter: v => fmtMs(Math.round(v || 0)), style: {colors: _telForeground, fontSize: '11px'}}},
       tooltip: {theme: 'dark', shared: true, intersect: false, custom: ({dataPointIndex}) => _perfMiniTip(r[field], keys[dataPointIndex], t, dataPointIndex)},
     });
   });
@@ -5111,7 +5627,7 @@ function renderPerfSecondary(d, s, labels) {
     legend: {show: seriesList.length > 1, position: 'top', horizontalAlign: 'left', labels: {colors: _telForeground}},
     grid: {borderColor: _PERF_C.grid, strokeDashArray: 0},
     xaxis: _perfXAxis(labels, true),
-    yaxis: {min: 0, forceNiceScale: true, labels: {formatter: fmtY, style: {colors: _telForeground, fontSize: '10px'}}},
+    yaxis: {min: 0, forceNiceScale: true, labels: {formatter: fmtY, style: {colors: _telForeground, fontSize: '11px'}}},
     tooltip: _perfTooltip(buckets),
   });
   small('perf-chart-errors', [{name: 'Error rate %', data: s.error_rate}], [_PERF_C.error], v => (v || 0).toFixed(1) + '%');
@@ -5219,7 +5735,7 @@ function renderTierCard(name, t) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveProjectChatCap('${name}')">Save</button>
         </div>
-        <div id="pcc-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px"></div>
+        <div id="pcc-status-${name}" style="font-size:11px;color:var(--text-dim);margin-top:4px;min-height:12px"></div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Web search cap (per month)</div>
@@ -5240,7 +5756,7 @@ function renderTierCard(name, t) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveSearchCap('${name}', 'searches_soft_threshold')">Save</button>
         </div>
-        <div id="src-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">0 = search disabled (Free)</div>
+        <div id="src-status-${name}" style="font-size:11px;color:var(--text-dim);margin-top:4px;min-height:12px">0 = search disabled (Free)</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">File generation cap (per month)</div>
@@ -5253,7 +5769,7 @@ function renderTierCard(name, t) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveGenerationCap('${name}')">Save</button>
         </div>
-        <div id="gen-cap-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = uncapped; at cap the user is told in chat and answered inline</div>
+        <div id="gen-cap-status-${name}" style="font-size:11px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = uncapped; at cap the user is told in chat and answered inline</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Memory recall window (days)</div>
@@ -5266,7 +5782,7 @@ function renderTierCard(name, t) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveRecallWindow('${name}')">Save</button>
         </div>
-        <div id="recall-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Independent of the memory mode cell (Entitlements matrix). Sent to CQ as metadata.max_age_days on every recall. Memory only since 2026-10-15: project chat has its own window below. Nudges read these dials, not tier names. Mirror to the repo after saving.</div>
+        <div id="recall-window-status-${name}" style="font-size:11px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Independent of the memory mode cell (Entitlements matrix). Sent to CQ as metadata.max_age_days on every recall. Memory only since 2026-10-15: project chat has its own window below. Nudges read these dials, not tier names. Mirror to the repo after saving.</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Project chat meeting window (days)</div>
@@ -5279,7 +5795,7 @@ function renderTierCard(name, t) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveProjectChatWindow('${name}')">Save</button>
         </div>
-        <div id="pc-window-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Drops project chat meeting blocks older than this; fills {recall_window_days} in this tier's own strings (shared strings read the upgrade target's). Mirror to the repo after saving.</div>
+        <div id="pc-window-status-${name}" style="font-size:11px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = unlimited. Drops project chat meeting blocks older than this; fills {recall_window_days} in this tier's own strings (shared strings read the upgrade target's). Mirror to the repo after saving.</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Meeting share: archive size cap (MB)</div>
@@ -5292,7 +5808,7 @@ function renderTierCard(name, t) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveShareCap('${name}')">Save</button>
         </div>
-        <div id="share-cap-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = no cap (real bundles run 0.3 to 37 MB; audio is ~14 MB per hour). Over the cap the client gets a 413 naming both numbers. Creations/day: ${t.share_creations_per_day}.</div>
+        <div id="share-cap-status-${name}" style="font-size:11px;color:var(--text-dim);margin-top:4px;min-height:12px">empty = no cap (real bundles run 0.3 to 37 MB; audio is ~14 MB per hour). Over the cap the client gets a 413 naming both numbers. Creations/day: ${t.share_creations_per_day}.</div>
       </div>
       <div style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:6px">
         <div class="lbl" style="margin-bottom:6px">Image send config (SS AI tiers; chat + generation)</div>
@@ -5314,7 +5830,7 @@ function renderTierCard(name, t) {
           <button class="refresh-btn" style="background:var(--accent);color:#000;font-weight:600;padding:6px 12px"
                   onclick="saveImageConfig('${name}','jpeg_quality')">Save</button>
         </div>
-        <div id="img-status-${name}" style="font-size:10px;color:var(--text-dim);margin-top:4px;min-height:12px">GP dictates; SS honors on the chat and generation send path. Model reads to 1568px.</div>
+        <div id="img-status-${name}" style="font-size:11px;color:var(--text-dim);margin-top:4px;min-height:12px">GP dictates; SS honors on the chat and generation send path. Model reads to 1568px.</div>
       </div>
       <div class="model-list">
         <div class="lbl" style="margin-bottom:4px">Providers</div>
@@ -6590,7 +7106,7 @@ async function showCampaignActivity(id) {
   const evColor = {impression:'var(--text-dim)',click:'var(--green)',dismiss:'var(--text)',convert:'var(--accent)'};
   const rows = evs.map(e=>{
     const who = e.email ? _cEsc(e.email) : 'anon';
-    const tier = e.tier ? ` <span style="color:var(--text-dim);font-size:10px">${_cEsc(e.tier)}</span>` : '';
+    const tier = e.tier ? ` <span style="color:var(--text-dim);font-size:11px">${_cEsc(e.tier)}</span>` : '';
     const dev = e.device ? _cEsc(e.device) : `<span class="mono" style="color:var(--text-dim)">${_cEsc((e.device_id||'').slice(0,8))}…</span>`;
     const loc = e.locale ? ` <span style="color:var(--text-dim)">· ${_cEsc(e.locale)}</span>` : '';
     return `
@@ -7242,16 +7758,16 @@ function renderLiveLogDetail(hasDetail, d) {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
               <div style="color:var(--accent);font-weight:600;margin-bottom:6px;font-size:11px">REQUEST</div>
-              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Headers</div>
+              <div style="color:var(--text-dim);font-size:11px;margin-bottom:4px">Headers</div>
               <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:200px;font-size:11px;margin:0 0 8px 0">${esc(JSON.stringify(req.headers || {}, null, 2))}</pre>
-              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Body</div>
+              <div style="color:var(--text-dim);font-size:11px;margin-bottom:4px">Body</div>
               <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:300px;font-size:11px;margin:0">${esc(reqBody)}</pre>
             </div>
             <div>
               <div style="color:${statusColor};font-weight:600;margin-bottom:6px;font-size:11px">RESPONSE ${d.status}</div>
-              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Headers</div>
+              <div style="color:var(--text-dim);font-size:11px;margin-bottom:4px">Headers</div>
               <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:200px;font-size:11px;margin:0 0 8px 0">${esc(JSON.stringify(resp.headers || {}, null, 2))}</pre>
-              <div style="color:var(--text-dim);font-size:10px;margin-bottom:4px">Body</div>
+              <div style="color:var(--text-dim);font-size:11px;margin-bottom:4px">Body</div>
               <pre style="background:var(--surface);padding:8px;border-radius:4px;overflow:auto;max-height:300px;font-size:11px;margin:0">${esc(respBody)}</pre>
             </div>
           </div>`;
@@ -7282,8 +7798,8 @@ function renderLiveLogEntries(entries, expanded, details) {
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.path)}${e.query ? '?' + esc(e.query) : ''}</span>
           <span style="color:${statusColor};font-weight:600;min-width:30px">${e.status}</span>
           <span style="color:var(--text-dim);min-width:50px;text-align:right">${e.latency_ms}ms</span>
-          <span style="color:var(--text-dim);font-size:10px;min-width:56px;text-align:right" title="bytes captured for this entry">${size}</span>
-          <span style="color:var(--text-dim);font-size:10px;min-width:90px;text-align:right">${esc(e.client_ip)}</span>
+          <span style="color:var(--text-dim);font-size:11px;min-width:56px;text-align:right" title="bytes captured for this entry">${size}</span>
+          <span style="color:var(--text-dim);font-size:11px;min-width:90px;text-align:right">${esc(e.client_ip)}</span>
         </div>
         <div class="livelog-detail" style="display:${open ? 'block' : 'none'};padding:12px;background:var(--bg);border-top:1px solid var(--border)">${pane}</div>
       </div>`;
@@ -7509,6 +8025,7 @@ function wireTabKeyboard() {
   sync();
 }
 wireTabKeyboard();
+wireGridBalance();
 </script>
 </body>
 </html>
