@@ -182,6 +182,11 @@ NO_LOCALE_NEEDED = {
         "redirect is followed by a browser and serves a binary, so there is "
         "no prose to translate and no client ever decodes this doc."
     ),
+    "help-ask": (
+        "Server-only dials for POST /v1/help/ask: a switch, a model id, rate "
+        "limits and the daily spend cap. No prose, never reaches a client. "
+        "The answer's language follows the question, in the prompt."
+    ),
     "verify-receipt": (
         "Server-side enforcement switch for Apple receipt verification. One "
         "boolean, no prose, never reaches a user. The 400 it gates carries a "

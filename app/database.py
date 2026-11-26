@@ -1536,6 +1536,42 @@ MIGRATIONS = [
     # The dashboard's first-view-per-device lookup groups on these.
     "CREATE INDEX IF NOT EXISTS idx_help_tour_device ON help_tour_events(event_type, device_id, received_at)",
     "CREATE INDEX IF NOT EXISTS idx_help_tour_user ON help_tour_events(user_id) WHERE user_id IS NOT NULL",
+    # Help Ask (POST /v1/help/ask, 2026-11-26): one row per question GP sent
+    # to the model. It is two things at once. It is the feature's spend
+    # ledger: the row is written BEFORE the model call holding a worst-case
+    # cost (cost_final = 0), and the same statement refuses to write it once
+    # the UTC day's total has reached the cap, so the cap check and the
+    # reservation are one atomic step (app/services/help_ask.py). And it is
+    # the owner's "what did Help fail to answer" record: the question in its
+    # normalized form (NULL with question_dropped = 1 when it looked like an
+    # email, a link or a phone number), whether the articles covered it and
+    # which were offered and used. Device only: no user_id and no IP, so no
+    # account's allowance, cost or deletion touches it. Purged at 180 days
+    # by app/services/retention.py.
+    """CREATE TABLE IF NOT EXISTS help_ask_events (
+        id TEXT PRIMARY KEY,
+        received_at TEXT NOT NULL,
+        day TEXT NOT NULL,                         -- UTC date, the spend bucket
+        app_id TEXT,
+        device_id TEXT NOT NULL,
+        app_locale TEXT,
+        app_version TEXT,
+        app_build TEXT,
+        question TEXT,
+        question_dropped INTEGER NOT NULL DEFAULT 0,
+        offered_article_ids TEXT NOT NULL,         -- JSON array, client rank order
+        used_article_ids TEXT,                     -- JSON array, after the id guard
+        covered INTEGER,
+        outcome TEXT NOT NULL DEFAULT 'pending',   -- pending | answered | not_covered | fallback | model_error
+        model TEXT,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        cost_usd REAL NOT NULL DEFAULT 0,
+        cost_final INTEGER NOT NULL DEFAULT 0,     -- 0 while cost_usd is the reserved worst case
+        latency_ms INTEGER
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_help_ask_day ON help_ask_events(day)",
+    "CREATE INDEX IF NOT EXISTS idx_help_ask_received ON help_ask_events(received_at)",
 ]
 
 

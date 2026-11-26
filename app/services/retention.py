@@ -146,6 +146,10 @@ SWEEPS: tuple[Sweep, ...] = (
           "Same window as the companion events: long enough to watch "
           "adoption across a few releases, and there is no rollup that "
           "would outlive the raw rows."),
+    Sweep("help_ask_events", "received_at", 180,
+          "Questions put to Help Ask (2026-11-26), with what they cost. Same "
+          "window as the Help and tour views they are read beside. Device "
+          "only, so this sweep is the one thing that removes a row."),
 )
 
 
