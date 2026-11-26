@@ -575,3 +575,49 @@ def test_a_lookup_never_takes_a_transaction_another_account_holds(
     assert users[free_user["user_id"]]["tier"] == "free"
     assert users[pro_user["user_id"]]["tier"] == "pro"
     assert users[pro_user["user_id"]]["original_transaction_id"] == REAL_OTID
+
+
+# --- the other door: sync-subscription ---------------------------------------
+# It sets a tier from the client's word alone. With the dial on that word may
+# keep or lower a plan and never raise one.
+
+def _sync(client, user, product_id, is_trial=False):
+    return client.post("/v1/sync-subscription",
+                       json={"active_product_id": product_id, "is_trial": is_trial},
+                       headers=user["headers"])
+
+
+def test_dial_on_sync_subscription_never_raises_a_plan(
+        client, free_user, tmp_db_path, verify_cfg, tier_changes):
+    verify_cfg({"require_signed_transaction": True})
+
+    r = _sync(client, free_user, PRO)
+
+    assert r.status_code == 200, r.text
+    assert r.json()["action"] == "none"
+    assert r.json()["warning"] == "purchase_not_verified"
+    assert _tier(tmp_db_path, free_user["user_id"]) == "free"
+
+
+def test_dial_off_sync_subscription_behaves_as_before(
+        client, free_user, tmp_db_path, verify_cfg, tier_changes):
+    """Positive control: the same request does raise the plan with the dial off,
+    so the test above is refused by the dial and not by a broken request."""
+    verify_cfg({"require_signed_transaction": False})
+
+    r = _sync(client, free_user, PRO)
+
+    assert r.json()["action"] == "updated", r.text
+    assert _tier(tmp_db_path, free_user["user_id"]) == "pro"
+
+
+def test_dial_on_sync_subscription_still_lowers_a_plan(
+        client, free_user, tmp_db_path, verify_cfg, tier_changes):
+    verify_cfg({"require_signed_transaction": False})
+    _sync(client, free_user, PRO)
+    verify_cfg({"require_signed_transaction": True})
+
+    r = _sync(client, free_user, None)
+
+    assert r.json()["action"] == "downgraded", r.text
+    assert _tier(tmp_db_path, free_user["user_id"]) == "free"

@@ -1146,6 +1146,21 @@ async def sync_subscription(
         return {"status": "ok", "action": "none", "tier": user.tier}
 
     # Tier mismatch — update (e.g., trial ended and converted to paid)
+    # This call carries no proof of purchase, only the client's word for
+    # which product is active. When purchases must be Apple verified, that
+    # word can keep or lower a plan but never RAISE one: a higher plan is
+    # granted by verify-receipt alone. Without this the dial closes one
+    # door and leaves this one open to the same two requests.
+    _rank = {"free": 0, "plus": 1, "pro": 2, "admin": 3}
+    if (_rank.get(expected_tier, 0) > _rank.get(user.tier, 0)
+            and receipt_verification.require_signed_transaction(
+                request.app.state.remote_configs, get_settings())):
+        logger.warning(
+            "sync-subscription: unverified upgrade refused user=%s from=%s to=%s",
+            user.id[:8], user.tier, expected_tier)
+        return {"status": "ok", "action": "none", "tier": user.tier,
+                "warning": "purchase_not_verified"}
+
     new_tier = tier_config.tiers[expected_tier]
     if body.is_trial and new_tier.trial_cost_limit_usd is not None:
         limit = new_tier.trial_cost_limit_usd
