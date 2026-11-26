@@ -541,8 +541,8 @@ async def _resolve_storekit_environment(
     is explicitly a guess of last resort. When the enforcement dial is on
     there is no guessing left to do.
     """
-    from app.services.subscriptions import UNVERIFIED
-    if verified_environment in ("Production", "Sandbox", UNVERIFIED):
+    from app.services.subscriptions import UNVERIFIED, XCODE
+    if verified_environment in ("Production", "Sandbox", UNVERIFIED, XCODE):
         return verified_environment
     row = await (await db.execute(
         "SELECT environment FROM subscription_events "
@@ -608,7 +608,8 @@ async def verify_receipt(
     # otherwise the client's own word, marked as such. Resolved BEFORE
     # the product lookup, because which product was bought is part of
     # what Apple signed.
-    identity = receipt_verification.resolve_identity(body, get_settings())
+    identity = receipt_verification.resolve_identity(
+        body, get_settings(), request.app.state.remote_configs)
 
     # WHICH product was bought, not merely THAT something was. When Apple
     # signed the transaction its productId is the answer and it overrides
@@ -678,15 +679,40 @@ async def verify_receipt(
                     "verified": identity.verified,
                     "product_id": body.product_id,
                     "claimed_transaction_id": body.transaction_id,
+                    # The one certificate a refused single-certificate
+                    # chain carried: the value to list as trusted if it
+                    # is one of the team's Xcode StoreKit Test certs.
+                    **({"cert_sha256": identity.cert_sha256}
+                       if identity.cert_sha256 else {}),
                 },
                 from_addr=get_settings().alert_email_from,
             )
         except Exception as e:
             logger.warning("receipt_unverified alert failed (non-fatal): %s", e)
 
+    from app.services import plan_moves
     if receipt_verification.require_signed_transaction(
             request.app.state.remote_configs, get_settings()):
-        if not identity.verified or not identity.original_transaction_id:
+        # Builds before 1.17 send no JWS at all. Ask Apple about the id
+        # they named before refusing. ONLY when nothing was signed: a JWS
+        # that was present and refused is never rescued this way (the
+        # lookup checks the request for one itself). And only
+        # when no OTHER account holds the transaction, because a lookup
+        # proves the subscription exists, not that this caller bought it.
+        if (not identity.verified and identity.original_transaction_id
+                and not await plan_moves.holders(
+                    db, identity.original_transaction_id, user.id)):
+            _confirmed = await receipt_verification.confirm_unsigned_with_apple(
+                identity, body, get_settings())
+            if _confirmed is not None:
+                logger.info(
+                    "verify-receipt: unsigned claim confirmed by Apple lookup "
+                    "user=%s environment=%s", user.id[:8], _confirmed.environment)
+                identity = _confirmed
+        # An Xcode identity needs no Apple id: its first local transaction
+        # is numbered 0, and the signature already proved who made it.
+        if not identity.verified or not (
+                identity.original_transaction_id or identity.is_xcode):
             raise HTTPException(
                 status_code=400,
                 detail={
@@ -708,6 +734,15 @@ async def verify_receipt(
     # one fact written twice.
     _otid = identity.original_transaction_id
     _txn_id = identity.transaction_id or _otid
+    # What goes on the event row, which is the signed payload's own ids.
+    _event_otid = _otid
+    if identity.is_xcode:
+        # A local StoreKit configuration numbers its transactions per
+        # device (0, 1, 2). That is never the id Apple's notifications are
+        # matched on, and two test devices both holding "1" are not one
+        # purchase, so it is recorded on the event and never bound to the
+        # account, detached from another, or used to move a plan.
+        _otid = None
 
     # A transaction a plan_conflict merge left behind never replaces this
     # account's plan. Scott ruled the existing Apple account WINS: when a
@@ -786,8 +821,9 @@ async def verify_receipt(
     # Read who else holds it BEFORE it detaches: a verified transaction moves
     # the plan off them (app/services/plan_moves.py), applied below once this
     # user's plan is written.
-    from app.services import plan_moves
     _plan_holders = await plan_moves.holders(db, _otid, user.id)
+    # Only a transaction the caller HELD moves a plan off another account.
+    _may_move_plan = identity.verified and not identity.via_lookup
     if _otid:
         await db.execute(
             "UPDATE users SET original_transaction_id = NULL "
@@ -861,7 +897,7 @@ async def verify_receipt(
                     db, user_id=user.id, event_type="subscribed", subtype="trial",
                     from_tier=old_tier_name, to_tier=new_tier_name,
                     product_id=_effective_product_id, transaction_id=_txn_id,
-                    original_transaction_id=_otid,
+                    original_transaction_id=_event_otid,
                     source="verify_receipt", price_usd=0.0,
                     environment=_environment,
                     offer_id=body.offer_id, **identity.money,
@@ -894,7 +930,7 @@ async def verify_receipt(
         # A verified transaction held elsewhere moves here now, before the
         # read-back, so a carried period end is what the response reports.
         _moved = await plan_moves.move_plan(
-            db, _plan_holders, user.id, identity.verified, request.app.state.tier_config,
+            db, _plan_holders, user.id, _may_move_plan, request.app.state.tier_config,
             otid=_otid)
         # Read back the preserved allocation_resets_at for the response
         cursor = await db.execute(
@@ -977,7 +1013,7 @@ async def verify_receipt(
                 subtype="conversion" if trial_to_paid else None,
                 from_tier=old_tier_name, to_tier=new_tier_name,
                 product_id=_effective_product_id, transaction_id=_txn_id,
-                original_transaction_id=_otid,
+                original_transaction_id=_event_otid,
                 source="verify_receipt",
                 environment=_environment,
                 offer_id=body.offer_id, **identity.money,
@@ -1011,7 +1047,7 @@ async def verify_receipt(
 
     # Read back preserved allocation_resets_at
     _moved = await plan_moves.move_plan(
-        db, _plan_holders, user.id, identity.verified, request.app.state.tier_config,
+        db, _plan_holders, user.id, _may_move_plan, request.app.state.tier_config,
             otid=_otid)
     cursor = await db.execute(
         "SELECT allocation_resets_at FROM users WHERE id = ?",
@@ -1110,6 +1146,21 @@ async def sync_subscription(
         return {"status": "ok", "action": "none", "tier": user.tier}
 
     # Tier mismatch — update (e.g., trial ended and converted to paid)
+    # This call carries no proof of purchase, only the client's word for
+    # which product is active. When purchases must be Apple verified, that
+    # word can keep or lower a plan but never RAISE one: a higher plan is
+    # granted by verify-receipt alone. Without this the dial closes one
+    # door and leaves this one open to the same two requests.
+    _rank = {"free": 0, "plus": 1, "pro": 2, "admin": 3}
+    if (_rank.get(expected_tier, 0) > _rank.get(user.tier, 0)
+            and receipt_verification.require_signed_transaction(
+                request.app.state.remote_configs, get_settings())):
+        logger.warning(
+            "sync-subscription: unverified upgrade refused user=%s from=%s to=%s",
+            user.id[:8], user.tier, expected_tier)
+        return {"status": "ok", "action": "none", "tier": user.tier,
+                "warning": "purchase_not_verified"}
+
     new_tier = tier_config.tiers[expected_tier]
     if body.is_trial and new_tier.trial_cost_limit_usd is not None:
         limit = new_tier.trial_cost_limit_usd

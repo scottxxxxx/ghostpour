@@ -214,7 +214,12 @@ KNOWN_CATEGORIES: dict[str, dict] = {
             "record of, and stored original_transaction_id='0' over a "
             "good id. The tier grant still applied while the enforcement "
             "dial is off, so treat this as 'that subscription may not be "
-            "real', not as a failed request."
+            "real', not as a failed request. When the refused chain was a "
+            "single certificate, details.cert_sha256 is its fingerprint: "
+            "if that is one of the team's own Xcode StoreKit Test "
+            "certificates, list it under verify-receipt."
+            "trusted_storekit_test_certs and those runs verify as "
+            "environment Xcode with no alert."
         ),
     },
     "assn_unmatched": {

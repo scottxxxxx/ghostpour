@@ -168,6 +168,9 @@ async def get_subscription_state(original_transaction_id: str) -> dict | None:
             cand = {
                 "status": status,
                 "product_id": txn.get("productId"),
+                # Read off the Apple-signed transaction, so a caller can
+                # check WHICH app this is for and not take it on trust.
+                "bundle_id": txn.get("bundleId"),
                 "expires_at": _ms_to_iso(txn.get("expiresDate")),
                 "original_purchase_date": _ms_to_iso(txn.get("originalPurchaseDate")),
                 "transaction_id": txn.get("transactionId"),
@@ -184,6 +187,7 @@ async def get_subscription_state(original_transaction_id: str) -> dict | None:
         "status": best["status"],
         "tier": tier,
         "product_id": best.get("product_id"),
+        "bundle_id": best.get("bundle_id"),
         "expires_at": best.get("expires_at"),
         "original_purchase_date": best.get("original_purchase_date"),
         "environment": environment,

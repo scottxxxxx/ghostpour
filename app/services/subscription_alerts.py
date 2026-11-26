@@ -57,7 +57,16 @@ async def notify_purchase(user_id: str, old_tier: str, new_tier: str,
                     "WHERE user_id = ? AND environment IS NOT NULL "
                     "ORDER BY recorded_at DESC LIMIT 1", (user_id,))).fetchone()
                 environment = prior["environment"] if prior else None
-            from app.services.subscriptions import UNVERIFIED
+            from app.services.subscriptions import UNVERIFIED, XCODE
+            if environment == XCODE:
+                # A local StoreKit configuration purchase signed by one of
+                # the team's own test certificates. Nobody subscribed, so
+                # no email and no push (the push rides this same incident).
+                logger.info(
+                    "subscription_alerts: skipping %s alert for %s, Xcode "
+                    "local StoreKit test, not a real purchase",
+                    event_type, user_id[:8])
+                return
             if environment == UNVERIFIED:
                 # The signature failed Apple's chain (e.g. Xcode StoreKit
                 # testing, one self-signed cert). receipt_unverified already

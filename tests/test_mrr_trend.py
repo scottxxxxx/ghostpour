@@ -111,7 +111,7 @@ def test_summary_splits_paid_counts_by_environment(client, tmp_db_path):
             return await subs.summary(db)
 
     s = asyncio.run(_run())
-    assert s["paid_by_env"] == {"production": 1, "sandbox": 1, "unknown": 1}
+    assert s["paid_by_env"] == {"production": 1, "sandbox": 1, "xcode": 0, "unknown": 1}
     assert s["paid_now"] == 1                    # headline is production
     assert s["paid_now_all_envs"] == 3
     assert s["current_mrr_gross_usd"] == 14.99   # pro only, not the other two
