@@ -24,6 +24,8 @@ import re
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 
+from app.services.doc_strings import DocStrings
+
 logger = logging.getLogger("ghostpour.doc_templates")
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -227,20 +229,24 @@ def _dep_code(pred: dict, succ: dict) -> str:
     return "FS"
 
 
-_STATUS_LABELS = {
-    "complete": "Complete", "in_progress": "In Progress",
-    "on_hold": "On Hold", "not_started": "Not Started", "blocked": "Blocked",
-}
+# The English status words. Every renderer reads the request locale's
+# words from doc_strings instead (they are written into cells, the Status
+# dropdown and the formulas that compare against it, all from one dict);
+# this stays as the name the English ones have always had.
+_STATUS_LABELS = DocStrings("en").status_labels()
 
 
 def render_gantt(data: dict, *, today: date | None = None,
-                 history: list[dict] | None = None) -> bytes:
+                 history: list[dict] | None = None,
+                 locale: str | None = None) -> bytes:
     """Deterministic Smartsheet-style Gantt from extracted plan JSON.
     `history` is accepted for renderer-signature parity (the template
-    lane passes it to every renderer) and unused by the simple style."""
+    lane passes it to every renderer) and unused by the simple style.
+    `locale` is the request's output locale: it picks the language of
+    everything the renderer writes itself (see doc_strings)."""
     wb, _ = _build_gantt_wb(
         _split_undated(_with_workdays(_points_are_milestones(data))),
-        today=today)
+        today=today, locale=locale)
     return _serialize_wb(wb)
 
 
@@ -347,7 +353,8 @@ def _split_undated(data: dict) -> dict:
 
 
 def _build_gantt_wb(data: dict, *, today: date | None = None,
-                    detail_cols: bool = False):
+                    detail_cols: bool = False,
+                    locale: str | None = None):
     """Build the Gantt View workbook (shared by the simple and detailed
     renderers; the detailed one appends sheets to the same workbook).
 
@@ -380,6 +387,13 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         return PatternFill(start_color="FF" + hex6, end_color="FF" + hex6,
                            fill_type="solid")
 
+    S = DocStrings(locale)
+    # One dict feeds the Status cells, the dropdown and every formula that
+    # compares against a status word, so they cannot disagree.
+    status_labels = S.status_labels()
+    for _word in status_labels.values():
+        if "," in _word or '"' in _word:
+            raise ValueError(f"status word {_word!r} breaks the dropdown")
     tasks = data.get("tasks") or []
     if not tasks:
         raise ValueError("no tasks extracted")
@@ -422,7 +436,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Gantt View"
+    ws.title = S.t("sheet_gantt")
 
     # As-of stamp + one-line status strip (PM audit 2026-07-23: a plan
     # without a timestamp is a rumor, and the 40-second reader needs a
@@ -441,28 +455,30 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         (t for t in _real if t.get("type") == "milestone"
          and t.get("status") != "complete" and _d(t["start"]) >= today),
         key=lambda t: _d(t["start"]), default=None)
-    _bits = [f"As of the {data.get('meeting_date') or today.isoformat()} "
-             f"standup", f"generated {today.isoformat()}",
-             f"{len(_real)} tasks"]
+    _bits = [S.t("strip_as_of",
+                 date=data.get("meeting_date") or today.isoformat()),
+             S.t("strip_generated", date=today.isoformat()),
+             S.t("strip_tasks", n=len(_real))]
     # date coverage on the export itself (PM review 2026-08-11): an
     # activity nobody dated is not on the timeline, and the reader must
     # see that from the sheet, never discover it later
     _cov = data.get("_date_coverage")
     if _cov and _cov[0] < _cov[1]:
-        _bits.append(f"dates on {_cov[0]} of {_cov[1]} activities")
+        _bits.append(S.t("strip_coverage", dated=_cov[0], total=_cov[1]))
     if _overall is not None:
-        _bits.append(f"{_overall}% complete overall")
+        _bits.append(S.t("strip_overall", pct=_overall))
     # "At risk" is evaluated LIVE against today, not against the meeting the
     # plan came from, which is right for a plan you keep using and confusing
     # for one you read cold: a workbook built from a Jul 20 standup and
     # opened on Jul 31 shows everything due in between as at risk, and the
     # count grows every day the file sits there. So the strip says which
     # date the count is against rather than leaving the reader to assume.
-    _bits.append(f"{_risk_n} at risk as of {today.strftime('%b %d')}"
-                 if _risk_n else f"none at risk as of {today.strftime('%b %d')}")
+    _bits.append(S.t("strip_at_risk", n=_risk_n, date=S.short_date(today))
+                 if _risk_n
+                 else S.t("strip_none_at_risk", date=S.short_date(today)))
     if _next_ms:
-        _bits.append(f"next milestone: {_next_ms['name']} "
-                     f"{_d(_next_ms['start']).strftime('%b %d')}")
+        _bits.append(S.t("strip_next_milestone", name=_next_ms["name"],
+                         date=S.short_date(_d(_next_ms["start"]))))
     strip = ws.cell(2, 2, "  " + "  ·  ".join(_bits))
     strip.font = Font(bold=True, size=9, color="FF3D4653")
     # A:dot B:name C:risk D:status E:start F:end G:predecessors H:chip I:owner
@@ -500,9 +516,9 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         ax = ws.cell(1, col, d)
         ax.number_format = "yyyy-mm-dd"
         if d.weekday() == 0:
-            c = ws.cell(2, col, f"Week of {d.strftime('%b %d')}")
+            c = ws.cell(2, col, S.t("week_of", date=S.short_date(d)))
             c.font = Font(size=8, bold=True)
-        letter = "MTWTFSS"[d.weekday()]
+        letter = S.day_letter(d.weekday())
         c = ws.cell(3, col, letter)
         c.alignment = Alignment(horizontal="center")
         c.font = Font(size=8, bold=True,
@@ -514,12 +530,13 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     # pushed past the axis edge used to vanish silently; now the row's
     # last cell shows a red arrow, live off the End cell.
     ws.column_dimensions[get_column_letter(last_col + 1)].width = 3
-    _heads = [("", 7), ("Task Name", 38), ("At\nRisk", 5), ("Status", 12),
-              ("Start\nDate", 11), ("End\nDate", 11), ("Predecessors", 12),
-              ("", 4), ("Assigned To", 16)]
-    _heads += [("%\nDone", 7)]
+    _heads = [("", 7), (S.t("col_task_name"), 38), (S.t("col_at_risk"), 5),
+              (S.t("col_status"), 12), (S.t("col_start"), 11),
+              (S.t("col_end"), 11), (S.t("col_predecessors"), 12),
+              ("", 4), (S.t("col_assigned_to"), 16)]
+    _heads += [(S.t("col_pct_done"), 7)]
     if detail_cols:
-        _heads += [("Effort", 10), ("Float\nwork days", 9)]
+        _heads += [(S.t("col_effort"), 10), (S.t("col_float"), 9)]
     for col, (head, width) in enumerate(_heads, start=1):
         c = ws.cell(3, col, head)
         c.font = Font(bold=True, size=9)
@@ -529,37 +546,25 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
 
     # status key block — amber header band like the reference
     row = KEY_TOP
-    kc = ws.cell(row, 2, "  STATUS KEY")
+    kc = ws.cell(row, 2, "  " + S.t("key_title"))
     kc.font = Font(bold=True, size=9)
     kc.fill = fill("FDF3E3")
     ws.cell(row, 1).fill = fill("F5A623")
-    for label, key in (("COMPLETED", "complete"), ("IN PROGRESS", "in_progress"),
-                       ("ON HOLD", "on_hold"), ("NOT STARTED", "not_started")):
+    for key in ("complete", "in_progress", "on_hold", "not_started"):
+        label = S.t(f"key_{key}")
         row += 1
         ws.cell(row, 1, "●").font = Font(color="FF" + _C["status"][key], size=11)
         ws.cell(row, 2, f"      {label}").font = Font(size=8)
-    lg = ws.cell(row + 1, 2,
-                 "      █ darker bar section = completed share, drives "
-                 "from % Done (deep red when the task is at risk)")
+    lg = ws.cell(row + 1, 2, "      █ " + S.t("legend_overlay"))
     lg.font = Font(size=8, color="FF" + _C["status"]["complete"])
-    lg2 = ws.cell(row + 2, 2,
-                  "      blank % Done = nobody stated it in a meeting; "
-                  "values are never estimated")
+    lg2 = ws.cell(row + 2, 2, "      " + S.t("legend_blank_pct"))
     lg2.font = Font(size=8, color="FF9AA4AF")
-    lg3 = ws.cell(row + 3, 2,
-                  "      phase % = duration-weighted; unstarted tasks "
-                  "count as 0, Complete tasks as 100")
+    lg3 = ws.cell(row + 3, 2, "      " + S.t("legend_phase_pct"))
     lg3.font = Font(size=8, color="FF9AA4AF")
     if detail_cols:
-        lg4 = ws.cell(row + 4, 2,
-                      "      Float = working days this task can slip before "
-                      "the project end moves; 0 means it is on the critical "
-                      "path (live, recalculates when you edit a date)")
+        lg4 = ws.cell(row + 4, 2, "      " + S.t("legend_float"))
         lg4.font = Font(size=8, color="FF" + _C["risk_done"])
-        lg5 = ws.cell(row + 5, 2,
-                      "      shaded End Date = the meeting stated a condition "
-                      "on that date, not a firm commitment; hover the cell "
-                      "for the condition")
+        lg5 = ws.cell(row + 5, 2, "      " + S.t("legend_conditional"))
         lg5.font = Font(size=8, color="FF9A3412")
     row += 6 if detail_cols else 4
 
@@ -653,9 +658,11 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             c.alignment = Alignment(horizontal="center")
         P = f"${PCT_COL}{r}"
         _in_done = f"{ax}>={E},{ax}<={E}+({F}-{E})*{P}"
-        _riskcond = (f"OR($D{r}=\"Blocked\","
-                     f"AND($D{r}=\"Not Started\",{E}<TODAY()),"
-                     f"AND($D{r}<>\"Complete\",$D{r}<>\"\",{F}<TODAY()))")
+        _riskcond = (f"OR($D{r}=\"{status_labels['blocked']}\","
+                     f"AND($D{r}=\"{status_labels['not_started']}\","
+                     f"{E}<TODAY()),"
+                     f"AND($D{r}<>\"{status_labels['complete']}\","
+                     f"$D{r}<>\"\",{F}<TODAY()))")
         if pct_overlay and risk_aware:
             # At-risk rows mirror the healthy scheme in the red family
             # (Scott 2026-07-23): completed share deep red, remaining
@@ -686,7 +693,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         ind.alignment = Alignment(horizontal="center")
 
     # project row — dates roll up live from the phase rows
-    ws.cell(row, 2, f"  {data.get('project') or 'Project'}").font = \
+    ws.cell(row, 2, f"  {data.get('project') or S.t('project_default')}").font = \
         Font(bold=True, color="FFFFFFFF")
     for c in range(1, FIRST_DAY_COL):
         ws.cell(row, c).fill = fill(_C["project"])
@@ -704,7 +711,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
 
     dv = DataValidation(
         type="list",
-        formula1='"Complete,In Progress,On Hold,Not Started,Blocked"',
+        formula1='"' + ",".join(status_labels.values()) + '"',
         allow_blank=True)
     ws.add_data_validation(dv)
 
@@ -725,7 +732,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         fl = ws.cell(row, 3, "⚑" if risky else "⚐")
         fl.font = Font(color="FF" + (_C["risk"] if risky else "9AA4AF"))
         fl.alignment = Alignment(horizontal="center")
-        st = ws.cell(row, 4, _STATUS_LABELS.get(t.get("status", ""), ""))
+        st = ws.cell(row, 4, status_labels.get(t.get("status", ""), ""))
         st.font = Font(size=8, color="FF" + text_hex)
         dv.add(f"D{row}")
         date_cells(row, _d(t["start"]), _d(t["end"]), hex_color=text_hex,
@@ -738,7 +745,8 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         if cond:
             ec = ws.cell(row, 6)
             ec.fill = fill(_C["conditional"])
-            ec.comment = Comment(f"Conditional: {cond}", "Shoulder Surf")
+            ec.comment = Comment(S.t("comment_conditional", cond=cond),
+                                 "Shoulder Surf")
             ec.comment.width, ec.comment.height = 240, 60
         # Predecessors: Smartsheet nomenclature, dates-derived (FS
         # default; SS/FF only when the extracted dates say so)
@@ -804,7 +812,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
         ws.cell(row, 1, "●").font = Font(
             color="FF" + _C["status"].get(phase.get("status", "in_progress"), _C["bar"]))
         ws.cell(row, 2, f"  −  {phase['name']}").font = Font(bold=True, size=9)
-        ws.cell(row, 4, _STATUS_LABELS.get(phase.get("status", ""), "")).font = Font(size=8)
+        ws.cell(row, 4, status_labels.get(phase.get("status", ""), "")).font = Font(size=8)
         _kids = children.get(phase["id"], [])
         _phase_formulas = None
         if _kids and _deps_acyclic:
@@ -826,9 +834,10 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
             pf = ('=IF(SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn}))=0,"",'
                   'SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn})*'
                   '(($J{c1}:$J{cn})+($J{c1}:$J{cn}="")*'
-                  '($D{c1}:$D{cn}="Complete")))/'
+                  '($D{c1}:$D{cn}="{done}")))/'
                   'SUMPRODUCT(($F{c1}:$F{cn}-$E{c1}:$E{cn})))'
-                  ).replace("{c1}", str(c1)).replace("{cn}", str(cn))
+                  ).replace("{c1}", str(c1)).replace("{cn}", str(cn)
+                  ).replace("{done}", status_labels["complete"])
             ppc = ws.cell(row, 10, pf)
             ppc.number_format = "0%"
             ppc.font = Font(bold=True, size=8)
@@ -935,7 +944,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
     # thin one.
     if last_row > first_bar_row:
         dot_range = f"A{first_bar_row + 1}:A{last_row}"
-        for key, label in _STATUS_LABELS.items():
+        for key, label in status_labels.items():
             ws.conditional_formatting.add(dot_range, FormulaRule(
                 formula=[f'$D{first_bar_row + 1}="{label}"'],
                 font=Font(color="FF" + _C["status"].get(key, _C["bar"]))))
@@ -966,7 +975,7 @@ def _build_gantt_wb(data: dict, *, today: date | None = None,
                    f" {_ind_L}{first_bar_row}:{_ind_L}{last_row}"
                    f" J{first_bar_row}:J{last_row}")}
     return wb, {"row_of": row_of, "first_bar_row": first_bar_row,
-                "last_row": last_row, "sheet": ws.title}
+                "last_row": last_row, "sheet": ws.title, "strings": S}
 
 
 def _serialize_wb(wb) -> bytes:
@@ -1010,24 +1019,15 @@ def _norm_quote(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
 
 
-_FIELD_LABELS = {
-    "end": "Due date", "end_date": "Due date", "due": "Due date",
-    "start": "Start date", "start_date": "Start date",
-    "owner": "Owner", "status": "Status", "effort": "Effort estimate",
-    "percent_complete": "Progress", "percent": "Progress",
-    "depends_on": "Dependency", "name": "Task", "conditional": "Condition",
-}
-
 _DATE_FIELDS = {"end", "end_date", "due", "start", "start_date"}
 
 
-def _field_label(field: str) -> str:
+def _field_label(field: str, strings: DocStrings | None = None) -> str:
     """Receipts is a customer-facing sheet: our schema keys are not.
     Anything unmapped falls back to the raw key made readable rather than
     dropped, so a new schema field surfaces as odd wording, never as a
-    blank cell."""
-    key = str(field or "").strip()
-    return _FIELD_LABELS.get(key.lower(), key.replace("_", " ").capitalize())
+    blank cell. The words live in doc_strings, per locale."""
+    return (strings or DocStrings("en")).field_label(field)
 
 
 def _commitments(task: dict) -> list[dict]:
@@ -1357,16 +1357,20 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
         return
 
     row_of = layout["row_of"]
+    # The Gantt View's ACTUAL tab title, whatever language it is in. Every
+    # cross-sheet formula below quotes it, so they are read off the sheet
+    # rather than out of the strings table.
     gsheet = layout["sheet"]
+    S = layout["strings"]
     rows = [row_of[t["id"]] for t in tasks if t.get("id") in row_of]
     if not rows:
         return
 
     # "Progress", not "S-Curve": the tab name is a claim too, and this
     # sheet is not an EVM S-curve (PM review 2026-08-11)
-    sc = wb.create_sheet("Progress")
+    sc = wb.create_sheet(S.t("sheet_progress"))
     navy = "1F3A5F"
-    sc["A1"] = "Reported progress (from meetings)"
+    sc["A1"] = S.t("progress_title")
     sc["A1"].font = Font(bold=True, size=13, color="FF" + navy)
     # What the weighting is actually based on, said out loud. Every series
     # here weighs a task by its scheduled working days, which is a proxy for
@@ -1381,31 +1385,12 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     # auto-grows its row, and the default bottom anchor made an undersized
     # row show only its LAST lines, so the printed sheet opened the note
     # mid sentence (PM review round two, 2026-08-12).
-    sc["A2"] = ("Baseline is the first plan version and never moves. "
-                "Every line here is a share of the plan as it stands "
-                "today, the baseline included, so a first plan that "
-                "covered less work than today's tops out below 100% "
-                "instead of finishing at it. "
-                "Current plan follows the dates on the Gantt View and "
-                "redraws when you edit them. Reported is % complete as of "
-                "each meeting, held flat between meetings because that is "
-                "all the meetings said, and it stops at the data date. "
-                "The vertical line marks the last meeting that reported "
-                "progress. Right of that line nothing has reported yet, so "
-                "the chart shows plan only, drawn dashed. The dots are the "
-                "meetings themselves. This is a meeting-derived progress "
-                "curve measured against the plan as it stands today, not "
-                "an earned-value S-curve, so adding scope raises what is "
-                "left rather than pushing the line back down.")
+    sc["A2"] = S.t("progress_note", gantt=gsheet)
     sc["A2"].font = Font(size=9, color="FF666666", italic=True)
     sc["A2"].alignment = Alignment(wrap_text=True, vertical="top")
     sc.merge_cells("A2:G2")
     sc.row_dimensions[2].height = 80
-    sc["A3"] = (
-        f"Weighting: every task counts for its scheduled working days, "
-        f"which stands in for size. {_stated} of {len(_real)} tasks had an "
-        f"effort figure stated in a meeting; none of the numbers here are "
-        f"weighted by it.")
+    sc["A3"] = S.t("progress_weighting", stated=_stated, total=len(_real))
     sc["A3"].font = Font(size=8, color="FF9AA4AF", italic=True)
     sc["A3"].alignment = Alignment(wrap_text=True, vertical="top")
     sc.merge_cells("A3:G3")
@@ -1415,10 +1400,9 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     # hidden (PM review 2026-08-11)
     _dated_n, _total_n = (data.get("_date_coverage")
                           or (len(_real), len(_real)))
-    _cov_line = f"Date coverage: dates on {_dated_n} of {_total_n} activities."
+    _cov_line = S.t("progress_coverage", dated=_dated_n, total=_total_n)
     if _dated_n < _total_n:
-        _cov_line += (" Activities the meetings never dated are not on the "
-                      "timeline and not in these curves.")
+        _cov_line += S.t("progress_coverage_gap")
     sc["A4"] = _cov_line
     sc["A4"].font = Font(size=8, italic=True, bold=_dated_n < _total_n,
                          color="FF9A3412" if _dated_n < _total_n
@@ -1433,9 +1417,11 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     sc["J1"] = "=" + denom
     sc.column_dimensions["J"].hidden = True
 
-    hdr = ["Week ending", "First plan (baseline)", "Current plan",
-           "Plan after data date (planned only)", "Reported (from meetings)",
-           "At a meeting", "Data date"]
+    _hdr_keys = ["progress_col_week", "progress_col_baseline",
+                 "progress_col_current", "progress_col_after",
+                 "progress_col_reported", "progress_col_meeting",
+                 "progress_col_data_date"]
+    hdr = [S.t(k) for k in _hdr_keys]
     for c, h in enumerate(hdr, start=1):
         cell = sc.cell(5, c, h)
         cell.font = Font(bold=True, size=9, color="FFFFFFFF")
@@ -1487,7 +1473,7 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
         # the Planned formula needs moves to the hidden helper column, which
         # formulas read happily. It cannot go the other way round: a chart
         # will not plot categories out of a hidden column.
-        dc = sc.cell(r, 1, wk.strftime("%b %-d"))
+        dc = sc.cell(r, 1, S.short_date(wk, pad=False))
         dc.font = Font(size=8)
         dc.alignment = Alignment(horizontal="center")
         hd = sc.cell(r, 10, wk)
@@ -1610,8 +1596,8 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
     # entries that fell off the end were the real ones, which is how
     # Reported (the green line) ended up plotted with nothing naming it.
     # Drop the two helpers so every line a reader can see is named.
-    _helpers = [i for i, _h in enumerate(hdr[1:])
-                if _h in ("At a meeting", "Data date")]
+    _helpers = [i for i, _k in enumerate(_hdr_keys[1:])
+                if _k in ("progress_col_meeting", "progress_col_data_date")]
     if _helpers:
         chart.legend.legendEntry = [LegendEntry(idx=i, delete=True)
                                     for i in _helpers]
@@ -1658,10 +1644,8 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
                                                    w=12700)))
     sc.add_chart(chart, "I5")
     if not base_tasks:
-        sc.cell(last + 2, 1,
-                "Baseline appears once this project has a second plan "
-                "version to compare against.").font = Font(
-                    size=8, color="FF9AA4AF", italic=True)
+        sc.cell(last + 2, 1, S.t("progress_baseline_pending")).font = Font(
+            size=8, color="FF9AA4AF", italic=True)
     # Print setup, same rationale as the Gantt View's: a print-to-PDF of
     # this sheet must come out as ONE page carrying the title, the notes,
     # the coverage line, the table and the WHOLE chart. Without it the
@@ -1677,7 +1661,8 @@ def _build_scurve_sheet(wb, data: dict, history: list[dict] | None,
 
 
 def render_gantt_detailed(data: dict, *, today: date | None = None,
-                          history: list[dict] | None = None) -> bytes:
+                          history: list[dict] | None = None,
+                          locale: str | None = None) -> bytes:
     """Detailed variant, LEAN (Scott 2026-07-21): the Gantt View plus
     exactly two sheets, Slip and Receipts. Everything task-level lives ON
     the timeline view: live dependency-driven dates, % Done and Effort
@@ -1697,7 +1682,9 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
     from openpyxl.worksheet.hyperlink import Hyperlink
 
     data = _split_undated(_with_workdays(_points_are_milestones(data)))
-    wb, _layout = _build_gantt_wb(data, today=today, detail_cols=True)
+    wb, _layout = _build_gantt_wb(data, today=today, detail_cols=True,
+                                  locale=locale)
+    S = _layout["strings"]
     tasks = data.get("tasks") or []
     rows = [t for t in tasks if t.get("type") != "phase"]
 
@@ -1746,22 +1733,18 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
             receipts.append((f"R{len(receipts) + 1}", t, ev))
 
     # ---- Slip sheet (v2: snapshot history) ----
-    sl = wb.create_sheet("Slip")
-    sl["A1"] = "Slip, how due dates moved across plan versions"
+    sl = wb.create_sheet(S.t("sheet_slip"))
+    sl["A1"] = S.t("slip_title")
     sl["A1"].font = Font(bold=True, size=13, color="FF" + navy)
-    sl["A2"] = ("First committed is the earliest due date anyone stated for "
-                "the task, taken from the meetings themselves; where nobody "
-                "stated one, it falls back to the earliest generated plan "
-                "that tracked the task. Variance is current minus first "
-                "committed: positive is late, negative is early. The trail "
-                "shows each move, the meeting it came from, and the reason "
-                "when somebody gave one.")
+    sl["A2"] = S.t("slip_note")
     sl["A2"].font = sub_font
     sl["A2"].alignment = Alignment(wrap_text=True)
     sl.merge_cells("A2:H2")
     sl.row_dimensions[2].height = 26
-    slip_heads = ["Task", "Owner", "First committed", "As of", "Current due",
-                  "Times moved", "Variance (days)", "Trail"]
+    slip_heads = [S.t(k) for k in (
+        "slip_col_task", "slip_col_owner", "slip_col_first",
+        "slip_col_as_of", "slip_col_current", "slip_col_moves",
+        "slip_col_variance", "slip_col_trail")]
     for ci, h in enumerate(slip_heads, 1):
         c = sl.cell(4, ci, h)
         c.font = hdr_font
@@ -1777,8 +1760,9 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         bc = sl.cell(ri, 3, srow["baseline"])
         bc.number_format = "yyyy-mm-dd"
         _as_of = srow["baseline_as_of"]
-        sl.cell(ri, 4, "first tracked now" if srow["first_tracked"]
-                else (_as_of.strftime("%Y-%m-%d") if _as_of else "stated")
+        sl.cell(ri, 4, S.t("slip_first_tracked") if srow["first_tracked"]
+                else (_as_of.strftime("%Y-%m-%d") if _as_of
+                      else S.t("slip_stated"))
                 ).font = Font(size=8, color="FF666666")
         cc = sl.cell(ri, 5, srow["current"])
         cc.number_format = "yyyy-mm-dd"
@@ -1789,11 +1773,12 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
         sc.alignment = Alignment(horizontal="center")
         parts = []
         for item in srow["trail"]:
-            seg = item["date"].strftime("%b %d")
+            seg = S.short_date(item["date"])
             if item.get("current"):
-                seg += " (current)"
+                seg = S.t("slip_trail_current", date=seg)
             elif item["as_of"]:
-                seg += f" (said {item['as_of'].strftime('%b %d')})"
+                seg = S.t("slip_trail_said", date=seg,
+                          said=S.short_date(item["as_of"]))
             if item.get("reason"):
                 seg += f": {item['reason']}"
             parts.append(seg)
@@ -1820,34 +1805,26 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
                        font=Font(bold=True, color="FF1E7A3C")))
     note_r = 5 + len(slip_rows) + 1
     if not any(s["spoken_any"] for s in slip_rows) and not (history or []):
-        sl.cell(note_r, 1,
-                "Nobody stated a due date more than once in these meetings, "
-                "so there is nothing to compare yet: every future gantt for "
-                "this project adds a dated version to compare "
-                "against.").font = sub_font
+        sl.cell(note_r, 1, S.t("slip_nothing_yet")).font = sub_font
     elif not (history or []):
-        sl.cell(note_r, 1,
-                "This is the first generated plan for this project, so the "
-                "trail above is what people said in the meetings. Future "
-                "gantts add plan versions to it.").font = sub_font
+        sl.cell(note_r, 1, S.t("slip_first_plan")).font = sub_font
     for col, w in {"A": 30, "B": 14, "C": 12, "D": 15, "E": 12, "F": 11,
                    "G": 10, "H": 52}.items():
         sl.column_dimensions[col].width = w
     sl.freeze_panes = "A5"
 
     # ---- Receipts sheet ----
-    rc = wb.create_sheet("Receipts")
-    rc["A1"] = "Receipts, the meeting line behind every value"
+    rc = wb.create_sheet(S.t("sheet_receipts"))
+    rc["A1"] = S.t("receipts_title")
     rc["A1"].font = Font(bold=True, size=13, color="FF" + navy)
-    rc["A2"] = ("The plan is generated from the meetings, so provenance is "
-                "automatic. Quotes are verbatim from the source content.")
+    rc["A2"] = S.t("receipts_note")
     rc["A2"].font = sub_font
-    rc["A3"] = ("Forwarding note: this sheet quotes people by name. "
-                "Consider removing it before sending the workbook outside "
-                "the team.")
+    rc["A3"] = S.t("receipts_forwarding")
     rc["A3"].font = Font(size=9, bold=True, color="FF9A3412")
-    for ci, h in enumerate(["Ref", "Task", "Supports", "Meeting", "Standing",
-                            "Speaker", "Verbatim line"], 1):
+    for ci, h in enumerate([S.t(k) for k in (
+            "receipts_col_ref", "receipts_col_task", "receipts_col_supports",
+            "receipts_col_meeting", "receipts_col_standing",
+            "receipts_col_speaker", "receipts_col_quote")], 1):
         c = rc.cell(4, ci, h)
         c.font = hdr_font
         c.fill = hdr_fill
@@ -1869,11 +1846,15 @@ def render_gantt_detailed(data: dict, *, today: date | None = None,
                 ref=_nc.coordinate, location=f"'{_layout['sheet']}'!B{_r}",
                 display=str(t["name"]))
             _nc.font = Font(size=9, color="FF1F4E9C", underline="single")
-        rc.cell(ri, 3, _field_label(ev.get("field"))).font = Font(size=9)
+        rc.cell(ri, 3, _field_label(ev.get("field"), S)).font = Font(size=9)
         md = str(ev.get("meeting_date") or "").strip()
         rc.cell(ri, 4, md).font = Font(size=8, color="FF666666")
+        # `standing` is OUR key ("current" or "superseded", set above),
+        # so the colour keys off it and only the cell text is translated.
         standing = str(ev.get("standing") or "")
-        sc_cell = rc.cell(ri, 5, standing)
+        sc_cell = rc.cell(ri, 5, S.t(f"standing_{standing}")
+                          if standing in ("current", "superseded")
+                          else standing)
         sc_cell.font = Font(size=8, italic=True,
                             color="FF9A3412" if standing == "superseded"
                             else "FF666666")
