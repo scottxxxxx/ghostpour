@@ -53,6 +53,10 @@ async def _write_with_lock_retry(db: aiosqlite.Connection, sql: str, params: tup
 # and the request IP is stamped to a place (Scott, 2026-10-05). i765 joined
 # 2026-10-09 with the same columns, so one dashboard panel reads both.
 PLACE_APPS = frozenset({"n400", "i765"})
+# Apps whose calls record the request IP's COUNTRY and nothing finer: no
+# region, no city, no network key (Scott, 2026-11-26: "yes record ip country
+# for shoulder surf"). It puts them on the Usage by place world map.
+COUNTRY_ONLY_APPS = frozenset({"shouldersurf"})
 _N400_PLACE_APPS = PLACE_APPS
 _JURISDICTION_RE = re.compile(r"^US-(?:[A-Z]{2}|unknown)$")
 _UUID_RE = re.compile(
@@ -80,7 +84,8 @@ def _short_text(value: object, limit: int) -> str | None:
 
 def n400_place_columns(request: ChatRequest, app_id: str | None) -> tuple:
     """(jurisdiction, case_id, geo_country, geo_region, geo_city, form_city,
-    ip_hash) for an N-400 call, all None for every other app.
+    ip_hash) for an N-400 or I-765 call, the IP country alone for a
+    COUNTRY_ONLY_APPS call, all None for every other app.
 
     The client contract (auditor, 2026-10-05): metadata.jurisdiction
     ("US-XX" or "US-unknown"), metadata.case_id (a random UUID per
@@ -94,6 +99,9 @@ def n400_place_columns(request: ChatRequest, app_id: str | None) -> tuple:
     geo_* values are not the client's: the chat router stamps them from the
     request IP after discarding anything the client sent under those keys.
     """
+    if app_id in COUNTRY_ONLY_APPS:
+        return (None, None, _short_text(request.get_meta("geo_country"), 8),
+                None, None, None, None)
     if app_id not in _N400_PLACE_APPS:
         return (None,) * 7
     jur = request.get_meta("jurisdiction")
