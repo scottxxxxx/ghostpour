@@ -16,8 +16,13 @@ ONLY when verified. Receipt enforcement is off in prod, so an unverified
 claim is still accepted; letting one downgrade another account would let
 anyone who learns a transaction id strip a stranger's plan. An unverified
 claim keeps the old behaviour: the id detaches, nothing is downgraded.
-Xcode's local StoreKit file signs with a one-certificate chain and is never
-verified, so this can only be exercised on sandbox or TestFlight.
+Xcode's local StoreKit file signs with a one-certificate chain. Since
+2026-11-25 a listed test certificate makes such a transaction verified with
+environment "Xcode", but verify-receipt never hands its ids to this module:
+they are a per-device counter (0, 1, 2), so two test devices holding "1" are
+not one purchase. An Apple lookup of an unsigned claim (`via_lookup`) does
+not move a plan either, because naming an id is not holding the purchase.
+So this can still only be exercised on sandbox or TestFlight.
 """
 
 from __future__ import annotations
