@@ -633,7 +633,7 @@
     <div id="usage-by-place">
     <div id="usage-by-place-state" class="panel-state"><span id="usage-by-place-state-text"></span><button id="usage-by-place-state-retry" class="refresh-btn" onclick="panelRetry('usage-by-place')" style="display:none">Retry</button></div>
     <h3>Usage by Place</h3>
-    <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">Spend, cases (distinct case ids) and users by where the call came from. Three sources: the state picked in the app, the applicant's city the app sends, and the request IP. N-400 only today; the app filter applies. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
+    <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">Spend, cases (distinct case ids) and users by where the call came from. Three sources: the state picked in the app, the applicant's city the app sends, and the request IP. The world map is the IP country, the United States map is the state picked. N-400 and I-765 only today (Shoulder Surf and Tech Rehearsal calls carry no place); the app filter applies. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
     <div class="dash-grid wide">
     <div class="card dash-card span-2">
       <div id="place-map-toggle" style="margin-bottom:6px"></div>
@@ -5048,11 +5048,25 @@ async function _loadUsageByPlace(days, app) {
     // not be opened at all.
     if (/^[A-Z]{2}$/.test(code)) byState['US-' + code] = (byState['US-' + code] || 0) + (x.users || 0);
   });
-  const usTotal = Object.values(byState).reduce((a, b) => a + b, 0);
+  // The world view is the request IP's country. It used to be fed only the
+  // picked states summed into {US: n}, so it could never light any country
+  // but the US (Scott, 2026-11-26). A country with no IP rows but picked
+  // states (old rows) still falls back to that sum for the US.
+  const byCountry = placeCountryCounts(d.by_ip_country, Object.values(byState).reduce((a, b) => a + b, 0));
   // State-level data opens on the state-level view (first paint only; the
   // toggle is the operator's after that).
   if (!_heatMaps['place-map']) _heatMaps['place-map'] = {view: 'us', map: null, selected: null, active: false};
-  renderHeatMap('place-map', usTotal ? {US: usTotal} : {}, byState, 'user');
+  renderHeatMap('place-map', byCountry, byState, 'user');
+}
+// Pure: users per ISO country for the place map's world view.
+function placeCountryCounts(rows, usFallback) {
+  const out = {};
+  (rows || []).forEach(x => {
+    const c = String(x.geo_country || '').toUpperCase();
+    if (/^[A-Z]{2}$/.test(c)) out[c] = (out[c] || 0) + (x.users || 0);
+  });
+  if (!out.US && usFallback) out.US = usFallback;
+  return out;
 }
 
 // --- Performance tab: latency and first-token time over time, by model and

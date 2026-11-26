@@ -760,3 +760,25 @@ def test_no_dashes_as_punctuation_in_the_new_copy():
     assert em not in js and en not in js
     css = src[src.index("/* Performance tab */"):src.index("/* Period selector */")]
     assert em not in css and en not in css
+
+
+# ── Usage by place: the world view is fed the IP country ───────────────────
+# It was fed {US: picked-state users} and nothing else, so no other country
+# could ever light (Scott, 2026-11-26).
+
+@node
+def test_the_place_world_map_counts_every_ip_country():
+    rows = [{"geo_country": "US", "users": 7}, {"geo_country": "in", "users": 1},
+            {"geo_country": "US", "users": 2}, {"geo_country": None, "users": 4},
+            {"geo_country": "USA", "users": 9}]
+    assert _node(f"placeCountryCounts({json.dumps(rows)}, 5)", "placeCountryCounts") == {
+        "US": 9, "IN": 1}
+    # Rows from before the IP columns existed: picked states still light the US.
+    assert _node("placeCountryCounts([], 5)", "placeCountryCounts") == {"US": 5}
+    assert _node("placeCountryCounts(undefined, 0)", "placeCountryCounts") == {}
+
+
+def test_the_place_map_is_drawn_from_the_country_counts():
+    src = open(HTML).read()
+    assert "placeCountryCounts(d.by_ip_country," in src
+    assert "renderHeatMap('place-map', byCountry, byState, 'user')" in src

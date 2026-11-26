@@ -386,6 +386,18 @@ def test_the_place_panel_groups_by_each_source_and_obeys_the_app_filter(client, 
     assert (tx["app_id"], tx["calls"], tx["cases"], tx["users"]) == ("n400", 2, 1, 1)
     assert (d["by_city"][0]["jurisdiction"], d["by_city"][0]["form_city"]) == ("US-TX", "Austin")
     assert d["by_ip_location"][0]["geo_region"] == "Texas"
+    # The world map's feed: one row per IP country, a user counted once even
+    # when their calls came from two cities there.
+    with _served(client), patch("app.services.geoip.lookup",
+                                return_value={"country": "US", "region": "Texas", "city": "Dallas"}):
+        _chat(client, h, jurisdiction="US-TX", case_id=case)
+    with _served(client), patch("app.services.geoip.lookup",
+                                return_value={"country": "IN", "region": "Kerala", "city": "Kochi"}):
+        _chat(client, h, jurisdiction="US-TX", case_id=case)
+    d = client.get("/webhooks/admin/usage-by-place?days=7", headers=key).json()
+    assert len([x for x in d["by_ip_location"] if x["geo_country"] == "US"]) == 2
+    assert {x["geo_country"]: (x["users"], x["calls"]) for x in d["by_ip_country"]} == {
+        "US": (1, 3), "IN": (1, 1)}
     only_ss = client.get("/webhooks/admin/usage-by-place?days=7&app=shouldersurf", headers=key).json()
     assert only_ss["by_jurisdiction"] == []
 
