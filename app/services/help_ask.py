@@ -62,7 +62,9 @@ MODEL_TIMEOUT_SECONDS = 20.0
 # The dials and their bounds. A value outside its bounds is ignored (the
 # default stands) and logged, the cq-recall rule.
 DEFAULTS = {
-    "max_output_tokens": 400,
+    # 400 cut the first real answer off mid tool call (pt-BR, 2026-11-26:
+    # out=400, reply unreadable, fallback served).
+    "max_output_tokens": 800,
     "per_device_per_hour": 10,
     "per_device_per_day": 30,
     "per_ip_per_hour": 30,
@@ -322,6 +324,9 @@ def build_request(cfg: HelpAskConfig, *, question: str, articles: list[dict],
         max_tokens=cfg.max_output_tokens,
         thinking="disabled",
         tools=[ANSWER_TOOL],
+        # The tool call is the only reply we read, so require it. Left to
+        # choose, a model may write prose first and spend the output cap on it.
+        tool_choice={"type": "tool", "name": TOOL_NAME},
         call_type=CALL_TYPE,
         prompt_mode="HelpAsk",
     )
