@@ -150,9 +150,10 @@ def summarize_help(views: list[tuple[str, dict]]) -> dict:
 
 # Outcomes of a Help Ask call that reached an answer (help_ask_events).
 # "fallback" is a reply GP could not read or that failed a guard: the person
-# was shown the server's own "not covered" line, but it says nothing about
-# whether Help has the answer, so it is counted apart and kept out of the
-# not-covered list.
+# got a 503 and saw the article list alone (or, for a not-covered reply with
+# a made up address, the server's own "not covered" line). It says nothing
+# about whether Help has the answer, so it is counted apart and kept out of
+# the not-covered list.
 ASK_ANSWERED = ("answered", "not_covered", "fallback")
 TOP_UNCOVERED = 50
 

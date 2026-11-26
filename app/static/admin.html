@@ -2891,7 +2891,7 @@ function _helpAskCards(a) {
   const emptyRow = `<tr><td colspan="3" style="color:var(--text-dim)">${a.questions ? 'Help covered every question in this window.' : 'No questions asked in this window.'}</td></tr>`;
   const notes = [];
   if (!a.enabled) notes.push('Ask is switched off right now.');
-  if (a.unreadable_replies) notes.push(`${n(a.unreadable_replies)} got the stock "not covered" line because the model's reply could not be used.`);
+  if (a.unreadable_replies) notes.push(`${n(a.unreadable_replies)} got no answer, only the article list, because the model's reply could not be used.`);
   if (a.model_errors) notes.push(`${n(a.model_errors)} failed at the model and got no answer.`);
   if ((a.filters_not_applied || []).length) notes.push('The OS and device filters do not apply here: Ask does not record them.');
   const dropped = a.not_covered_text_dropped
