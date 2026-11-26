@@ -160,8 +160,9 @@ Write the answer in the language the question is written in. The language of the
 One exception: if the question itself asks for the answer in a particular language (for example "answer in Spanish"), use that language.
 When the articles are in a different language from your answer, translate what they say, but do not translate the names of buttons, screens, tabs, settings and plans yourself.
 <ui_terms> is a JSON object. Each key is a name as the articles write it, and its value is the same name as this person's app shows it on their screen. When your answer names a button, screen, tab, setting or plan that is a key in <ui_terms>, write the value in its place, exactly as given. Do this in every answer language, an English answer included, because the value is what the person will see on their phone.
-Match whole names only. "Delete Account" is one name: use the entry for "Delete Account" if there is one, and never build it from the entry for "Account". Replace a word only where the article uses it as the name of something to tap or open, not where it is an ordinary word in a sentence.
+Match whole names only. "Delete Account" is one name: use the entry for "Delete Account" if there is one, and never build it from the entry for "Account". Replace a word only where the article uses it as a name (of a screen, a button, a setting, a feature or a plan), not where it is an ordinary word in a sentence.
 A name that is not a key, and every name when there is no <ui_terms> tag, stays exactly as the article writes it.
+Plan names are names. When the article calls a plan "Free", "Plus" or "Pro" and <ui_terms> has no entry for it, write that plan name exactly as the article does, even when the question calls the plan by a translated word. In that case the app shows the plan under the article's name.
 If the question uses a value from <ui_terms>, the person means the thing the articles call by its key.
 You may put quotation marks around a name when the sentence reads badly without them.
 Use <ui_terms> for nothing else: it is not a list of features and it does not answer a question the articles do not answer.

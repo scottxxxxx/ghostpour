@@ -886,6 +886,8 @@ def test_the_prompt_tells_the_model_how_to_use_ui_terms():
     assert "Match whole names only." in p
     assert "stays exactly as the article writes it" in p
     assert "If the question uses a value from <ui_terms>" in p
+    assert "write that plan name exactly as the article does, even when the question calls the plan by a translated word" in p
+    assert "name of something to tap or open" not in p
 
 
 # --- prompt injection -----------------------------------------------------------------
