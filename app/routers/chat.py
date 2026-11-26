@@ -4583,12 +4583,20 @@ async def _chat_impl(
                     None)
                 if _emitted is None:
                     raise ValueError("contract lane: no tool call in response")
-                _plan = plan_from_contract(_c, _emitted)
+                # `_effective_locale` is the one locale resolution this
+                # turn has (metadata/top-level `locale`, else
+                # Accept-Language), the same value the language directive
+                # was built from. The rows are the model's and already in
+                # that language; this is what puts OUR column headers and
+                # cover sheet labels in it too (doc_strings).
+                _plan = plan_from_contract(_c, _emitted,
+                                           locale=_effective_locale)
                 if reroute_on_model_signal(_plan) is not None:
                     # The model says this needs real computation. Better
                     # to say so than to render values it guessed.
                     raise ValueError("contract lane: model declared computation")
-                _bytes = await asyncio.to_thread(render_workbook, _plan)
+                _bytes = await asyncio.to_thread(
+                    render_workbook, _plan, locale=_effective_locale)
                 _row = await _staging.stage(
                     db, user_id=user.id, app_id=app_id,
                     name=_plan.get("filename") or f"{_c.filename_hint}.xlsx",
@@ -4638,8 +4646,14 @@ async def _chat_impl(
                 from app.services import plan_snapshots as _snaps
                 _history = await _snaps.history(
                     db, user_id=user.id, project_id=body.project_id)
+                # locale: the same `_effective_locale` the language
+                # directive used. Without it every tab name, header,
+                # legend line and status word the renderer writes itself
+                # was English under a plan in the user's language (SS
+                # report, pt-BR account, tabs "Slip" and "Receipts").
                 _bytes = await asyncio.to_thread(
-                    _t["renderer"], _plan, history=_history)
+                    _t["renderer"], _plan, history=_history,
+                    locale=_effective_locale)
                 _row = await _staging.stage(
                     db, user_id=user.id, app_id=app_id,
                     name=artifact_filename(_t, _plan),
