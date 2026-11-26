@@ -669,6 +669,14 @@
         <th>Scenario</th><th>Requests</th><th>Tokens</th><th>Cost</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
+    <div id="request-types">
+    <div id="request-types-state" class="panel-state"><span id="request-types-state-text"></span><button id="request-types-state-retry" class="refresh-btn" onclick="panelRetry('request-types')" style="display:none">Retry</button></div>
+      <h3 style="margin-top:24px;">Requests by Type</h3>
+      <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">What kind of conversation each request belonged to and which step of it, from the labels the app sends. Tech Rehearsal only today. "not sent" is a label the app does not send on that call yet.</p>
+      <div class="table-wrap"><table id="request-type-table"><thead><tr>
+        <th>App</th><th>Conversation</th><th>Step</th><th>Mode</th><th>Phase</th><th>Round</th><th>Built from</th><th>Practice focus</th><th>Requests</th><th>Cost</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
   </div>
 
   <!-- Users -->
@@ -4775,6 +4783,7 @@ async function refresh(filterChanged = false) {
   // itself and an open user detail re-fetches its own user, so a failed
   // group fetch must not stop them.
   loadUsageByPlace(days, app);
+  loadRequestTypes(days, app);
   if (_openDetailUserId) {
     showUserDetail(_openDetailUserId, _openDetailEmail);
   }
@@ -4815,7 +4824,7 @@ async function refresh(filterChanged = false) {
     // Model table
     const mtbody = document.querySelector('#model-table tbody');
     mtbody.innerHTML = dash.by_model.map(m => `<tr>
-      <td>${m.provider}</td><td class="mono">${m.model}</td><td>${fmt(m.requests)}</td>
+      <td>${m.provider}</td><td class="mono">${m.model}${m.separate_ledger ? ' <span class="dash-note" title="Jev judgments are billed in their own ledger and are not in the usage totals">own ledger</span>' : ''}</td><td>${fmt(m.requests)}</td>
       <td>${fmt(m.input_tokens)}</td><td>${fmt(m.output_tokens)}</td>
       <td>${fmtCost(m.cost_usd)}</td><td>${fmtMs(m.avg_latency_ms)}</td>
     </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-dim)">No usage data yet</td></tr>';
@@ -4844,6 +4853,7 @@ async function refresh(filterChanged = false) {
       <td>${s.scenario}</td><td>${fmt(s.requests)}</td><td>${fmt(s.tokens)}</td><td>${fmtCost(s.cost_usd)}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-dim)">No scenario data yet</td></tr>';
   });
+
 
   // The Performance tab no longer reads dash.latency_percentiles (one list
   // over the whole window, no time axis). It loads its own bucketed series
@@ -5058,6 +5068,30 @@ async function _loadUsageByPlace(days, app) {
   if (!_heatMaps['place-map']) _heatMaps['place-map'] = {view: 'us', map: null, selected: null, active: false};
   renderHeatMap('place-map', byCountry, byState, 'user');
 }
+// Requests by Type (Scott, 2026-11-26): its own route, so it loads and
+// fails on its own like Usage by Place.
+function loadRequestTypes(days, app) {
+  return withPanelState('request-types', () => loadRequestTypes(days, app), () => _loadRequestTypes(days, app));
+}
+async function _loadRequestTypes(days, app) {
+  const d = await adminFetch(`/webhooks/admin/request-types?days=${days}${app}`);
+  const body = document.querySelector('#request-type-table tbody');
+  if (body) body.innerHTML = requestTypeRows(d.by_request_type || [])
+    || '<tr><td colspan="10" style="text-align:center;color:var(--text-dim)">No labelled requests in this window.</td></tr>';
+}
+
+// Pure: the Requests by Type table body. Every value is a client label or a
+// server field, so each goes through esc(); an absent label reads "not sent".
+function requestTypeRows(rows) {
+  const dim = v => v ? esc(String(v).replace(/,/g, ', ')) : '<span style="color:var(--text-dim)">not sent</span>';
+  return (rows || []).map(r => `<tr>
+    <td>${esc(r.app_id || '')}</td><td>${esc(r.label || '')}</td>
+    <td class="mono">${esc(r.call_type || '')}</td><td>${dim(r.prompt_mode)}</td>
+    <td>${dim(r.phase)}</td><td>${dim(r.round_format)}</td><td>${dim(r.grounding)}</td><td>${dim(r.practice_focus)}</td>
+    <td>${fmt(r.requests)}</td><td>${fmtCost(r.cost_usd)}</td>
+  </tr>`).join('');
+}
+
 // Pure: users per ISO country for the place map's world view.
 function placeCountryCounts(rows, usFallback) {
   const out = {};

@@ -1418,6 +1418,27 @@ async def _ttft_percentiles_by(
     }
 
 
+_KIND_LABELS = {
+    "jobInterview": "Job interview", "payNegotiation": "Pay negotiation",
+    "purchaseNegotiation": "Purchase negotiation", "hardConversation": "Hard conversation",
+    "repairConversation": "Repair conversation", "protectConversation": "Protect conversation",
+    "pitch": "Pitch", "somethingElse": "Something else",
+    "somethingElseWords": "Something else (words)",
+    "somethingElseScored": "Something else (scored)",
+}
+
+
+def request_type_label(scenario: str | None, kind: str | None) -> str:
+    """The display name for a (scenario, scenario_kind) pair."""
+    if scenario == "other" and kind == "hardConversation":
+        return "Something else"
+    if kind:
+        return _KIND_LABELS.get(kind, kind)
+    if scenario == "unattached":
+        return "No rehearsal attached"
+    return scenario or "(untagged)"
+
+
 def _ttft_fields(
     stats: dict[tuple, tuple[int | None, int | None]],
     key: tuple,
@@ -1567,6 +1588,28 @@ async def dashboard(
         }
         for r in by_model_rows
     ]
+    # Jev (TypeSafe) judgments bill outside usage_log, in typesafe_calls, so
+    # the model list never showed them (Scott, 2026-11-26: "why do we not
+    # show Jev"). One row, marked so the page can say it is a separate
+    # ledger: it is NOT in the usage_log totals above. No output tokens are
+    # recorded for a judgment. Test-account exclusion cannot apply, the
+    # table holds no user.
+    cursor = await db.execute(
+        """SELECT COUNT(*), COALESCE(SUM(input_tokens), 0), COALESCE(SUM(cost_usd), 0),
+                  ROUND(AVG(jev_ms), 0)
+             FROM typesafe_calls
+            WHERE created_at >= date('now', ?)""" + _app_sql(apps_filter),
+        (f"-{days} days", *app_params),
+    )
+    jev = await cursor.fetchone()
+    if jev and jev[0]:
+        by_model.append({
+            "provider": "typesafe", "model": "jev", "requests": jev[0],
+            "input_tokens": jev[1], "output_tokens": 0, "cost_usd": round(jev[2], 4),
+            "avg_latency_ms": int(jev[3]) if jev[3] else 0,
+            **_ttft_fields({}, ("typesafe", "jev"), 0, jev[0]),
+            "separate_ledger": True,
+        })
 
     # --- Usage by call type ---
     # The app-agnostic breakdown. Every row carries a call_type, so this
@@ -2262,6 +2305,57 @@ async def typesafe_health(
             for r in rows if r["outcome"] in ("error", "timeout", "breaker_open")
         ][-15:][::-1],
     }
+
+@router.get("/admin/request-types")
+async def request_types(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=365),
+    app: str | None = Query(default=None),
+):
+    """Requests by type: the labelled view of scenario-driven traffic
+    (Scott, 2026-11-26). Its own route and not a key of /admin/dashboard
+    because it reads label columns the dashboard's covering index does not
+    carry; the filter below uses only indexed columns, so the table is
+    fetched for the labelled rows alone."""
+    _verify_admin(request, x_admin_key)
+    apps_filter = _apps_from_filter(app)
+    app_clause = _app_sql(apps_filter) + _not_excluded()
+    app_params = apps_filter
+    # One row per (app, scenario, kind, step, phase, round, grounding,
+    # focus), for every app that tags a scenario plus all of Tech
+    # Rehearsal (so its untagged calls stay visible as a gap to close).
+    # `label` is the name to show: Tech Rehearsal sends its "Something
+    # else" kinds as scenario other + kind hardConversation until GP serves
+    # them, so that pair is named for what it is.
+    cursor = await db.execute(
+        """SELECT app_id, scenario, scenario_kind, call_type, prompt_mode, phase,
+                  round_format, grounding, practice_focus,
+                  COUNT(*) as requests,
+                  COALESCE(SUM(input_tokens), 0) + COALESCE(SUM(output_tokens), 0) as tokens,
+                  COALESCE(SUM(estimated_cost_usd), 0) as cost_usd
+             FROM usage_log
+            WHERE request_timestamp >= date('now', ?) AND status = 'success'""" + app_clause + """
+              AND user_id NOT IN (SELECT id FROM users WHERE tier = 'automation')
+              AND (app_id = 'techrehearsal' OR scenario IS NOT NULL)
+            GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+            ORDER BY requests DESC
+            LIMIT 300""",
+        (f"-{days} days", *app_params),
+    )
+    by_request_type = [
+        {
+            "app_id": r[0], "scenario": r[1], "scenario_kind": r[2],
+            "label": request_type_label(r[1], r[2]),
+            "call_type": r[3], "prompt_mode": r[4], "phase": r[5],
+            "round_format": r[6], "grounding": r[7], "practice_focus": r[8],
+            "requests": r[9], "tokens": r[10], "cost_usd": round(r[11], 4),
+        }
+        for r in await cursor.fetchall()
+    ]
+    return {"days": days, "by_request_type": by_request_type}
+
 
 @router.get("/admin/usage-by-place")
 async def usage_by_place(
