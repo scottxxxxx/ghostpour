@@ -562,3 +562,7 @@ app.include_router(_shares.public, tags=["shares-public"])
 from app.routers import diagnostics as _diagnostics  # noqa: E402
 app.include_router(_diagnostics.router, prefix="/v1", tags=["diagnostics"])
 app.include_router(_diagnostics.admin_router, prefix="/webhooks", tags=["diagnostics-admin"])
+# Help Ask: answers a typed Help question from the articles the app sends
+# (2026-11-26). No auth, its own daily budget.
+from app.routers import help as _help  # noqa: E402
+app.include_router(_help.router, prefix="/v1", tags=["help"])

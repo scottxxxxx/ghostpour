@@ -204,6 +204,9 @@ def test_the_windows_are_unchanged():
         # Help and tour views (2026-11-25): 180 days is my proposal, put to
         # Scott in the PR; there is no rollup behind these rows.
         "help_tour_events": 180,
+        # Help Ask questions (2026-11-26): the same 180 days as the Help
+        # views they sit beside, set in the request for the feature.
+        "help_ask_events": 180,
     }
 
 

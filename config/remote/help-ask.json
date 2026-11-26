@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "server_only": true,
+  "enabled": true,
+  "provider": "anthropic",
+  "model": "claude-haiku-5-5",
+  "max_output_tokens": 400,
+  "per_device_per_hour": 10,
+  "per_device_per_day": 30,
+  "per_ip_per_hour": 30,
+  "daily_spend_cap_usd": 5.0
+}

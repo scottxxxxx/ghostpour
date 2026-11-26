@@ -148,6 +148,58 @@ def summarize_help(views: list[tuple[str, dict]]) -> dict:
     }
 
 
+# Outcomes of a Help Ask call that reached an answer (help_ask_events).
+# "fallback" is a reply GP could not read or that failed a guard: the person
+# was shown the server's own "not covered" line, but it says nothing about
+# whether Help has the answer, so it is counted apart and kept out of the
+# not-covered list.
+ASK_ANSWERED = ("answered", "not_covered", "fallback")
+TOP_UNCOVERED = 50
+
+
+def summarize_ask(rows: list[dict], *, spend_today_usd: float, cap_usd: float,
+                  enabled: bool) -> dict:
+    """The Ask card. `rows` are help_ask_events in the window: device_id,
+    question (None when the text was dropped at intake), outcome, cost_usd,
+    latency_ms. Today's spend and the cap are passed in because they are
+    the whole feature's, whatever the window or the filters."""
+    asked = [r for r in rows if r["outcome"] in ASK_ANSWERED]
+    covered = sum(1 for r in asked if r["outcome"] == "answered")
+    not_covered = [r for r in asked if r["outcome"] == "not_covered"]
+    groups: dict[str, dict] = {}
+    for r in not_covered:
+        if not r["question"]:
+            continue
+        g = groups.setdefault(r["question"], {"count": 0, "devices": set()})
+        g["count"] += 1
+        g["devices"].add(r["device_id"])
+    top = sorted(groups.items(), key=lambda kv: (-kv[1]["count"], kv[0]))[:TOP_UNCOVERED]
+    return {
+        "enabled": enabled,
+        "questions": len(asked),
+        "distinct_devices": len({r["device_id"] for r in asked}),
+        "covered": covered,
+        "covered_rate": pct(covered, len(asked)),
+        "not_covered": len(not_covered),
+        "not_covered_text_dropped": sum(1 for r in not_covered if not r["question"]),
+        "unreadable_replies": sum(1 for r in asked if r["outcome"] == "fallback"),
+        "model_errors": sum(1 for r in rows if r["outcome"] == "model_error"),
+        "median_latency_ms": _median([r["latency_ms"] for r in asked
+                                      if r["latency_ms"] is not None]),
+        "spend_window_usd": round(sum(r["cost_usd"] or 0.0 for r in rows), 4),
+        "spend_today_usd": round(spend_today_usd, 4),
+        "daily_spend_cap_usd": cap_usd,
+        "spend_today_rate": pct(spend_today_usd, cap_usd) if cap_usd else 0.0,
+        # Most frequent first. single_device marks a question only one
+        # device ever asked, so one person's odd question reads as that.
+        "top_uncovered": [
+            {"q": q, "count": g["count"], "distinct_devices": len(g["devices"]),
+             "single_device": len(g["devices"]) == 1}
+            for q, g in top
+        ],
+    }
+
+
 def summarize_tour(views: list[tuple[str, dict]]) -> dict:
     """`views` is (device_id, tour block) per tour viewing from Settings."""
     total = len(views)

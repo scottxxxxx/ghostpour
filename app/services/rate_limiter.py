@@ -32,3 +32,17 @@ class RateLimiter:
 
         bucket.append(now)
         return True, 0
+
+    def peek(self, user_id: str, rpm_limit: int, window: float = 60.0) -> tuple[bool, int]:
+        """What `check` would answer, without taking a slot.
+
+        For a caller holding several limits at once (Help Ask: per device
+        per hour, per device per day, per IP per hour): it peeks at all of
+        them and only then takes a slot in each, so a request one limit
+        refuses is not counted against the others.
+        """
+        now = time.monotonic()
+        live = [t for t in self._buckets.get(user_id, ()) if now - t < window]
+        if len(live) >= rpm_limit:
+            return False, (int(window - (now - live[0])) + 1) if live else int(window)
+        return True, 0

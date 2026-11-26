@@ -2867,6 +2867,44 @@ function _renderHelpTourOnboardingChart(o) {
   });
 }
 
+// Help Ask: questions GP answered from the Help articles the app sent
+// (POST /v1/help/ask, phones without Apple Intelligence). Two cards, no
+// chart. A question only one device asked is dimmed and tagged, the same
+// rule as the search lists above it.
+function _helpAskCards(a) {
+  if (!a) return '';
+  const n = (v) => (v || 0).toLocaleString();
+  const usd = (v) => '$' + (v || 0).toFixed((v || 0) > 0 && v < 1 ? 4 : 2);
+  const cap = (text) => `<div class="dash-note" style="margin-bottom:10px">${text}</div>`;
+  const rows = (a.top_uncovered || []).map(x => `<tr>${x.single_device
+    ? `<td style="color:var(--text-dim)">${esc(x.q)} <span class="dash-note">1 device</span></td>`
+    : `<td>${esc(x.q)}</td>`}<td>${n(x.count)}</td><td>${n(x.distinct_devices)}</td></tr>`).join('');
+  const emptyRow = `<tr><td colspan="3" style="color:var(--text-dim)">${a.questions ? 'Help covered every question in this window.' : 'No questions asked in this window.'}</td></tr>`;
+  const notes = [];
+  if (!a.enabled) notes.push('Ask is switched off right now.');
+  if (a.unreadable_replies) notes.push(`${n(a.unreadable_replies)} got the stock "not covered" line because the model's reply could not be used.`);
+  if (a.model_errors) notes.push(`${n(a.model_errors)} failed at the model and got no answer.`);
+  if ((a.filters_not_applied || []).length) notes.push('The OS and device filters do not apply here: Ask does not record them.');
+  const dropped = a.not_covered_text_dropped
+    ? ` ${n(a.not_covered_text_dropped)} more had their text dropped because it looked like an email, a link or a phone number.` : '';
+  return `
+      <div class="card dash-card">
+        <h4>Ask</h4>
+        ${cap('Questions typed into Help that GP answered from the Help articles, on phones without Apple Intelligence.')}
+        <div class="cards" style="margin-bottom:0">
+          <div class="card"><div class="card-label">Questions asked</div><div class="card-value">${n(a.questions)}</div><div class="card-hint">${n(a.distinct_devices)} devices</div></div>
+          <div class="card"><div class="card-label">Covered by Help</div><div class="card-value">${a.covered_rate || 0}%</div><div class="card-hint">${n(a.covered)} of ${n(a.questions)}</div></div>
+          <div class="card"><div class="card-label">Spend today (UTC)</div><div class="card-value">${usd(a.spend_today_usd)}</div><div class="card-hint">of the ${usd(a.daily_spend_cap_usd)} daily cap, all apps and versions</div></div>
+        </div>
+        ${notes.length ? `<div class="dash-note" style="margin-top:10px">${notes.join(' ')}</div>` : ''}
+      </div>
+      <div class="card dash-card span-2">
+        <h4>Ask gaps: questions Help did not cover</h4>
+        ${cap(`Questions the articles could not answer, most common first. These are the articles Help is missing.${dropped}`)}
+        <div class="table-wrap" style="margin-bottom:0;max-height:360px;overflow-y:auto"><table><thead><tr><th>Question</th><th>Count</th><th>Devices</th></tr></thead><tbody>${rows || emptyRow}</tbody></table></div>
+      </div>`;
+}
+
 function _renderHelpTour(d) {
   const sec = document.getElementById('helptour-section');
   if (!sec) return;
@@ -2876,8 +2914,12 @@ function _renderHelpTour(d) {
   // No client sends these before 1.21, so the usual state is nothing at
   // all: one short card, plus the onboarding tour when that has data,
   // instead of a wall of empty charts.
+  // Ask can have questions (or spend) with no Help visit recorded, so its
+  // cards do not wait for the rest of the section.
+  const ask = d.ask || null;
+  const askActive = !!ask && ((ask.questions || 0) > 0 || (ask.model_errors || 0) > 0 || (ask.spend_today_usd || 0) > 0);
   if (!d.has_activity) {
-    sec.innerHTML = `<div class="dash-grid"><div class="card dash-card span-all"><div class="share-empty">${_HELPTOUR_EMPTY}</div></div>${hasOnb ? _helpTourOnboardingCard(o, null) : ''}</div>`;
+    sec.innerHTML = `<div class="dash-grid"><div class="card dash-card span-all"><div class="share-empty">${_HELPTOUR_EMPTY}</div></div>${hasOnb ? _helpTourOnboardingCard(o, null) : ''}${askActive ? _helpAskCards(ask) : ''}</div>`;
     balanceGrids();
     if (hasOnb) _renderHelpTourOnboardingChart(o);
     return;
@@ -2983,7 +3025,10 @@ function _renderHelpTour(d) {
         ${cap('The language the tour was shown in.')}
         <div id="helptour-language"></div>
       </div>
-    </div>`;
+    </div>
+    ${ask ? `${group('4. What do they ask?')}
+    <div class="dash-grid">${_helpAskCards(ask)}
+    </div>` : ''}`;
 
   // Lay the new cards out BEFORE drawing into them: a chart measures its
   // card once, and the balancer would otherwise widen the card after.

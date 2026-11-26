@@ -62,6 +62,39 @@ _BUFFER_BYTES = 0
 _SIZE_KEY = "_captured_bytes"
 
 
+# Help Ask (POST /v1/help/ask, 2026-11-26). The request carries a question
+# a person typed and the response carries the answer written for them, and
+# neither may sit in this buffer. The generic path cannot promise that: a
+# body over the cap is clipped, a clipped body no longer parses, and an
+# unparsed body is kept as a raw string, question and all. So this path is
+# reduced from the WHOLE body before any clipping: the question and the
+# answer become "<redacted>", and each article body (public Help text, up
+# to 8,000 characters, three per request) becomes its length, which keeps a
+# 32 KB request to a few hundred bytes in the ring. A body that does not
+# parse is replaced by its size and never stored.
+_HELP_ASK_PATH = "/v1/help/ask"
+
+
+def _reduce_help_ask(raw: bytes | None) -> bytes | None:
+    if not raw:
+        return raw
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError):
+        return f"<unparsed help ask body, {len(raw)} bytes>".encode()
+    if not isinstance(doc, dict):
+        return f"<unparsed help ask body, {len(raw)} bytes>".encode()
+    for field in ("question", "answer"):
+        if field in doc:
+            doc[field] = "<redacted>"
+    articles = doc.get("articles")
+    if isinstance(articles, list):
+        for item in articles:
+            if isinstance(item, dict) and isinstance(item.get("body"), str):
+                item["body"] = f"<{len(item['body'])} chars>"
+    return json.dumps(doc, ensure_ascii=False).encode("utf-8")
+
+
 def _body_cap(path: str) -> int:
     """Per-path body capture cap."""
     if any(path.startswith(p) for p in _LARGE_BODY_PREFIXES):
@@ -218,7 +251,10 @@ class StreamingBypassMiddleware:
             req_body = first_message.get("body", b"")
 
         cap = _body_cap(path)
-        req_body_str = _clip(req_body, cap)
+        # Trailing slash included: that request is answered with a redirect,
+        # but its body is the same question.
+        help_ask = path.rstrip("/") == _HELP_ASK_PATH
+        req_body_str = _clip(_reduce_help_ask(req_body) if help_ask else req_body, cap)
 
         # Build request headers (redact auth)
         req_headers = {}
@@ -272,7 +308,8 @@ class StreamingBypassMiddleware:
             log_suffix = " (streaming)"
             resp_body_str = None
         else:
-            resp_body_str = _clip(response_body, cap)
+            resp_body_str = _clip(
+                _reduce_help_ask(response_body) if help_ask else response_body, cap)
             resp_section = {"headers": response_headers,
                             "body": _format_body_parsed(resp_body_str, cap)}
             log_suffix = ""

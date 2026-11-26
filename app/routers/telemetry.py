@@ -136,6 +136,12 @@ _Q_PHONE_STRIP_RE = re.compile(r"[\s\-.()]")
 _Q_PHONE_RE = re.compile(r"\d{7,}")
 
 
+def normalize_help_text(text: str) -> str:
+    """The stored form of free text typed into Help (a search, or a question
+    put to Ask): lowercased, runs of whitespace collapsed to one space."""
+    return " ".join(text.lower().split())
+
+
 def _looks_personal(q: str) -> bool:
     """True when a normalized search looks like an email address, a URL or
     a phone number. See the patterns above."""
@@ -160,7 +166,7 @@ class HelpSearch(BaseModel):
         # turn a newline or a tab into a space and let it through.
         if any(unicodedata.category(ch) in ("Cc", "Zl", "Zp") for ch in v):
             raise ValueError("q must not contain control characters or newlines")
-        q = " ".join(v.lower().split())
+        q = normalize_help_text(v)
         if not 1 <= len(q) <= _Q_MAX_CHARS:
             raise ValueError(f"q must be 1 to {_Q_MAX_CHARS} characters after trimming")
         return q

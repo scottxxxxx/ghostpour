@@ -4734,10 +4734,36 @@ async def telemetry_help_tour(
             "abandoned_at_step": abandoned_at_step,
             "steps": [s for s in parsed if isinstance(s, dict)]})
 
+    # Help Ask (POST /v1/help/ask): the questions GP answered from the
+    # Help articles, off help_ask_events. Those rows carry no user, OS or
+    # device model, so no account can be left out and those two filters do
+    # not apply (the payload says so). Today's spend and the cap are the
+    # whole feature's and ignore every filter.
+    from app.services import help_ask as _help_ask
+    where, params = _where(days, user_col=None, dims=False)
+    if app_version:
+        where += " AND app_version = ?"
+        params.append(app_version)
+    ask_rows = [
+        {"device_id": r[0], "question": r[1], "outcome": r[2], "cost_usd": r[3],
+         "latency_ms": r[4]}
+        for r in await _all(
+            "SELECT device_id, question, outcome, cost_usd, latency_ms "
+            f"FROM help_ask_events WHERE {where}", params)]
+    ask_cfg = _help_ask.load_config(getattr(request.app.state, "remote_configs", None))
+    ask_out = hts.summarize_ask(
+        ask_rows,
+        spend_today_usd=await _help_ask.spend_today(db, now.date().isoformat()),
+        cap_usd=ask_cfg.daily_spend_cap_usd, enabled=ask_cfg.usable)
+    ask_out["filters_not_applied"] = [
+        name for name, val in (("os_version", os_version), ("device_model", device_model))
+        if val]
+
     return {
         "days": days,
         "filters": {"app": app, "app_version": app_version,
                     "os_version": os_version, "device_model": device_model},
+        "ask": ask_out,
         "has_activity": bool(help_out["views"] or tour_out["views"]),
         "takeaway_min_views": hts.TAKEAWAY_MIN_VIEWS,
         "takeaways": hts.takeaways(help_out, tour_out, reach),

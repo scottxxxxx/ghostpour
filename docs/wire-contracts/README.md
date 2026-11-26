@@ -39,6 +39,7 @@ without moving the schema, that's a coordination bug.
 | `image-send-config.md` | active (2026-07-20) | Per-tier `feature_definitions.images`: `max_long_edge` downscale cap, `jpeg_quality`, and user-facing `capture_guidance` hints; SS reads at runtime |
 | `onboarding-telemetry.md` | active (2026-07-20) | `onboarding_completed` event on the anonymous ping: per-step dwell + outcome booleans (no PII), joined to conversion on `device_id` |
 | `help-tour-telemetry.md` | built (2026-11-25), client in iOS 1.21 | `help_viewed` and `tour_viewed` on the anonymous ping: articles, dwell, Help search text (normalized, screened), tour drop-off; bounds and rejections |
+| `help-ask.md` | built (2026-11-26), no client yet | `POST /v1/help/ask`: an answer to a typed Help question written only from the articles the app sends; no auth, error envelope, rate limits, the daily spend cap, what is stored |
 | `gate-events.md` | active (2026-08-04) | `POST /v1/promo/events` for feature gates: baseline vs campaign arm, open `feature`/`block_reason` vocabularies, what counts as an impression, internal-category suppression |
 
 ## Why this directory exists
