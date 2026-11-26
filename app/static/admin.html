@@ -1222,6 +1222,9 @@
       <div class="card dash-card"><h4>Auth choice</h4><div id="onb-chart-auth"></div></div>
       <div class="card dash-card"><h4>Where abandoners dropped</h4><div id="onb-chart-dropoff"></div></div>
     </div>
+    <h3 style="margin:28px 0 8px">Help and learning</h3>
+    <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">When people go to learn about the app, what they use Help for, and what they search for. One row each time Help closes or the "How Shoulder Surf Works" tour closes from Settings, sent by iOS 1.21 and later and kept 180 days, search text included. Searches that look like an email, a phone number or a link are dropped at intake. Follows the header's date range and app filter and the version, iOS and device filters above; flagged test accounts are left out.</p>
+    <div id="helptour-section"><div class="dash-grid"><div class="card dash-card span-all"><div class="share-empty">No Help or tour activity yet. iOS 1.21 starts sending it.</div></div></div></div>
     <h3 style="margin:28px 0 8px">Cases and purchases <span style="font-size:11px;font-weight:normal;color:var(--text-dim)">(form apps: N-400 today)</span></h3>
     <p style="color:var(--text-dim);margin-bottom:12px;font-size:13px">Usage is measured from interview turns: a case is one application, a new session starts after a 30 minute gap, and active time counts gaps between turns up to 5 minutes. Purchases are measured from Apple's server notifications. <b>Who</b> bought is not: the purchase token is a hash of an A-Number GP never sees, so a purchase is tied to the one case active in the hour before it, and the time-to-purchase numbers are <b>inferred</b> from those matches only. Flagged test accounts are left out of usage; purchases cannot be, since they carry no account. Follows the header's app filter.</p>
     <div id="cases-body"></div>
@@ -2400,6 +2403,7 @@ function _renderSubscriptions(rep, events) {
   const env = s.paid_by_env || {};
   const excluded = [
     env.sandbox ? `${env.sandbox} TestFlight` : null,
+    env.xcode ? `${env.xcode} Xcode` : null,
     env.unknown ? `${env.unknown} unclassified` : null,
   ].filter(Boolean).join(' + ');
   // What Apple actually said (2026-09-10). The headline is recognised
@@ -2667,6 +2671,7 @@ async function loadTelemetry() {
     const d = await resp.json();
     _renderTelemetry(d, {version, os, device, model});
     _loadOnboarding(days, app);
+    _loadHelpTour(days, app, {version, os, device});
     _loadCases(app);
     _loadCompanion(days);
     _loadActivity(days);
@@ -2800,6 +2805,233 @@ async function _loadOnboarding(days, app) {
     if (!resp.ok) return;
     _renderOnboarding(await resp.json());
   } catch (e) { /* onboarding is additive; a failure here is non-fatal */ }
+}
+
+async function _loadHelpTour(days, app, f) {
+  // The whole "Help and learning" section is one request. Additive like
+  // onboarding: its own fetch, never blocks the main telemetry render.
+  const params = new URLSearchParams({days});
+  if (app) params.set('app', app);
+  if (f.version) params.set('app_version', f.version);
+  if (f.os) params.set('os_version', f.os);
+  if (f.device) params.set('device_model', f.device);
+  try {
+    const resp = await fetch(`${BASE}/webhooks/admin/telemetry/help-tour?${params}`, {
+      headers: {'X-Admin-Key': adminKey},
+    });
+    if (!resp.ok) return;
+    _renderHelpTour(await resp.json());
+  } catch (e) { /* non-fatal */ }
+}
+
+const _HELPTOUR_CHARTS = ['helptour-chart-daily', 'helptour-chart-timing', 'helptour-chart-onb', 'helptour-chart-dropoff'];
+const _HELPTOUR_EMPTY = 'No Help or tour activity yet. iOS 1.21 starts sending it.';
+
+// What onboarding_completed records about the first-run tour, beside the
+// Settings tour when there is one. "Went through" is derived, and the
+// caption says how.
+function _helpTourOnboardingCard(o, t) {
+  const n = (v) => (v || 0).toLocaleString();
+  const settings = t && t.views
+    ? `<div><div class="card-label">Settings tour</div><div class="kpi-minor"><span>Views <b>${n(t.views)}</b></span><span>Reached the end <b>${t.completion_rate}%</b></span><span>Median slides seen <b>${t.median_slides_seen == null ? 'n/a' : t.median_slides_seen}</b></span></div></div>`
+    : '';
+  return `
+    <div class="card dash-card span-2">
+      <h4>Onboarding tour${settings ? ' beside the Settings tour' : ''}</h4>
+      <div class="dash-note" style="margin-bottom:10px">The first-run tour, from the onboarding event. It records Skip and the slide someone was on, not "finished": went through means the tour was shown, Skip was not tapped and the app was not left on a tour slide.</div>
+      <div class="dash-grid">
+        <div><div class="card-label">Onboarding tour</div><div class="kpi-minor"><span>Shown <b>${n(o.tour_shown)}</b></span><span>Went through <b>${o.went_through_rate}%</b></span><span>Tapped Skip <b>${o.tour_skipped_rate}%</b></span></div></div>
+        ${settings}
+      </div>
+      <div class="card-label">Onboarding tour: slide where people tapped Skip or left the app</div>
+      <div id="helptour-chart-onb"></div>
+    </div>`;
+}
+
+function _renderHelpTourOnboardingChart(o) {
+  const stops = o.stops || [];
+  const el = document.getElementById('helptour-chart-onb');
+  if (!el) return;
+  if (!stops.length) {
+    el.innerHTML = '<div class="share-empty">Nobody skipped or left during the onboarding tour in this window.</div>';
+    return;
+  }
+  _renderChart('helptour-chart-onb', {
+    series: [{name: 'Tapped Skip', data: stops.map(x => x.skipped)}, {name: 'Left the app', data: stops.map(x => x.left_app)}],
+    chart: {type: 'bar', height: 240, stacked: true},
+    plotOptions: {bar: {borderRadius: 3, columnWidth: '60%'}},
+    xaxis: {categories: stops.map(x => x.slide)},
+    yaxis: {min: 0, forceNiceScale: true, labels: {formatter: v => Math.round(v)}},
+    colors: [_SERIES_1, '#d29922'],
+    dataLabels: {enabled: false},
+    legend: {position: 'bottom'},
+  });
+}
+
+function _renderHelpTour(d) {
+  const sec = document.getElementById('helptour-section');
+  if (!sec) return;
+  _HELPTOUR_CHARTS.forEach(id => { if (_telCharts[id]) { _telCharts[id].destroy(); delete _telCharts[id]; } });
+  const h = d.help || {}, t = d.tour || {}, o = d.onboarding_tour || {}, r = d.reach || {}, it = d.install_timing || {};
+  const hasOnb = (o.tour_shown || 0) > 0;
+  // No client sends these before 1.21, so the usual state is nothing at
+  // all: one short card, plus the onboarding tour when that has data,
+  // instead of a wall of empty charts.
+  if (!d.has_activity) {
+    sec.innerHTML = `<div class="dash-grid"><div class="card dash-card span-all"><div class="share-empty">${_HELPTOUR_EMPTY}</div></div>${hasOnb ? _helpTourOnboardingCard(o, null) : ''}</div>`;
+    balanceGrids();
+    if (hasOnb) _renderHelpTourOnboardingChart(o);
+    return;
+  }
+  const n = (v) => (v || 0).toLocaleString();
+  const dur = (ms) => {
+    if (ms == null) return 'n/a';
+    const sec = Math.round(ms / 1000);
+    return sec >= 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : `${sec}s`;
+  };
+  const stat = (label, value) => `<span>${label} <b>${value}</b></span>`;
+  const cap = (text) => `<div class="dash-note" style="margin-bottom:10px">${text}</div>`;
+  const group = (text) => `<h4 style="margin:22px 0 10px;font-size:15px">${text}</h4>`;
+  const none = (cols, text) => `<tr><td colspan="${cols}" style="color:var(--text-dim)">${text}</td></tr>`;
+  // A search only one device ever sent is dimmed and tagged, so one
+  // person's odd query is not read as a trend.
+  const qCell = (x) => x.single_device
+    ? `<td style="color:var(--text-dim)">${esc(x.q)} <span class="dash-note">1 device</span></td>`
+    : `<td>${esc(x.q)}</td>`;
+  const table = (head, rows) => `<div class="table-wrap" style="margin-bottom:0;max-height:360px;overflow-y:auto"><table><thead><tr>${head.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  const takeaways = (d.takeaways || []).length ? `
+    <div class="dash-grid"><div class="card dash-card span-all">
+      <h4>Key takeaways</h4>
+      ${cap(`Read straight off the numbers below. A line only appears once there are ${d.takeaway_min_views} views of its kind in the window, and a search has to come from at least two devices.`)}
+      ${d.takeaways.map(x => `<div class="insight"><div class="insight-title">${esc(x.title)}</div><div class="insight-body">${esc(x.body)}</div></div>`).join('')}
+    </div></div>` : '';
+
+  const articles = (h.top_articles || []).map(a =>
+    `<tr><td>${esc(a.id)}${a.fast_exit ? ' <span class="dash-note" style="color:var(--orange)">left fast</span>' : ''}</td><td>${n(a.opens)}</td><td>${n(a.distinct_devices)}</td><td>${dur(a.median_dwell_ms)}</td></tr>`).join('');
+  const searches = (h.top_searches || []).map(x =>
+    `<tr>${qCell(x)}<td>${n(x.count)}</td><td>${n(x.distinct_devices)}</td><td>${x.opened_rate}%</td></tr>`).join('');
+  const gaps = (h.unopened_searches || []).map(x => `<tr>${qCell(x)}<td>${n(x.count)}</td></tr>`).join('');
+
+  sec.innerHTML = `${takeaways}
+    ${group('1. When do people go to learn?')}
+    <div class="dash-grid">
+      <div class="card dash-card span-2">
+        <h4>Help and tour views per day</h4>
+        ${cap('How many times Help was opened and the tour was watched from Settings, each day (UTC).')}
+        <div id="helptour-chart-daily"></div>
+      </div>
+      <div class="card dash-card">
+        <h4>Reach</h4>
+        ${cap(`Of the ${n(r.active_devices)} devices active in the last ${r.window_days} days, how many opened each at least once.${d.days > r.window_days ? ' Capped at ' + r.window_days + ' days because raw activity is only kept that long.' : ''}`)}
+        <div class="cards" style="margin-bottom:0">
+          <div class="card"><div class="card-label">Opened Help</div><div class="card-value">${r.help_rate}%</div><div class="card-hint">${n(r.help_devices)} devices</div></div>
+          <div class="card"><div class="card-label">Watched the tour</div><div class="card-value">${r.tour_rate}%</div><div class="card-hint">${n(r.tour_devices)} devices</div></div>
+        </div>
+      </div>
+      <div class="card dash-card">
+        <h4>First look, by days since install</h4>
+        ${cap('When each device first opened Help or the tour, counted from the day we first saw the device. Devices, not views.')}
+        <div id="helptour-chart-timing"></div>
+      </div>
+      <div class="card dash-card">
+        <h4>Where Help was opened from</h4>
+        ${cap('The screen someone was on when they opened Help.')}
+        <div id="helptour-entry"></div>
+      </div>
+      ${hasOnb ? _helpTourOnboardingCard(o, t) : ''}
+    </div>
+    ${group('2. What do they use Help for?')}
+    <div class="dash-grid">
+      <div class="card dash-card">
+        <h4>Help visits</h4>
+        ${cap('What happened in a typical visit to Help. Shares are of all visits.')}
+        <div class="cards" style="margin-bottom:0">
+          <div class="card"><div class="card-label">Visits</div><div class="card-value">${n(h.views)}</div><div class="card-hint">${n(h.distinct_devices)} devices</div></div>
+          <div class="card"><div class="card-label">Median visit</div><div class="card-value">${dur(h.median_duration_ms)}</div></div>
+          <div class="card"><div class="card-label">Opened no article</div><div class="card-value">${h.no_article_rate}%</div><div class="card-hint">${n(h.no_article_views)} visits</div></div>
+          <div class="card"><div class="card-label">Searched</div><div class="card-value">${h.searched_rate}%</div></div>
+          <div class="card"><div class="card-label">Used Ask</div><div class="card-value">${h.asked_rate}%</div></div>
+          <div class="card"><div class="card-label">Opened What's New</div><div class="card-value">${h.whats_new_opened_rate}%</div></div>
+        </div>
+      </div>
+      <div class="card dash-card span-2">
+        <h4>Top Help articles</h4>
+        ${cap('Articles by how often they were opened. "Left fast" marks one whose median time open is under 5 seconds: opened, then abandoned.')}
+        ${table(['Article', 'Opens', 'Devices', 'Median time open'], articles || none(4, 'No article opened in this window.'))}
+      </div>
+    </div>
+    ${group('3. What do they search for?')}
+    <div class="dash-grid wide">
+      <div class="card dash-card">
+        <h4>Top searches</h4>
+        ${cap('What people typed into Help search, most frequent first, and how often it led to an article.')}
+        ${table(['Search', 'Count', 'Devices', 'Opened an article'], searches || none(4, 'No Help searches in this window.'))}
+      </div>
+      <div class="card dash-card">
+        <h4>Help gaps: searches with no article opened</h4>
+        ${cap('Searches after which nobody opened an article. These are the answers Help is probably missing.')}
+        ${table(['Search', 'Count'], gaps || none(2, (h.top_searches || []).length ? 'Every search led to an article in this window.' : 'No Help searches in this window.'))}
+      </div>
+      <div class="card dash-card span-all">
+        <h4>Settings tour: where people leave</h4>
+        ${cap('The last slide seen by people who closed the tour before the end, in slide order.')}
+        <div class="kpi-minor">${stat('Views', n(t.views))}${stat('Devices', n(t.distinct_devices))}${stat('Reached the end', `${t.completion_rate || 0}%`)}${stat('Median slides seen', t.median_slides_seen == null ? 'n/a' : t.median_slides_seen)}${stat('Narration on', `${t.narration_on_rate || 0}%`)}</div>
+        <div id="helptour-chart-dropoff"></div>
+      </div>
+      <div class="card dash-card">
+        <h4>Tour language</h4>
+        ${cap('The language the tour was shown in.')}
+        <div id="helptour-language"></div>
+      </div>
+    </div>`;
+
+  // Lay the new cards out BEFORE drawing into them: a chart measures its
+  // card once, and the balancer would otherwise widen the card after.
+  balanceGrids();
+  _renderChart('helptour-chart-daily', {
+    series: [{name: 'Help', data: (d.daily || []).map(x => x.help)}, {name: 'Tour', data: (d.daily || []).map(x => x.tour)}],
+    chart: {type: 'bar', height: 260},
+    plotOptions: {bar: {borderRadius: 2, columnWidth: '70%'}},
+    xaxis: {categories: (d.daily || []).map(x => x.day), type: 'datetime', labels: {datetimeUTC: true}},
+    yaxis: {min: 0, forceNiceScale: true, labels: {formatter: v => Math.round(v)}},
+    colors: [_SERIES_1, '#d29922'],
+    dataLabels: {enabled: false},
+    legend: {position: 'bottom'},
+  });
+  const bucketLabel = {day_0: 'Day 0', days_1_3: '1 to 3', days_4_14: '4 to 14', later: '15+'};
+  const buckets = it.buckets || [];
+  _renderChart('helptour-chart-timing', {
+    series: [{name: 'Help', data: buckets.map(b => (it.help || {})[b] || 0)}, {name: 'Tour', data: buckets.map(b => (it.tour || {})[b] || 0)}],
+    chart: {type: 'bar', height: 240},
+    plotOptions: {bar: {borderRadius: 3, columnWidth: '60%'}},
+    xaxis: {categories: buckets.map(b => bucketLabel[b] || b), labels: {rotate: 0, hideOverlappingLabels: false}, title: {text: 'Days since we first saw the device'}},
+    yaxis: {min: 0, forceNiceScale: true, labels: {formatter: v => Math.round(v)}},
+    colors: [_SERIES_1, '#d29922'],
+    dataLabels: {enabled: false},
+    legend: {position: 'bottom'},
+  });
+  const entryLabel = {settings: 'Settings', listen_mode: 'Listen mode', other: 'Other'};
+  _renderShareBars('helptour-entry', (h.by_entry || []).map(x => ({label: entryLabel[x.entry] || x.entry, value: x.n})),
+    {unit: 'Help visits', empty: 'No Help visits in this window.'});
+  _renderShareBars('helptour-language', (t.by_language || []).map(x => ({label: x.language === 'unknown' ? 'Not reported' : x.language, value: x.n})),
+    {unit: 'tour views', empty: 'No tour views in this window.'});
+  if ((t.drop_off || []).length) {
+    _renderChart('helptour-chart-dropoff', {
+      series: [{name: 'Left here', data: t.drop_off.map(x => x.n)}],
+      chart: {type: 'bar', height: 240},
+      plotOptions: {bar: {borderRadius: 4, columnWidth: '60%'}},
+      xaxis: {categories: t.drop_off.map(x => x.last_slide)},
+      yaxis: {min: 0, forceNiceScale: true, labels: {formatter: v => Math.round(v)}},
+      legend: {show: false},
+      dataLabels: {enabled: true},
+      colors: [_SERIES_1],
+    });
+  } else {
+    document.getElementById('helptour-chart-dropoff').innerHTML =
+      `<div class="share-empty">${(t.views || 0) ? 'Nobody left the tour early in this window.' : 'No tour views in this window.'}</div>`;
+  }
+  if (hasOnb) _renderHelpTourOnboardingChart(o);
 }
 
 async function _loadCases(app) {

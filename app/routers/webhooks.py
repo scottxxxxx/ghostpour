@@ -3624,7 +3624,8 @@ async def list_users(
                 {"production": "appstore", "sandbox": "testflight",
                  "xcode": "dev"}.get(r["distribution"])
                 or {"Production": "appstore",
-                    "Sandbox": "testflight"}.get(r["sub_environment"])
+                    "Sandbox": "testflight",
+                    "Xcode": "dev"}.get(r["sub_environment"])
             ),
             "device": to_marketing_name(r["device_model"]),
             "location": (
@@ -4599,6 +4600,156 @@ async def telemetry_onboarding(
 
     return {"days": days, "kpis": kpis, "completion": completion,
             "auth": auth, "drop_off": drop_off}
+
+
+@router.get("/admin/telemetry/help-tour")
+async def telemetry_help_tour(
+    request: Request,
+    db: aiosqlite.Connection = Depends(get_db),
+    x_admin_key: str = Header(...),
+    days: int = Query(default=30, ge=1, le=180),
+    app: str | None = Query(default=None),
+    app_version: str | None = Query(default=None),
+    os_version: str | None = Query(default=None),
+    device_model: str | None = Query(default=None),
+):
+    """Everything the dashboard's "Help and learning" section draws, in one
+    response: Help visits and Settings tour views off help_tour_events (one
+    row per help_viewed or tour_viewed ping, kept 180 days), reach against
+    active devices, when a device first looked relative to its first-seen
+    date, and what onboarding_completed records about the first-run tour.
+
+    Rates are percentages. Medians are computed in app/services/
+    help_tour_stats.py because SQLite has none; the window is small.
+    Accounts flagged exclude_from_stats are left out and device-only rows
+    are kept, the rule the lifecycle telemetry reads under. The search
+    lists return the stored text, which intake normalized and screened."""
+    _verify_admin(request, x_admin_key)
+    import json as _json
+
+    from app.services import help_tour_stats as hts
+
+    _apps = _apps_from_filter(app)
+
+    def _where(since_days: int, prefix: str = "", user_col: str | None = "user_id",
+               dims: bool = True) -> tuple[str, list[object]]:
+        clauses = [f"{prefix}received_at >= datetime('now', ?)"]
+        params: list[object] = [f"-{since_days} days"]
+        if _apps:
+            clauses.append(f"{prefix}app_id IN ({', '.join('?' * len(_apps))})")
+            params.extend(_apps)
+        if dims:
+            for col, val in (("app_version", app_version), ("os_version", os_version),
+                             ("device_model", device_model)):
+                if val:
+                    clauses.append(f"{prefix}{col} = ?")
+                    params.append(val)
+        if user_col:
+            clauses.append(_not_excluded(f"{prefix}{user_col}")[5:])
+        return " AND ".join(clauses), params
+
+    async def _all(sql: str, params: list[object]) -> list[tuple]:
+        cur = await db.execute(sql, tuple(params))
+        return [tuple(r) for r in await cur.fetchall()]
+
+    now = datetime.now(timezone.utc)
+    reach_days = min(days, hts.REACH_MAX_DAYS)
+    reach_since = now - timedelta(days=reach_days)
+
+    where, params = _where(days)
+    views: dict[str, list[tuple[str, dict]]] = {"help_viewed": [], "tour_viewed": []}
+    view_days: dict[str, list[str]] = {"help_viewed": [], "tour_viewed": []}
+    reach_devices: dict[str, set] = {"help_viewed": set(), "tour_viewed": set()}
+    for event_type, device_id, received_at, payload in await _all(
+            "SELECT event_type, device_id, received_at, payload FROM help_tour_events "
+            f"WHERE {where}", params):
+        if event_type not in views:
+            continue
+        views[event_type].append((device_id, _json.loads(payload)))
+        view_days[event_type].append(received_at[:10])
+        ts = hts.parse_ts(received_at)
+        if ts and ts >= reach_since:
+            reach_devices[event_type].add(device_id)
+
+    help_out = hts.summarize_help(views["help_viewed"])
+    tour_out = hts.summarize_tour(views["tour_viewed"])
+
+    # Reach: of the devices active in the window, how many opened Help or
+    # the tour. "Active" is any lifecycle ping in telemetry_events under the
+    # same filters; those rows live 30 days, so the reach window is capped
+    # there and reported. A Help or tour device counts as active even if
+    # its own lifecycle ping never landed, so a rate cannot pass 100.
+    where, params = _where(reach_days)
+    active = {r[0] for r in await _all(
+        f"SELECT DISTINCT device_id FROM telemetry_events WHERE {where}", params)}
+    active |= reach_devices["help_viewed"] | reach_devices["tour_viewed"]
+    reach = {
+        "window_days": reach_days,
+        "active_devices": len(active),
+        "help_devices": len(reach_devices["help_viewed"]),
+        "help_rate": hts.pct(len(reach_devices["help_viewed"]), len(active)),
+        "tour_devices": len(reach_devices["tour_viewed"]),
+        "tour_rate": hts.pct(len(reach_devices["tour_viewed"]), len(active)),
+    }
+
+    # When a device FIRST opened Help or the tour, in days since GP first
+    # saw it (telemetry_devices, pinned by every ping and never purged).
+    # The first view is the earliest one still stored (180 days), not the
+    # earliest in the window, and only devices seen in the window are
+    # bucketed. The version, OS and device filters are left off the lookup
+    # so a first view on an older build still counts as the first.
+    where, params = _where(180, prefix="h.", dims=False)
+    in_window = {et: {d for d, _ in views[et]} for et in views}
+    timing = {et: dict.fromkeys(hts.INSTALL_BUCKETS, 0) for et in views}
+    unknown = {et: 0 for et in views}
+    for event_type, device_id, first_view, first_seen in await _all(
+            "SELECT h.event_type, h.device_id, MIN(h.received_at), d.first_seen_at "
+            "FROM help_tour_events h LEFT JOIN telemetry_devices d ON d.device_id = h.device_id "
+            f"WHERE {where} GROUP BY h.event_type, h.device_id", params):
+        if device_id not in in_window.get(event_type, ()):
+            continue
+        bucket = hts.install_bucket(hts.parse_ts(first_seen), hts.parse_ts(first_view))
+        if bucket is None:
+            unknown[event_type] += 1
+        else:
+            timing[event_type][bucket] += 1
+    install_timing = {
+        "buckets": list(hts.INSTALL_BUCKETS),
+        "help": timing["help_viewed"], "tour": timing["tour_viewed"],
+        "help_unknown": unknown["help_viewed"], "tour_unknown": unknown["tour_viewed"],
+    }
+
+    # The first-run tour, from the onboarding event. That table has no
+    # user_id, so no account can be excluded from it.
+    where, params = _where(days, user_col=None)
+    onboarding_rows = []
+    for completed, tour_skipped, abandoned_at_step, steps in await _all(
+            "SELECT completed, tour_skipped, abandoned_at_step, steps "
+            f"FROM onboarding_events WHERE {where}", params):
+        try:
+            parsed = _json.loads(steps) if steps else []
+        except ValueError:
+            parsed = []
+        onboarding_rows.append({
+            "completed": bool(completed), "tour_skipped": bool(tour_skipped),
+            "abandoned_at_step": abandoned_at_step,
+            "steps": [s for s in parsed if isinstance(s, dict)]})
+
+    return {
+        "days": days,
+        "filters": {"app": app, "app_version": app_version,
+                    "os_version": os_version, "device_model": device_model},
+        "has_activity": bool(help_out["views"] or tour_out["views"]),
+        "takeaway_min_views": hts.TAKEAWAY_MIN_VIEWS,
+        "takeaways": hts.takeaways(help_out, tour_out, reach),
+        "daily": hts.daily_series(days, now.date(), view_days["help_viewed"],
+                                  view_days["tour_viewed"]),
+        "reach": reach,
+        "install_timing": install_timing,
+        "help": help_out,
+        "tour": tour_out,
+        "onboarding_tour": hts.summarize_onboarding_tour(onboarding_rows),
+    }
 
 
 @router.get("/admin/telemetry/cases")

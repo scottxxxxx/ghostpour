@@ -1507,6 +1507,35 @@ MIGRATIONS = [
     # A column rather than a metadata key so the allowance's own sums can
     # exclude promo rows with a plain `promo IS NULL` (app/services/allowance.py).
     "ALTER TABLE usage_log ADD COLUMN promo TEXT",
+    # Help and "How Shoulder Surf Works" tour views (Shoulder Surf 1.21,
+    # 2026-11-25). One row per help_viewed or tour_viewed ping on
+    # /v1/events/ping, apart from telemetry_events so the lifecycle KPIs do
+    # not count them. `payload` is the validated help or tour block as JSON:
+    # slugs, bounded numbers and booleans, plus the Help search text
+    # (normalized, personal-looking searches dropped at intake, see
+    # app/routers/telemetry.py). user_id is there so flagged test accounts
+    # can be left out of the numbers and so the rows go with the account.
+    # Purged at 180 days by app/services/retention.py, search text included:
+    # it lives nowhere else.
+    """CREATE TABLE IF NOT EXISTS help_tour_events (
+        id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,                  -- help_viewed | tour_viewed
+        device_id TEXT NOT NULL,
+        user_id TEXT,
+        app_id TEXT,
+        received_at TEXT NOT NULL,
+        app_version TEXT,
+        app_build TEXT,
+        os_version TEXT,
+        device_model TEXT,
+        app_locale TEXT,
+        distribution TEXT,
+        payload TEXT NOT NULL
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_help_tour_received ON help_tour_events(received_at)",
+    # The dashboard's first-view-per-device lookup groups on these.
+    "CREATE INDEX IF NOT EXISTS idx_help_tour_device ON help_tour_events(event_type, device_id, received_at)",
+    "CREATE INDEX IF NOT EXISTS idx_help_tour_user ON help_tour_events(user_id) WHERE user_id IS NOT NULL",
 ]
 
 
