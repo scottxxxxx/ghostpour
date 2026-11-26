@@ -890,3 +890,46 @@ def test_section_escapes_search_text_and_article_ids():
     assert "${esc(x.q)}" in render and "${esc(a.id)}" in render
     assert "${x.q}" not in render and "${a.id}" not in render
     assert "${esc(x.title)}" in render and "${esc(x.body)}" in render
+
+
+# --- the live log never keeps what was typed ---------------------------------
+# The admin live log buffers raw request and response bodies BEFORE the guards
+# above run, so an email typed into Help search would sit there in the clear.
+
+def _live_log_text() -> str:
+    import json as _json
+    from app.middleware.request_logging import get_recent_logs
+    return _json.dumps(get_recent_logs(50), ensure_ascii=False)
+
+
+def test_the_live_log_never_holds_the_search_text_of_a_stored_event(client, tmp_db_path):
+    body = _help_event(_help(searches=[
+        {"q": "zebra crossing marker", "opened": True},
+        {"q": "someone@example.com", "opened": False}]))
+    assert _post(client, body).status_code == 204
+
+    text = _live_log_text()
+    assert "/v1/events/ping" in text, "positive control: the request was captured at all"
+    assert "acct-plans" in text, "positive control: the body was captured, not skipped"
+    assert "zebra crossing marker" not in text
+    assert "someone@example.com" not in text
+
+
+def test_the_live_log_never_holds_the_search_text_a_422_echoes(client, tmp_db_path):
+    too_long = "quokka " * 30
+    body = _help_event(_help(searches=[{"q": too_long, "opened": True}]))
+    r = _post(client, body)
+    assert r.status_code == 422
+    assert "quokka" in r.text, "positive control: the 422 does echo the text to the caller"
+
+    assert "quokka" not in _live_log_text()
+
+
+def test_the_live_log_hides_search_text_when_a_422_echoes_the_whole_block(client, tmp_db_path):
+    body = _help_event(_help(searched=False,
+                                  searches=[{"q": "wombat settings", "opened": True}]))
+    r = _post(client, body)
+    assert r.status_code == 422
+    assert "wombat settings" in r.text, "positive control"
+
+    assert "wombat settings" not in _live_log_text()
