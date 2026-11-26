@@ -988,17 +988,16 @@ def test_a_reply_written_as_text_json_is_read(client, model):
     '{"answer": "Tap Delete.", "covered": "maybe"}', '{"answer": 5, "covered": true}',
     '{"covered": true, "used_article_ids": []', "[1, 2, 3]",
 ])
-def test_a_reply_that_cannot_be_read_gets_the_fallback(client, model, tmp_db_path, text):
+def test_a_reply_that_cannot_be_read_is_a_503_and_still_billed(client, model, tmp_db_path, text):
+    """Not a 200 with the "Help has no answer" line: nobody read the reply,
+    so nobody knows that. The app shows its article list alone on a 503."""
     model.return_value = _text_reply(text)
     body = _body(app_locale="pt-BR", support_email="help@example.com")
     r = _post(client, body)
-    assert r.status_code == 200
-    out = r.json()
-    assert out == {
-        "answer": "A Ajuda não tem uma resposta para essa pergunta. Para mais ajuda, "
-                  "escreva para help@example.com.",
-        "covered": False, "used_article_ids": [], "source": "articles",
-        "output_language": None}
+    assert r.status_code == 503, r.text
+    assert r.json()["detail"]["code"] == "help_ask_unavailable"
+    assert r.json()["detail"]["details"] == {"reason": "model_error"}
+    assert "resposta" not in r.text
     row = _rows(tmp_db_path, body["device_id"])[0]
     assert (row["outcome"], row["covered"], row["cost_usd"]) == ("fallback", 0, MODEL_COST)
 
@@ -1020,6 +1019,17 @@ def test_an_invented_address_replaces_the_answer_with_the_fallback(client, model
     assert out["answer"] == ("Help doesn't have an answer to that question. "
                              "For more help, contact support.")
     assert _rows(tmp_db_path, body["device_id"])[0]["outcome"] == "fallback"
+
+
+def test_a_covered_answer_with_an_invented_address_is_not_served(client, model, tmp_db_path):
+    model.return_value = _reply("Write to support@shouldersurf.app to delete it.",
+                                covered=True, ids=("a1",))
+    body = _body(app_locale="en")
+    r = _post(client, body)
+    assert r.status_code == 503
+    assert r.json()["detail"]["details"] == {"reason": "model_error"}
+    row = _rows(tmp_db_path, body["device_id"])[0]
+    assert (row["outcome"], row["cost_usd"]) == ("fallback", MODEL_COST)
 
 
 def test_the_sent_address_and_one_written_in_an_article_are_allowed(client, model):
@@ -1116,7 +1126,7 @@ def test_the_help_section_payload_carries_the_ask_numbers(client, model, tmp_db_
                              (b, "mail me at dana@example.com")):
         assert _post(client, _body(device_id=device, question=question)).status_code == 200
     model.return_value = _text_reply("no json here")
-    assert _post(client, _body(device_id=a, question="unreadable one")).status_code == 200
+    assert _post(client, _body(device_id=a, question="unreadable one")).status_code == 503
     model.side_effect = HTTPException(status_code=502, detail={"code": "provider_error"})
     assert _post(client, _body(device_id=a)).status_code == 503
 

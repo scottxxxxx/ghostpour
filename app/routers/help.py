@@ -274,6 +274,9 @@ async def help_ask_route(request: Request,
     logger.info("help_ask outcome=%s stop=%s in=%s out=%s cost_usd=%s ms=%d", result["outcome"],
                 (response.usage or {}).get("finish_reason"),
                 response.input_tokens, response.output_tokens, cost, elapsed)
+    if not result["serve"]:
+        # Paid for and recorded above, but there is no answer to show.
+        raise _unavailable("model_error")
     return {
         "answer": result["answer"],
         "covered": result["covered"],
