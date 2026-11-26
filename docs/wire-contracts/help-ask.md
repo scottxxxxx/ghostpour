@@ -36,8 +36,8 @@ not attach the call to an account. Header `X-App-ID: shouldersurf`.
 | `articles[].body` | required string, 1 to 8000 characters |
 | `app_locale` | required string, 1 to 35 characters. `pt-BR` or `pt_BR`. Used only as the fallback language (see below) |
 | `device_id` | required UUID (any letter case) |
-| `app_version` | required string, 1 to 32 characters |
-| `app_build` | required string, 1 to 16 characters |
+| `app_version` | optional string or null, 1 to 32 characters when sent |
+| `app_build` | optional string or null, 1 to 16 characters when sent |
 | `support_email` | optional string. Used only when it is an email address; anything else is ignored without an error |
 
 Lengths are counted in Unicode code points (Swift: `unicodeScalars.count`,
@@ -121,7 +121,7 @@ answers 404):
 
 | Key | Default | Meaning |
 |---|---|---|
-| `enabled` | `true` | the switch. Anything that is not `true` or `false` reads as off |
+| `enabled` | `false` | the switch. Ships off (503 `disabled`) and is turned on in the served doc once the first real answer has been read back. Anything that is not `true` or `false` reads as off |
 | `provider`, `model` | `anthropic`, `claude-haiku-5-5` | the model that writes the answer. No code default: without them the feature is off |
 | `max_output_tokens` | 400 | output cap (50 to 1000) |
 | `per_device_per_hour` | 10 | per `device_id` |

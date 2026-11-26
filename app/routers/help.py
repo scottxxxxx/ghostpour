@@ -11,7 +11,7 @@ Wire shape (docs/wire-contracts/help-ask.md is the contract):
     ],
     "app_locale": "pt-BR",
     "device_id": UUID,
-    "app_version": str, "app_build": str,
+    "app_version": str|null, "app_build": str|null,
     "support_email": str             optional
   }
   -> 200 {"answer": str, "covered": bool, "used_article_ids": [ids],
@@ -82,8 +82,10 @@ class HelpAskBody(BaseModel):
     articles: list[HelpArticle] = Field(..., min_length=1, max_length=3)
     app_locale: str = Field(..., min_length=1, max_length=35)
     device_id: str = Field(..., min_length=1, max_length=64)
-    app_version: str = Field(..., min_length=1, max_length=32)
-    app_build: str = Field(..., min_length=1, max_length=16)
+    # Optional: the client sends null when the bundle has no value. A
+    # missing version must not cost the person their answer.
+    app_version: str | None = Field(None, min_length=1, max_length=32)
+    app_build: str | None = Field(None, min_length=1, max_length=16)
     # Any string is accepted. One that is not an address is simply not
     # used (help_ask.valid_support_email).
     support_email: str | None = None

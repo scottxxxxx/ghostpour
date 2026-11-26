@@ -527,8 +527,8 @@ async def _write(db: aiosqlite.Connection, sql: str, params: tuple) -> int | Non
 
 
 async def reserve(db: aiosqlite.Connection, *, row_id: str, received_at: str, day: str,
-                  app_id: str | None, device_id: str, app_locale: str, app_version: str,
-                  app_build: str, question: str | None, offered_ids: list[str],
+                  app_id: str | None, device_id: str, app_locale: str,
+                  app_version: str | None, app_build: str | None, question: str | None, offered_ids: list[str],
                   model: str, reserved_usd: float, cap_usd: float) -> bool:
     """Write this call's row with its worst-case cost, unless the day's
     total has already reached the cap. One statement, so the check and the

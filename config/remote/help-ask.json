@@ -1,7 +1,7 @@
 {
   "version": 1,
   "server_only": true,
-  "enabled": true,
+  "enabled": false,
   "provider": "anthropic",
   "model": "claude-haiku-5-5",
   "max_output_tokens": 400,

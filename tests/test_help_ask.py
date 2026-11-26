@@ -108,6 +108,14 @@ def _dial(client, **over) -> None:
 
 
 @pytest.fixture
+def client(client):
+    """The bundle ships the feature OFF. Every test here runs with the
+    switch on unless it turns it off itself."""
+    _dial(client, enabled=True)
+    return client
+
+
+@pytest.fixture
 def model(mock_provider):
     """The stubbed model. Answers like a covered question unless a test
     sets something else."""
@@ -235,9 +243,9 @@ _BAD_BODIES = {
     "device_id_not_a_uuid": lambda b: b.update(device_id="not-a-uuid"),
     "device_id_missing": lambda b: b.pop("device_id"),
     "app_locale_missing": lambda b: b.pop("app_locale"),
-    "app_version_missing": lambda b: b.pop("app_version"),
+    "app_version_empty": lambda b: b.update(app_version=""),
     "app_version_33_chars": lambda b: b.update(app_version="1" * 33),
-    "app_build_missing": lambda b: b.pop("app_build"),
+    "app_build_empty": lambda b: b.update(app_build=""),
     "app_build_17_chars": lambda b: b.update(app_build="9" * 17),
     "support_email_not_a_string": lambda b: b.update(support_email=7),
 }
@@ -951,10 +959,32 @@ def test_the_sent_address_and_one_written_in_an_article_are_allowed(client, mode
 # --- the served dials ---------------------------------------------------------------------
 
 
+def test_the_bundle_as_shipped_is_off_and_spends_nothing(client, model, tmp_db_path):
+    client.app.state.remote_configs["help-ask"] = json.loads(
+        (ROOT / "config/remote/help-ask.json").read_text())
+    r = _post(client, _body())
+    assert r.status_code == 503
+    assert r.json()["detail"]["details"] == {"reason": "disabled"}
+    assert model.await_count == 0
+    assert _rows(tmp_db_path) == []
+
+
+@pytest.mark.parametrize("gone", ["app_version", "app_build"])
+@pytest.mark.parametrize("how", ["null", "absent"])
+def test_a_missing_version_or_build_still_gets_an_answer(client, model, tmp_db_path, gone, how):
+    body = _body()
+    if how == "null":
+        body[gone] = None
+    else:
+        body.pop(gone)
+    assert _post(client, body).status_code == 200
+    assert _rows(tmp_db_path)[0][gone] is None
+
+
 def test_the_served_doc_is_server_only_and_holds_the_approved_values(client):
     served = json.loads((ROOT / "config/remote/help-ask.json").read_text())
     assert served == {
-        "version": 1, "server_only": True, "enabled": True,
+        "version": 1, "server_only": True, "enabled": False,
         "provider": "anthropic", "model": "claude-haiku-5-5", "max_output_tokens": 400,
         "per_device_per_hour": 10, "per_device_per_day": 30, "per_ip_per_hour": 30,
         "daily_spend_cap_usd": 5.0}
