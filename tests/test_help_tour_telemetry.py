@@ -692,7 +692,7 @@ def test_dashboard_empty_state(client):
                     "device_model": None},
         # Help Ask (2026-11-26) rides this payload; tests/test_help_ask.py
         # covers it with data.
-        "ask": {"enabled": True, "questions": 0, "distinct_devices": 0, "covered": 0,
+        "ask": {"enabled": False, "questions": 0, "distinct_devices": 0, "covered": 0,
                 "covered_rate": 0.0, "not_covered": 0, "not_covered_text_dropped": 0,
                 "unreadable_replies": 0, "model_errors": 0, "median_latency_ms": None,
                 "spend_window_usd": 0.0, "spend_today_usd": 0.0,
