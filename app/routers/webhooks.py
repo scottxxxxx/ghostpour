@@ -2311,6 +2311,10 @@ async def usage_by_place(
         "by_city": await group(["jurisdiction", "form_city"], "l.form_city IS NOT NULL"),
         "by_ip_location": await group(["geo_country", "geo_region", "geo_city"],
                                       "l.geo_country IS NOT NULL"),
+        # Users per IP country, counted once each. Summing by_ip_location's
+        # per-city users would count a traveller once per city, so the world
+        # map gets its own grouping.
+        "by_ip_country": await group(["geo_country"], "l.geo_country IS NOT NULL"),
     }
 
 
