@@ -56,6 +56,10 @@ APP_SCOPED_TABLES = [
     "companion_events",
     "generated_files",
     "generations",
+    # Help and tour views (2026-11-25): a signed-in row names the person
+    # and holds what they searched for in Help, so it goes with them.
+    # Device-only rows carry no user and are untouched.
+    "help_tour_events",
     # Meeting shares (2026-08-21): the user's own meeting content, hosted
     # at a public URL. Goes with the account, bytes included; a share must
     # not outlive the person who made it.

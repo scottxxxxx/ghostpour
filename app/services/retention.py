@@ -141,6 +141,11 @@ SWEEPS: tuple[Sweep, ...] = (
           "MetricKit crash and hang reports (2026-11-24). Long enough to "
           "compare a crash signature across several releases; anonymous by "
           "construction, so the window bounds storage rather than linkage."),
+    Sweep("help_tour_events", "received_at", 180,
+          "Help and tour views (2026-11-25), Help search text included. "
+          "Same window as the companion events: long enough to watch "
+          "adoption across a few releases, and there is no rollup that "
+          "would outlive the raw rows."),
 )
 
 

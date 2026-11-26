@@ -520,6 +520,20 @@ def _redact_sensitive(obj):
     stable identifiers; the request_id is the correlation handle instead.
     """
     if isinstance(obj, dict):
+        # Help search text is free text a person typed. It is stored only
+        # after the telemetry guards drop emails, phone numbers and links,
+        # and this buffer sees it BEFORE those guards, so it never keeps
+        # the text: `searches: [{q, opened}]` in a request, and a 422 that
+        # echoes one back as `input`.
+        searches = obj.get("searches")
+        if isinstance(searches, list):
+            for item in searches:
+                if isinstance(item, dict) and isinstance(item.get("q"), str):
+                    item["q"] = "<redacted>"
+        loc = obj.get("loc")
+        if (isinstance(loc, list) and "searches" in loc
+                and isinstance(obj.get("input"), str)):
+            obj["input"] = "<redacted>"
         for key in obj:
             if _is_sensitive_key(key) and isinstance(obj[key], str):
                 obj[key] = "<redacted>"

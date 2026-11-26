@@ -201,6 +201,9 @@ def test_the_windows_are_unchanged():
         # MetricKit crash reports (2026-11-24): 180 days, set in the
         # crash intake request.
         "crash_reports": 180,
+        # Help and tour views (2026-11-25): 180 days is my proposal, put to
+        # Scott in the PR; there is no rollup behind these rows.
+        "help_tour_events": 180,
     }
 
 
