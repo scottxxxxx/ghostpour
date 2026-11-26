@@ -933,3 +933,23 @@ def test_the_live_log_hides_search_text_when_a_422_echoes_the_whole_block(client
     assert "wombat settings" in r.text, "positive control"
 
     assert "wombat settings" not in _live_log_text()
+
+
+# --- drop-off groups by POSITION, not by the deck's own slide id --------------
+# The client sends "p<position>-s<deck id>". Deck ids skip numbers, so the
+# first real event read "slide-26" on a 25-slide tour.
+
+def test_drop_off_groups_by_position_and_orders_numerically():
+    from app.services.help_tour_stats import summarize_tour
+    def view(last, done=False):
+        return ("d", _tour(slides_seen=1, last_slide=last, completed=done))
+    out = summarize_tour([view("p10-s14"), view("p3-s3"), view("p3-s4"),
+                          view("p9-s12"), view("tour-03"), view(None),
+                          view("p25-s40", done=True)])
+
+    assert out["drop_off"] == [
+        {"last_slide": "Slide 3", "n": 2},      # two deck ids, one position
+        {"last_slide": "Slide 9", "n": 1},
+        {"last_slide": "Slide 10", "n": 1},     # after 9, not between 1 and 2
+        {"last_slide": "tour-03", "n": 1},      # an id from before the scheme
+        {"last_slide": "unknown", "n": 1}]

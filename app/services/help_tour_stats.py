@@ -148,13 +148,36 @@ def summarize_help(views: list[tuple[str, dict]]) -> dict:
     }
 
 
+# The client sends `last_slide` as "p<position>-s<deck id>": the position is
+# 1-based in the deck as shown, the deck id says which slide that was. Deck
+# ids skip numbers, so a drop-off chart groups and orders by POSITION. One
+# position is one bar even when two builds put a different slide there.
+_SLIDE_POSITION = re.compile(r"^p(\d{1,3})-s")
+
+
+def _slide_label(last_slide: str | None) -> str:
+    """The drop-off bucket for one early exit."""
+    if not last_slide:
+        return "unknown"
+    m = _SLIDE_POSITION.match(last_slide)
+    return f"Slide {int(m.group(1))}" if m else last_slide
+
+
+def _slide_order(label: str) -> tuple:
+    """Positions in numeric order (slide 10 after slide 9), then any other
+    id alphabetically, then the ones that named no slide."""
+    if label.startswith("Slide ") and label[6:].isdigit():
+        return (0, int(label[6:]), "")
+    return (2, 0, "") if label == "unknown" else (1, 0, label)
+
+
 def summarize_tour(views: list[tuple[str, dict]]) -> dict:
     """`views` is (device_id, tour block) per tour viewing from Settings."""
     total = len(views)
     completed = sum(1 for _, t in views if t["completed"])
     # Where the people who did NOT finish stopped, in slide order so it
     # reads as a histogram. A finished tour is not a drop.
-    drops = Counter((t.get("last_slide") or "unknown")
+    drops = Counter(_slide_label(t.get("last_slide"))
                     for _, t in views if not t["completed"])
     return {
         "views": total,
@@ -163,7 +186,8 @@ def summarize_tour(views: list[tuple[str, dict]]) -> dict:
         "completion_rate": pct(completed, total),
         "median_slides_seen": _median([t["slides_seen"] for _, t in views]),
         "by_entry": _counts([t["entry"] for _, t in views], "entry"),
-        "drop_off": [{"last_slide": s, "n": n} for s, n in sorted(drops.items())],
+        "drop_off": [{"last_slide": s, "n": n}
+                     for s, n in sorted(drops.items(), key=lambda kv: _slide_order(kv[0]))],
         "narration_on_rate": pct(sum(1 for _, t in views if t["narration_on"]), total),
         # "pt_BR" and "pt-BR" are one language; a tour sent without one
         # counts as "unknown".
