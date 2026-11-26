@@ -151,7 +151,8 @@ def test_the_model_request_is_the_served_model_small_and_thinking_free(client, m
     req = model.await_args.args[0]
     served = json.loads((ROOT / "config/remote/help-ask.json").read_text())
     assert (req.provider, req.model) == (served["provider"], served["model"])
-    assert req.max_tokens == served["max_output_tokens"] == 400
+    assert req.max_tokens == served["max_output_tokens"] == 800
+    assert req.tool_choice == {"type": "tool", "name": help_ask.TOOL_NAME}
     assert req.thinking == "disabled"
     assert req.temperature is None
     assert req.stream is False
@@ -180,7 +181,8 @@ def test_the_wire_body_never_carries_temperature_and_turns_thinking_off():
     body, _ = adapter._build_body(req)
     assert "temperature" not in body
     assert body["thinking"] == {"type": "disabled"}
-    assert body["max_tokens"] == 400
+    assert body["max_tokens"] == 800
+    assert body["tool_choice"] == {"type": "tool", "name": help_ask.TOOL_NAME}
     assert body.get("stream") is not True
     assert [t["name"] for t in body["tools"]] == ["help_answer"]
 
@@ -1059,8 +1061,8 @@ def test_a_missing_version_or_build_still_gets_an_answer(client, model, tmp_db_p
 def test_the_served_doc_is_server_only_and_holds_the_approved_values(client):
     served = json.loads((ROOT / "config/remote/help-ask.json").read_text())
     assert served == {
-        "version": 1, "server_only": True, "enabled": False,
-        "provider": "anthropic", "model": "claude-haiku-5-5", "max_output_tokens": 400,
+        "version": 6, "server_only": True, "enabled": False,
+        "provider": "anthropic", "model": "claude-haiku-5-5", "max_output_tokens": 800,
         "per_device_per_hour": 10, "per_device_per_day": 30, "per_ip_per_hour": 30,
         "daily_spend_cap_usd": 5.0}
     assert client.app.state.remote_configs["help-ask"]["model"] == "claude-haiku-5-5"
@@ -1083,7 +1085,7 @@ def test_a_malformed_dial_falls_back_to_its_default():
         "per_device_per_hour": 0, "per_device_per_day": "30", "per_ip_per_hour": True,
         "daily_spend_cap_usd": 500}})
     assert (cfg.max_output_tokens, cfg.per_device_per_hour, cfg.per_device_per_day,
-            cfg.per_ip_per_hour, cfg.daily_spend_cap_usd) == (400, 10, 30, 30, 5.0)
+            cfg.per_ip_per_hour, cfg.daily_spend_cap_usd) == (800, 10, 30, 30, 5.0)
     assert cfg.enabled and cfg.usable
     ok = help_ask.load_config({"help-ask": {
         "provider": "anthropic", "model": "m", "max_output_tokens": 300,

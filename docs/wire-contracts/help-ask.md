@@ -125,7 +125,7 @@ answers 404):
 |---|---|---|
 | `enabled` | `false` | the switch. Ships off (503 `disabled`) and is turned on in the served doc once the first real answer has been read back. Anything that is not `true` or `false` reads as off |
 | `provider`, `model` | `anthropic`, `claude-haiku-5-5` | the model that writes the answer. No code default: without them the feature is off |
-| `max_output_tokens` | 400 | output cap (50 to 1000) |
+| `max_output_tokens` | 800 | output cap (50 to 1000) |
 | `per_device_per_hour` | 10 | per `device_id` |
 | `per_device_per_day` | 30 | per `device_id`, a rolling 24 hours |
 | `per_ip_per_hour` | 30 | per client IP (first `X-Forwarded-For` entry) |
