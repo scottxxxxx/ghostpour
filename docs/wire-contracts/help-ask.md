@@ -23,7 +23,8 @@ not attach the call to an account. Header `X-App-ID: shouldersurf`.
   "device_id": "5B0C1D8E-3F2A-4E6B-9C7D-1A2B3C4D5E6F",
   "app_version": "1.21",
   "app_build": "912",
-  "support_email": "help@example.com"
+  "support_email": "help@example.com",
+  "ui_terms": {"Settings": "Ajustes"}
 }
 ```
 
@@ -39,6 +40,7 @@ not attach the call to an account. Header `X-App-ID: shouldersurf`.
 | `app_version` | optional string or null, 1 to 32 characters when sent |
 | `app_build` | optional string or null, 1 to 16 characters when sent |
 | `support_email` | optional string. Used only when it is an email address; anything else is ignored without an error |
+| `ui_terms` | optional object, a name as the (English) articles write it mapped to the name this phone shows: `{"Settings": "Ajustes"}`. At most 80 pairs, each side a non-blank string of 1 to 60 characters with no line break. Send it only when the app language is not the articles' language, ideally only the names that appear in the articles of this request. A glossary that breaks a rule is ignored whole with a log line, never a 400. Where the answer names a key, the model writes the value; other names stay as the article writes them. Counts toward the 32 KB cap |
 
 Lengths are counted in Unicode code points (Swift: `unicodeScalars.count`,
 not `count`). The whole body may be at most 32 KB (32768 bytes) as sent, and

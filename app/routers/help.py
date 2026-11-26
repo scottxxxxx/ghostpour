@@ -13,6 +13,7 @@ Wire shape (docs/wire-contracts/help-ask.md is the contract):
     "device_id": UUID,
     "app_version": str|null, "app_build": str|null,
     "support_email": str             optional
+    "ui_terms": {"Settings": "Ajustes"}  optional, the app's own names
   }
   -> 200 {"answer": str, "covered": bool, "used_article_ids": [ids],
           "source": "articles", "output_language": null}
@@ -89,6 +90,9 @@ class HelpAskBody(BaseModel):
     # Any string is accepted. One that is not an address is simply not
     # used (help_ask.valid_support_email).
     support_email: str | None = None
+    # Any JSON value is accepted here. One that is not a usable glossary is
+    # left out with a log line (help_ask.valid_ui_terms), never a 400.
+    ui_terms: object | None = None
 
     @field_validator("question")
     @classmethod
@@ -221,7 +225,8 @@ async def help_ask_route(request: Request,
     support_email = help_ask.valid_support_email(body.support_email)
     model_request = help_ask.build_request(
         cfg, question=body.question, articles=articles,
-        app_locale=body.app_locale, support_email=support_email)
+        app_locale=body.app_locale, support_email=support_email,
+        ui_terms=help_ask.valid_ui_terms(body.ui_terms))
 
     now = datetime.now(timezone.utc)
     row_id = str(uuid.uuid4())
