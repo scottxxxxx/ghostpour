@@ -3624,7 +3624,8 @@ async def list_users(
                 {"production": "appstore", "sandbox": "testflight",
                  "xcode": "dev"}.get(r["distribution"])
                 or {"Production": "appstore",
-                    "Sandbox": "testflight"}.get(r["sub_environment"])
+                    "Sandbox": "testflight",
+                    "Xcode": "dev"}.get(r["sub_environment"])
             ),
             "device": to_marketing_name(r["device_model"]),
             "location": (

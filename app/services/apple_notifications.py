@@ -100,6 +100,65 @@ def _verify_x5c_chain(x5c: list[str], bundle_id: str) -> x509.Certificate:
     return certs[0]  # leaf
 
 
+def split_jws(signed_payload: str) -> tuple[dict, str, str, str]:
+    """Split a compact JWS and decode its header.
+
+    Returns (header, header_b64, payload_b64, signature_b64). Checks the
+    three things every verifier here needs before it looks at a
+    certificate: three parts, an ES256 `alg`, and an `x5c` list. It
+    proves nothing about who signed; that is the caller's next step.
+    """
+    parts = signed_payload.split(".")
+    if len(parts) != 3:
+        raise AppleJWSError(f"Invalid JWS format: expected 3 parts, got {len(parts)}")
+
+    header_b64, payload_b64, signature_b64 = parts
+
+    # Decode header to get x5c chain
+    try:
+        header = json.loads(_b64url_decode(header_b64))
+    except Exception as e:
+        raise AppleJWSError(f"Failed to decode JWS header: {e}")
+
+    if header.get("alg") != "ES256":
+        raise AppleJWSError(f"Unexpected algorithm: {header.get('alg')}")
+
+    x5c = header.get("x5c")
+    if not x5c or not isinstance(x5c, list):
+        raise AppleJWSError("Missing x5c certificate chain in JWS header")
+
+    return header, header_b64, payload_b64, signature_b64
+
+
+def verify_es256_signature(cert: x509.Certificate, header_b64: str,
+                           payload_b64: str, signature_b64: str) -> None:
+    """Raise AppleJWSError unless `cert`'s key signed header.payload (ES256)."""
+    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+    signature = _b64url_decode(signature_b64)
+
+    # ES256 signature is r||s (64 bytes), convert to DER for cryptography lib
+    if len(signature) == 64:
+        r = int.from_bytes(signature[:32], "big")
+        s = int.from_bytes(signature[32:], "big")
+        signature = utils.encode_dss_signature(r, s)
+
+    try:
+        cert.public_key().verify(
+            signature,
+            signing_input,
+            ec.ECDSA(hashes.SHA256()),
+        )
+    except InvalidSignature:
+        raise AppleJWSError("JWS signature verification failed")
+
+
+def decode_jws_payload(payload_b64: str) -> dict:
+    try:
+        return json.loads(_b64url_decode(payload_b64))
+    except Exception as e:
+        raise AppleJWSError(f"Failed to decode JWS payload: {e}")
+
+
 def decode_and_verify_jws(signed_payload: str, bundle_id: str) -> dict:
     """Decode and verify an Apple JWS payload.
 
@@ -128,54 +187,13 @@ def decode_and_verify_jws(signed_payload: str, bundle_id: str) -> dict:
     the same change that closed the holes; it is documented as inert
     instead, which is the honest state.
     """
-    parts = signed_payload.split(".")
-    if len(parts) != 3:
-        raise AppleJWSError(f"Invalid JWS format: expected 3 parts, got {len(parts)}")
-
-    header_b64, payload_b64, signature_b64 = parts
-
-    # Decode header to get x5c chain
-    try:
-        header = json.loads(_b64url_decode(header_b64))
-    except Exception as e:
-        raise AppleJWSError(f"Failed to decode JWS header: {e}")
-
-    if header.get("alg") != "ES256":
-        raise AppleJWSError(f"Unexpected algorithm: {header.get('alg')}")
-
-    x5c = header.get("x5c")
-    if not x5c or not isinstance(x5c, list):
-        raise AppleJWSError("Missing x5c certificate chain in JWS header")
+    header, header_b64, payload_b64, signature_b64 = split_jws(signed_payload)
 
     # Verify certificate chain
-    leaf_cert = _verify_x5c_chain(x5c, bundle_id)
+    leaf_cert = _verify_x5c_chain(header["x5c"], bundle_id)
 
-    # Verify JWS signature
-    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
-    signature = _b64url_decode(signature_b64)
-
-    # ES256 signature is r||s (64 bytes), convert to DER for cryptography lib
-    if len(signature) == 64:
-        r = int.from_bytes(signature[:32], "big")
-        s = int.from_bytes(signature[32:], "big")
-        signature = utils.encode_dss_signature(r, s)
-
-    try:
-        leaf_cert.public_key().verify(
-            signature,
-            signing_input,
-            ec.ECDSA(hashes.SHA256()),
-        )
-    except InvalidSignature:
-        raise AppleJWSError("JWS signature verification failed")
-
-    # Decode payload
-    try:
-        payload = json.loads(_b64url_decode(payload_b64))
-    except Exception as e:
-        raise AppleJWSError(f"Failed to decode JWS payload: {e}")
-
-    return payload
+    verify_es256_signature(leaf_cert, header_b64, payload_b64, signature_b64)
+    return decode_jws_payload(payload_b64)
 
 
 def decode_notification(signed_payload: str, bundle_id: str) -> dict:

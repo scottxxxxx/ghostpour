@@ -707,15 +707,24 @@ def contract_tool_schema(contract: Contract) -> dict[str, Any]:
     }
 
 
-def plan_from_contract(contract: Contract, emitted: dict) -> dict:
+def plan_from_contract(contract: Contract, emitted: dict,
+                       locale: str | None = None) -> dict:
     """Turn a contracted emission into the plan the renderer already takes.
 
     The model never sees column definitions, so we put them back. For a
     comparison, the option names it chose become extra columns and its
     per-row `values` array is spread across them positionally, so a short
     or long array cannot shift a score under the wrong option.
+
+    The headers we put back are OURS, so they are the one part of the
+    sheet the model's language never reaches: `locale` (the request's
+    output locale) picks them from doc_strings. Keys stay as declared,
+    since rows, totals and computed columns all address a column by key.
     """
-    cols = [c.as_plan_column() for c in contract.columns]
+    from app.services.doc_strings import DocStrings
+    S = DocStrings(locale)
+    cols = [{**c.as_plan_column(), "label": S.label(c.label)}
+            for c in contract.columns]
     options = [str(o) for o in (emitted.get("options") or [])
                ] if contract.axis else []
     for i, opt in enumerate(options):
@@ -743,7 +752,7 @@ def plan_from_contract(contract: Contract, emitted: dict) -> dict:
     return {
         "filename": (emitted.get("filename")
                      or f"{contract.filename_hint}.xlsx"),
-        "title": emitted.get("title") or contract.label,
+        "title": emitted.get("title") or S.label(contract.label),
         "needs_computation": emitted.get("needs_computation", False),
         "readme": emitted.get("readme"),
         "sheets": sheets,

@@ -32,6 +32,7 @@ import io
 import re
 from typing import Any
 
+from app.services.doc_strings import DocStrings
 from app.services.text_hygiene import normalize_dashes
 
 # Reuse the Gantt lane's palette so a scenario matrix and a schedule look
@@ -215,16 +216,18 @@ def _clean(value: Any) -> Any:
     return _SPACED_HYPHEN.sub(", ", normalize_dashes(value)).strip()
 
 
-def _tab_name(raw: str, taken: set[str]) -> str:
+def _tab_name(raw: str, taken: set[str], default: str = "Sheet") -> str:
     """Excel-legal, house-legal, and unique.
 
     A spaced hyphen becomes a comma rather than a slash: Excel forbids
     "/" in a sheet name, so substituting one only to strip it in the next
     pass leaves a gap where the punctuation was.
+
+    `default` names a tab the plan left unnamed, in the reader's language.
     """
-    name = _SPACED_HYPHEN.sub(", ", normalize_dashes(str(raw or "Sheet")))
+    name = _SPACED_HYPHEN.sub(", ", normalize_dashes(str(raw or default)))
     name = _ILLEGAL_TAB.sub(" ", name)
-    name = re.sub(r"\s+", " ", name).strip() or "Sheet"
+    name = re.sub(r"\s+", " ", name).strip() or default
     name = name[:_MAX_TAB].strip()
     base, n = name, 2
     while name.lower() in taken:
@@ -253,12 +256,19 @@ def _formula(op: str, letters: list[str], row: int) -> str | None:
     return f'=IFERROR({body},"")'
 
 
-def render_workbook(plan: dict) -> bytes:
-    """Render a sheet plan to xlsx bytes."""
+def render_workbook(plan: dict, *, locale: str | None = None) -> bytes:
+    """Render a sheet plan to xlsx bytes.
+
+    `locale` is the request's output locale. The rows and the tab names
+    are the model's and already in the user's language; this picks the
+    language of the few words the renderer writes itself (the cover
+    sheet's tab and field labels, the totals label, the fallback names).
+    """
     import openpyxl
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 
+    S = DocStrings(locale)
     sheets = plan.get("sheets") or []
     if not sheets:
         raise ValueError("plan has no sheets")
@@ -273,14 +283,15 @@ def render_workbook(plan: dict) -> bytes:
     band_fill = PatternFill("solid", fgColor="FF" + _BAND_BG)
 
     if plan.get("readme"):
-        _render_readme(wb, plan, taken, Font, Alignment)
+        _render_readme(wb, plan, taken, Font, Alignment, S)
 
     for spec in sheets:
         cols = spec.get("columns") or []
         rows = spec.get("rows") or []
         if not cols:
             continue
-        ws = wb.create_sheet(_tab_name(spec.get("name"), taken))
+        ws = wb.create_sheet(_tab_name(spec.get("name"), taken,
+                                       S.t("wb_sheet_default")))
         letters = {c["key"]: get_column_letter(i)
                    for i, c in enumerate(cols, start=1)}
 
@@ -338,7 +349,7 @@ def render_workbook(plan: dict) -> bytes:
         totals = [k for k in (spec.get("totals") or []) if k in letters]
         if totals and rows:
             trow = len(rows) + 3
-            label = ws.cell(trow, 1, "Total")
+            label = ws.cell(trow, 1, S.t("wb_total"))
             label.font = Font(bold=True, size=10)
             label.border = grid
             for i, col in enumerate(cols, start=1):
@@ -367,7 +378,8 @@ def render_workbook(plan: dict) -> bytes:
     return buf.getvalue()
 
 
-def _render_readme(wb, plan: dict, taken: set[str], Font, Alignment) -> None:
+def _render_readme(wb, plan: dict, taken: set[str], Font, Alignment,
+                   S: DocStrings) -> None:
     """Cover sheet, always built the same way.
 
     A plain string is accepted as well as the field dict. The contract
@@ -384,18 +396,19 @@ def _render_readme(wb, plan: dict, taken: set[str], Font, Alignment) -> None:
         rm = {"purpose": rm}
     elif not isinstance(rm, dict):
         rm = {}
-    ws = wb.create_sheet(_tab_name("README", taken))
+    ws = wb.create_sheet(_tab_name(S.t("wb_readme_tab"), taken))
     ws.column_dimensions["A"].width = 18
     ws.column_dimensions["B"].width = 96
     ws.sheet_view.showGridLines = False
 
-    tc = ws.cell(1, 1, _clean(plan.get("title") or "Workbook"))
+    tc = ws.cell(1, 1, _clean(plan.get("title") or S.t("wb_title_default")))
     tc.font = Font(bold=True, size=14, color="FF" + _TITLE_FG)
     ws.row_dimensions[1].height = 24
 
-    fields = [("Purpose", "purpose"), ("Scope", "scope"),
-              ("How to read", "how_to_read"), ("Reviewers", "reviewers"),
-              ("Handoff", "handoff")]
+    fields = [(S.t("wb_purpose"), "purpose"), (S.t("wb_scope"), "scope"),
+              (S.t("wb_how_to_read"), "how_to_read"),
+              (S.t("wb_reviewers"), "reviewers"),
+              (S.t("wb_handoff"), "handoff")]
     row = 3
     for label, key in fields:
         value = rm.get(key)

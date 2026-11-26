@@ -441,6 +441,11 @@ SANDBOX = "Sandbox"
 # "Production" because the environment fell back to the account's previous
 # event). Never revenue, never a purchase alert; buckets as "unknown".
 UNVERIFIED = "Unverified"
+# A local StoreKit configuration purchase from an Xcode run, signed by a
+# StoreKit Test certificate the team listed as trusted (2026-11-25, see
+# receipt_verification). Real as a test, not as a sale: never revenue,
+# never a purchase alert or push, and shown under its own name.
+XCODE = "Xcode"
 
 
 async def user_environments(db: aiosqlite.Connection) -> dict[str, str]:
@@ -473,6 +478,8 @@ def _env_bucket(env: str | None) -> str:
         return "production"
     if env == SANDBOX:
         return "sandbox"
+    if env == XCODE:
+        return "xcode"
     return "unknown"
 
 
@@ -493,8 +500,8 @@ async def summary(db: aiosqlite.Connection) -> dict:
 
     by_tier: dict[str, int] = {}
     by_tier_production: dict[str, int] = {}
-    paid_by_env = {"production": 0, "sandbox": 0, "unknown": 0}
-    gross_by_env = {"production": 0.0, "sandbox": 0.0, "unknown": 0.0}
+    paid_by_env = {"production": 0, "sandbox": 0, "xcode": 0, "unknown": 0}
+    gross_by_env = {"production": 0.0, "sandbox": 0.0, "xcode": 0.0, "unknown": 0.0}
     async with db.execute(
         "SELECT id, tier FROM users WHERE tier NOT IN ('free','')"
     ) as cur:
