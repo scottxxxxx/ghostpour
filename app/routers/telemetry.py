@@ -30,13 +30,14 @@ import hashlib
 import json
 import logging
 import re
+import unicodedata
 import uuid
 from datetime import datetime, timezone
 from typing import Literal
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.database import get_db
 
@@ -47,7 +48,8 @@ router = APIRouter()
 _EVENT_TYPES = ("app_start", "meeting_start", "meeting_stop",
                 "onboarding_completed", "config_decode_failed",
                 "companion_start", "companion_linked",
-                "companion_session_start", "companion_session_stop")
+                "companion_session_start", "companion_session_stop",
+                "help_viewed", "tour_viewed")
 
 # Shoulder Surf Companion (Mac + Windows), 2026-09-29, agreed with SS. These
 # land in companion_events, never telemetry_events: the iPhone's
@@ -58,6 +60,9 @@ _COMPANION_PLATFORMS = frozenset({"mac", "windows"})
 # One CPU vocabulary across platforms, matching the download redirect's
 # ?arch= (SS, 2026-09-29: the Mac reports x86_64, Windows x64).
 _ARCH_ALIASES = {"x86_64": "x64", "amd64": "x64", "x64": "x64", "aarch64": "arm64", "arm64": "arm64"}
+
+# Which block each Help or tour event carries.
+_HELP_TOUR_BLOCKS = {"help_viewed": "help", "tour_viewed": "tour"}
 
 # Unknown keys used to vanish silently (Pydantic's default), a 204 on a field
 # nobody stored: the to_name shape. They are still accepted, because an old
@@ -100,6 +105,127 @@ class OnboardingPayload(BaseModel):
     steps: list[OnboardingStep] = Field(default_factory=list, max_length=40)
 
 
+# Help and tour use (Shoulder Surf 1.21, 2026-11-25). Ids are short slugs
+# and every number is bounded. The one free-text field is the Help search
+# text (`help.searches[].q`, owner's call the same day): it is normalized,
+# length-capped and run through the drop patterns below before it is stored,
+# and it is never written to an application log. What a person asked in
+# Help does not travel at all, only the fact that they did.
+_SLUG_PATTERN = r"^[a-z0-9][a-z0-9._-]{0,63}$"
+# BCP-47 style ("pt-BR", "zh-Hans-CN"). An underscore separator is accepted
+# as well because Locale.identifier writes "pt_BR"; the read side folds it
+# to a hyphen. Length is capped by the field (16).
+_LANGUAGE_PATTERN = r"^[A-Za-z]{2,3}([-_][A-Za-z0-9]{1,8})*$"
+_DAY_MS = 86_400_000
+_MAX_SLIDES = 200
+
+# A Help search is dropped (the event is still stored) when its normalized
+# text looks like personal data. Run on the lowercased, whitespace-collapsed
+# form. Deliberately greedy: losing an odd legitimate query ("file.pdf")
+# costs nothing, keeping somebody's address does.
+#   email: anything@anything.anything
+#   URL:   a scheme, a leading www., or a bare domain (label.tld, the tld
+#          two or more letters)
+#   phone: 7 or more digits in a row once spaces, dashes, dots and
+#          parentheses are removed ("iphone 17 pro" has two)
+_Q_MAX_CHARS = 100
+_Q_EMAIL_RE = re.compile(r"[^\s@]+@[^\s@]+\.[^\s@]+")
+_Q_URL_RE = re.compile(
+    r"[a-z][a-z0-9+.-]*://|\bwww\.|\b[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}\b")
+_Q_PHONE_STRIP_RE = re.compile(r"[\s\-.()]")
+_Q_PHONE_RE = re.compile(r"\d{7,}")
+
+
+def _looks_personal(q: str) -> bool:
+    """True when a normalized search looks like an email address, a URL or
+    a phone number. See the patterns above."""
+    return bool(_Q_EMAIL_RE.search(q) or _Q_URL_RE.search(q)
+                or _Q_PHONE_RE.search(_Q_PHONE_STRIP_RE.sub("", q)))
+
+
+class HelpSearch(BaseModel):
+    """One search typed into Help: the text, and whether an article was
+    opened from its results. Exactly these two keys."""
+    model_config = ConfigDict(extra="forbid")
+
+    # The raw cap only bounds the work; the real limit is on the normalized
+    # text, below.
+    q: str = Field(..., max_length=1000)
+    opened: bool
+
+    @field_validator("q")
+    @classmethod
+    def _normalize_q(cls, v: str) -> str:
+        # Checked on the text as sent: collapsing whitespace first would
+        # turn a newline or a tab into a space and let it through.
+        if any(unicodedata.category(ch) in ("Cc", "Zl", "Zp") for ch in v):
+            raise ValueError("q must not contain control characters or newlines")
+        q = " ".join(v.lower().split())
+        if not 1 <= len(q) <= _Q_MAX_CHARS:
+            raise ValueError(f"q must be 1 to {_Q_MAX_CHARS} characters after trimming")
+        return q
+
+
+class HelpArticleView(BaseModel):
+    """One Help article opened in the visit and how long it stayed open."""
+    id: str = Field(..., pattern=_SLUG_PATTERN)
+    dwell_ms: int = Field(..., ge=0, le=_DAY_MS)
+
+
+class HelpPayload(BaseModel):
+    """One visit to the Help screen, sent once when it closes. Carried on
+    event_type='help_viewed': which articles (by slug) and for how long,
+    whether search, Ask and What's New were used, and the search text
+    itself (normalized and screened, see HelpSearch and _clean_searches)."""
+    entry: Literal["settings", "listen_mode", "other"]
+    duration_ms: int = Field(..., ge=0, le=_DAY_MS)
+    articles: list[HelpArticleView] = Field(default_factory=list, max_length=50)
+    searched: bool
+    # What they searched for. Optional; the 20 is counted on what was sent,
+    # before anything is dropped or merged.
+    searches: list[HelpSearch] = Field(default_factory=list, max_length=20)
+    asked: bool
+    whats_new_opened: bool
+
+    @model_validator(mode="after")
+    def _clean_searches(self):
+        if self.searches and not self.searched:
+            raise ValueError("searched must be true when searches is not empty")
+        # Drop what looks personal, then one entry per text: opened if any
+        # copy was. First-seen order is kept.
+        kept: dict[str, HelpSearch] = {}
+        for s in self.searches:
+            if _looks_personal(s.q):
+                continue
+            if s.q in kept:
+                kept[s.q].opened = kept[s.q].opened or s.opened
+            else:
+                kept[s.q] = s
+        self.searches = list(kept.values())
+        return self
+
+
+class TourPayload(BaseModel):
+    """One viewing of the "How Shoulder Surf Works" tour opened outside
+    first-run onboarding, sent when it closes. Carried on
+    event_type='tour_viewed'. The first-run tour stays on
+    onboarding_completed, so entry "onboarding" is not accepted here."""
+    entry: Literal["settings", "other"]
+    duration_ms: int = Field(..., ge=0, le=_DAY_MS)
+    slides_total: int = Field(..., ge=0, le=_MAX_SLIDES)
+    slides_seen: int = Field(..., ge=0, le=_MAX_SLIDES)
+    last_slide: str | None = Field(default=None, pattern=_SLUG_PATTERN)
+    completed: bool
+    narration_on: bool
+    language: str | None = Field(default=None, max_length=16, pattern=_LANGUAGE_PATTERN)
+
+    @model_validator(mode="after")
+    def _seen_within_total(self):
+        if self.slides_seen > self.slides_total:
+            raise ValueError("slides_seen must not exceed slides_total")
+        return self
+
+
 class ConfigDecodeFailurePayload(BaseModel):
     """A served config the client could not decode.
 
@@ -126,7 +252,8 @@ class PingEvent(BaseModel):
                         "meeting_heartbeat",
                         "onboarding_completed", "config_decode_failed",
                         "companion_start", "companion_linked",
-                        "companion_session_start", "companion_session_stop"]
+                        "companion_session_start", "companion_session_stop",
+                        "help_viewed", "tour_viewed"]
     device_id: str = Field(..., min_length=1, max_length=128)
     user_id: str | None = Field(default=None, max_length=64)
     meeting_id: str | None = Field(default=None, max_length=64)
@@ -167,6 +294,9 @@ class PingEvent(BaseModel):
     app_locale: str | None = Field(default=None, max_length=16)
     # Onboarding funnel outcome, present only on event_type=='onboarding_completed'.
     onboarding: OnboardingPayload | None = None
+    # Help and tour use, each present only on its own event_type.
+    help: HelpPayload | None = None
+    tour: TourPayload | None = None
     # Distribution channel, from StoreKit 2 AppTransaction.environment
     # (Apple-signed, present for every install): "production" = App Store,
     # "sandbox" = TestFlight, "xcode" = local dev. Lets the dashboard split
@@ -218,6 +348,18 @@ class PingEvent(BaseModel):
             raise ValueError("onboarding payload required for onboarding_completed")
         if self.event_type != "onboarding_completed" and self.onboarding is not None:
             raise ValueError("onboarding payload only valid on onboarding_completed")
+        return self
+
+    @model_validator(mode="after")
+    def _require_help_and_tour_payloads(self):
+        # Same rule as onboarding: each block is mandatory on its own event
+        # and rejected on every other one.
+        for event, block in (("help_viewed", "help"), ("tour_viewed", "tour")):
+            present = getattr(self, block) is not None
+            if self.event_type == event and not present:
+                raise ValueError(f"{block} payload required for {event}")
+            if self.event_type != event and present:
+                raise ValueError(f"{block} payload only valid on {event}")
         return self
 
 
@@ -359,6 +501,39 @@ async def ping(
                 body.device_model,
                 body.app_locale,
                 body.distribution,
+            ),
+        )
+        await db.commit()
+        return Response(status_code=204)
+
+    # Help and tour views: their own table, like onboarding, so the lifecycle
+    # KPIs (which COUNT(*) telemetry_events) never count a Help visit as an
+    # app event. `payload` is the validated block as JSON (search text in
+    # its normalized form, personal-looking searches already dropped). No
+    # geo and no IP hash: neither is read for these. Nothing here logs the
+    # block.
+    if body.event_type in _HELP_TOUR_BLOCKS:
+        block = getattr(body, _HELP_TOUR_BLOCKS[body.event_type])
+        await db.execute(
+            """INSERT INTO help_tour_events
+               (id, event_type, device_id, user_id, app_id, received_at,
+                app_version, app_build, os_version, device_model, app_locale,
+                distribution, payload)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                str(uuid.uuid4()),
+                body.event_type,
+                body.device_id,
+                body.user_id,
+                getattr(request.state, "app_id", "unknown"),
+                now_iso,
+                body.app_version,
+                body.app_build,
+                body.os_version,
+                body.device_model,
+                body.app_locale,
+                body.distribution,
+                json.dumps(block.model_dump()),
             ),
         )
         await db.commit()
