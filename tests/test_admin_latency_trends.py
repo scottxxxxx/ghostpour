@@ -782,3 +782,14 @@ def test_the_place_map_is_drawn_from_the_country_counts():
     src = open(HTML).read()
     assert "placeCountryCounts(d.by_ip_country," in src
     assert "renderHeatMap('place-map', byCountry, byState, 'user')" in src
+
+
+@node
+def test_the_requests_by_type_table_escapes_labels_and_names_the_gaps():
+    rows = [{"app_id": "techrehearsal", "label": "Job interview", "call_type": "tr_parse_jd",
+             "prompt_mode": None, "phase": "prep", "round_format": "behavioral,system_design",
+             "grounding": "<b>x</b>", "practice_focus": None, "requests": 3, "cost_usd": 0.01}]
+    html = _node(f"requestTypeRows({json.dumps(rows)})", "esc", "fmt", "fmtCost", "requestTypeRows")
+    assert "behavioral, system_design" in html and "&lt;b&gt;x&lt;/b&gt;" in html
+    assert "<b>x</b>" not in html
+    assert html.count("not sent") == 2

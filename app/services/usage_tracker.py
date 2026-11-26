@@ -128,6 +128,30 @@ def _normalize_scenario(value: object) -> str | None:
     return s or None
 
 
+# metadata key -> stored length cap. Open vocabulary like `scenario`: the
+# client owns the words, GP trims, lowercases and caps. A label is a short
+# fixed token (letters, digits, underscore, comma for the round list);
+# anything else is not a label and stores NULL, so free text sent under
+# one of these keys by mistake never reaches the row.
+REQUEST_LABELS = {"round_format": 160, "phase": 16, "grounding": 16, "practice_focus": 24}
+_LABEL_RE = re.compile(r"^[a-z0-9_]+(?:,[a-z0-9_]+)*$")
+
+
+def _normalize_label(value: object, cap: int) -> str | None:
+    if not isinstance(value, str):
+        return None
+    s = value.strip().lower().replace(" ", "")
+    if not s or len(s) > cap or not _LABEL_RE.match(s):
+        return None
+    return s
+
+
+def request_label_columns(request: ChatRequest) -> tuple:
+    """(round_format, phase, grounding, practice_focus) as stored."""
+    return tuple(_normalize_label(request.get_meta(key), cap)
+                 for key, cap in REQUEST_LABELS.items())
+
+
 def _normalize_scenario_kind(value: object) -> str | None:
     """Like _normalize_scenario but CASE-PRESERVING: scenario_kind is TR's
     camelCase ScenarioKind enum (jobInterview, payNegotiation, ...) and the
@@ -455,9 +479,10 @@ class UsageTracker:
                 status, error_message, call_type, prompt_mode,
                 image_count, session_duration_sec, cached_tokens, meeting_id, metadata, app_id, scenario, scenario_kind,
                 ttft_ms, jurisdiction, case_id, geo_country, geo_region, geo_city,
-                form_city, ip_hash, generated_count, documents_count, promo)
+                form_city, ip_hash, generated_count, documents_count, promo,
+                round_format, phase, grounding, practice_focus)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 str(uuid.uuid4()),
                 user_id,
@@ -488,6 +513,7 @@ class UsageTracker:
                 # HONORED (promo_metering.APPLIED_META_KEY). NULL otherwise,
                 # which is what keeps the row inside the allowance sums.
                 promo or request.get_meta("promo_applied"),
+                *request_label_columns(request),
             ),
             what="log_usage", user_id=user_id, cost=estimated_cost,
         ):

@@ -121,6 +121,7 @@ function _renderShareBars(id) { calls.push('chart:' + id); }
 function _renderAnalytics() { calls.push('analytics'); }
 function renderHeatMap(id) { calls.push('map:' + id); }
 function loadUsageByPlace() { calls.push('loadUsageByPlace'); }
+function loadRequestTypes() { calls.push('loadRequestTypes'); }
 function showUserDetail() { calls.push('showUserDetail'); }
 """
 
@@ -390,6 +391,7 @@ WRAPPED = {
     "loadProviders": "tab-providers", "loadEmail": "tab-email", "loadErrors": "tab-errors",
     "loadConfigs": "tab-configs", "loadCampaigns": "tab-campaigns", "loadRouting": "tab-routing",
     "loadAlerts": "tab-alerts", "loadUsageByPlace": "usage-by-place", "showUserDetail": "user-detail",
+    "loadRequestTypes": "request-types",
 }
 
 

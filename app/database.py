@@ -619,6 +619,19 @@ MIGRATIONS = [
     # assembly used. Case is preserved (camelCase enum values from TR).
     "ALTER TABLE usage_log ADD COLUMN scenario_kind TEXT",
     "CREATE INDEX IF NOT EXISTS idx_usage_scenario_kind ON usage_log(scenario_kind) WHERE scenario_kind IS NOT NULL",
+    # Request labels (Scott, 2026-11-26: "categorize better to further
+    # understand the query types they send"). Fixed vocabulary the client
+    # owns, labels only and never the user's text; Tech Rehearsal is the
+    # first sender. Before these columns an unknown metadata key was
+    # accepted and silently dropped.
+    #   round_format    interview round chips, comma joined
+    #   phase           prep | practice | live | review
+    #   grounding       jd_resume | jd_only | resume_only | none | described | sample
+    #   practice_focus  standard | weak_answer | drifted_questions | retake
+    "ALTER TABLE usage_log ADD COLUMN round_format TEXT",
+    "ALTER TABLE usage_log ADD COLUMN phase TEXT",
+    "ALTER TABLE usage_log ADD COLUMN grounding TEXT",
+    "ALTER TABLE usage_log ADD COLUMN practice_focus TEXT",
     # City joins country/region per the approved targeting design (#318 §9:
     # city targeting on from day one, min-audience floor 25 enforced at
     # campaign authoring AND resolve). Derived from IP at ingestion like the
