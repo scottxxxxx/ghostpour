@@ -429,3 +429,40 @@ def test_usage_rollup_never_opens_a_usage_log_row(client, tmp_db_path):
         # and the statement is the one the endpoint runs: it executes
         assert conn.execute(sql, params).fetchall()
     conn.close()
+
+
+def _place(conn, user_id, ts, country, region=None, city=None):
+    _usage(conn, user_id, "n400", ts, tokens=(1, 1), cost=0.0)
+    conn.execute(
+        "UPDATE usage_log SET geo_country = ?, geo_region = ?, geo_city = ? "
+        "WHERE user_id = ? AND request_timestamp = ?",
+        (country, region, city, user_id, ts))
+
+
+def test_an_account_with_no_telemetry_is_placed_by_its_latest_call_ip(client, tmp_db_path):
+    """N-400 and I-765 send no telemetry ping, so every one of their
+    accounts had location None and the Users map showed 1 of 14 under the
+    N-400 filter (Scott, 2026-11-26). The fallback is the latest call's
+    request IP place, marked source ip; a telemetry location still wins."""
+    _seed(tmp_db_path)
+    conn = sqlite3.connect(tmp_db_path)
+    _place(conn, "u_none", "2026-10-05T00:00:00+00:00", "US", "TX", "Austin")
+    _place(conn, "u_none", "2026-10-06T00:00:00+00:00", "IN")
+    _place(conn, "u_both", "2026-10-06T00:00:00+00:00", "IN")
+    conn.commit()
+    conn.close()
+    users = {u["id"]: u for u in _get(client)["users"]}
+    assert users["u_none"]["location"] == {
+        "country": "IN", "region": None, "city": None, "source": "ip"}
+    assert users["u_both"]["location"] == {
+        "country": "US", "region": "CA", "city": "San Jose"}
+
+
+def test_the_ip_place_read_never_opens_a_usage_log_row(client, tmp_db_path):
+    from app.routers.webhooks import USER_IP_PLACE_SQL
+
+    _seed(tmp_db_path)
+    conn = sqlite3.connect(tmp_db_path)
+    plan = [row[3] for row in conn.execute("EXPLAIN QUERY PLAN " + USER_IP_PLACE_SQL)]
+    assert plan == ["SCAN l USING COVERING INDEX idx_usage_user_geo"], plan
+    conn.close()
