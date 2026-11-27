@@ -62,7 +62,9 @@ MODEL_TIMEOUT_SECONDS = 20.0
 # The dials and their bounds. A value outside its bounds is ignored (the
 # default stands) and logged, the cq-recall rule.
 DEFAULTS = {
-    "max_output_tokens": 400,
+    # 400 cut the first real answer off mid tool call (pt-BR, 2026-11-26:
+    # out=400, reply unreadable, fallback served).
+    "max_output_tokens": 800,
     "per_device_per_hour": 10,
     "per_device_per_day": 30,
     "per_ip_per_hour": 30,
@@ -322,6 +324,9 @@ def build_request(cfg: HelpAskConfig, *, question: str, articles: list[dict],
         max_tokens=cfg.max_output_tokens,
         thinking="disabled",
         tools=[ANSWER_TOOL],
+        # The tool call is the only reply we read, so require it. Left to
+        # choose, a model may write prose first and spend the output cap on it.
+        tool_choice={"type": "tool", "name": TOOL_NAME},
         call_type=CALL_TYPE,
         prompt_mode="HelpAsk",
     )
@@ -427,7 +432,7 @@ def finalize(parsed: dict | None, *, articles: list[dict], app_locale: str | Non
              support_email: str | None) -> dict:
     """What goes back to the phone, plus `outcome` for the ledger.
 
-    * A reply that could not be read: the fallback line, covered false.
+    * A reply that could not be read: `serve` false, nothing is shown.
     * Ids the request did not carry are dropped, repeats too.
     * covered false always has no ids.
     * covered true with no valid id left: the answer is kept. With one
@@ -435,34 +440,42 @@ def finalize(parsed: dict | None, *, articles: list[dict], app_locale: str | Non
       id is returned. With several, used_article_ids is [] rather than a
       guess; the client shows the answer without a source link.
     * An email address in the answer that is neither the support address
-      nor written in an article was invented, so the fallback replaces the
-      whole answer.
+      nor written in an article was invented: the fallback line replaces
+      a not-covered answer, and a covered one is not served at all.
     * Dash punctuation is stripped from whatever is served."""
     offered = [a["id"] for a in articles]
 
-    def _fallback() -> dict:
+    # `serve` false means there is nothing honest to show: the route answers
+    # 503 model_error and the app shows its article list alone. The fallback
+    # line says "Help has no answer", which is only true when the model said
+    # so itself. The first real call (2026-11-26) was cut off at the output
+    # cap and the line was shown under an article that answered the question.
+    def _fallback(serve: bool) -> dict:
         return {"answer": fallback_answer(app_locale, support_email), "covered": False,
-                "used_article_ids": [], "outcome": "fallback"}
+                "used_article_ids": [], "outcome": "fallback", "serve": serve}
 
     if not parsed:
-        return _fallback()
+        return _fallback(False)
     answer = strip_dash_punctuation(parsed["answer"]).strip()
     if not answer:
-        return _fallback()
+        return _fallback(False)
     allowed = {e.lower() for a in articles
                for e in _EMAIL_FIND_RE.findall(f"{a['title']} {a['body']}")}
     if support_email:
         allowed.add(support_email.lower())
     if any(e.lower().rstrip(".") not in allowed for e in _EMAIL_FIND_RE.findall(answer)):
-        return _fallback()
+        # A not-covered reply with a made up address: our own not-covered
+        # line says the same thing with the right address. A covered one
+        # cannot be repaired, so nothing is served.
+        return _fallback(not parsed["covered"])
     if not parsed["covered"]:
         return {"answer": answer, "covered": False, "used_article_ids": [],
-                "outcome": "not_covered"}
+                "outcome": "not_covered", "serve": True}
     used = [i for i in dict.fromkeys(parsed["used_article_ids"]) if i in offered]
     if not used and len(offered) == 1:
         used = list(offered)
     return {"answer": answer, "covered": True, "used_article_ids": used,
-            "outcome": "answered"}
+            "outcome": "answered", "serve": True}
 
 
 # --- telemetry text -----------------------------------------------------------

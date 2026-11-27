@@ -269,8 +269,14 @@ async def help_ask_route(request: Request,
         db, row_id, outcome=result["outcome"], covered=result["covered"],
         used_ids=result["used_article_ids"], input_tokens=response.input_tokens,
         output_tokens=response.output_tokens, cost_usd=cost, latency_ms=elapsed)
-    logger.info("help_ask outcome=%s in=%s out=%s cost_usd=%s ms=%d", result["outcome"],
+    # `stop` says why the model stopped. max_tokens next to outcome=fallback
+    # means the reply was cut off at the cap, not that the model had no answer.
+    logger.info("help_ask outcome=%s stop=%s in=%s out=%s cost_usd=%s ms=%d", result["outcome"],
+                (response.usage or {}).get("finish_reason"),
                 response.input_tokens, response.output_tokens, cost, elapsed)
+    if not result["serve"]:
+        # Paid for and recorded above, but there is no answer to show.
+        raise _unavailable("model_error")
     return {
         "answer": result["answer"],
         "covered": result["covered"],

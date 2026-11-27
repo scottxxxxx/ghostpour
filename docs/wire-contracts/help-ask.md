@@ -105,7 +105,7 @@ are a 400 in this envelope, never FastAPI's 422 list.
 | 400 | `invalid_request` | body is not a JSON object, a field is missing or the wrong type, a length is out of range, 0 or more than 3 articles, an id that is not a slug or repeats, a `device_id` that is not a UUID | `{"field": "articles.0.id", "reason": "..."}`. The value sent is never echoed |
 | 413 | `body_too_large` | body over 32768 bytes | `{"check": "content_length" or "streamed_bytes", "limit_bytes": 32768, "bytes": N}` |
 | 429 | `rate_limited` | a limit below is reached | `{"retry_after": seconds, "limit": "device_hour" or "device_day" or "ip_hour"}` |
-| 503 | `help_ask_unavailable` | switched off, the day's spend cap is reached, or the model call failed | `{"reason": "disabled" or "daily_cap" or "model_error" or "no_price"}` |
+| 503 | `help_ask_unavailable` | switched off, the day's spend cap is reached, the model call failed, or the model's reply could not be read or used (`model_error` for both; the call is still billed and recorded) | `{"reason": "disabled" or "daily_cap" or "model_error" or "no_price"}` |
 
 ```json
 {"detail": {"code": "rate_limited",
@@ -125,7 +125,7 @@ answers 404):
 |---|---|---|
 | `enabled` | `false` | the switch. Ships off (503 `disabled`) and is turned on in the served doc once the first real answer has been read back. Anything that is not `true` or `false` reads as off |
 | `provider`, `model` | `anthropic`, `claude-haiku-5-5` | the model that writes the answer. No code default: without them the feature is off |
-| `max_output_tokens` | 400 | output cap (50 to 1000) |
+| `max_output_tokens` | 800 | output cap (50 to 1000) |
 | `per_device_per_hour` | 10 | per `device_id` |
 | `per_device_per_day` | 30 | per `device_id`, a rolling 24 hours |
 | `per_ip_per_hour` | 30 | per client IP (first `X-Forwarded-For` entry) |

@@ -151,7 +151,8 @@ def test_the_model_request_is_the_served_model_small_and_thinking_free(client, m
     req = model.await_args.args[0]
     served = json.loads((ROOT / "config/remote/help-ask.json").read_text())
     assert (req.provider, req.model) == (served["provider"], served["model"])
-    assert req.max_tokens == served["max_output_tokens"] == 400
+    assert req.max_tokens == served["max_output_tokens"] == 800
+    assert req.tool_choice == {"type": "tool", "name": help_ask.TOOL_NAME}
     assert req.thinking == "disabled"
     assert req.temperature is None
     assert req.stream is False
@@ -180,7 +181,8 @@ def test_the_wire_body_never_carries_temperature_and_turns_thinking_off():
     body, _ = adapter._build_body(req)
     assert "temperature" not in body
     assert body["thinking"] == {"type": "disabled"}
-    assert body["max_tokens"] == 400
+    assert body["max_tokens"] == 800
+    assert body["tool_choice"] == {"type": "tool", "name": help_ask.TOOL_NAME}
     assert body.get("stream") is not True
     assert [t["name"] for t in body["tools"]] == ["help_answer"]
 
@@ -986,17 +988,16 @@ def test_a_reply_written_as_text_json_is_read(client, model):
     '{"answer": "Tap Delete.", "covered": "maybe"}', '{"answer": 5, "covered": true}',
     '{"covered": true, "used_article_ids": []', "[1, 2, 3]",
 ])
-def test_a_reply_that_cannot_be_read_gets_the_fallback(client, model, tmp_db_path, text):
+def test_a_reply_that_cannot_be_read_is_a_503_and_still_billed(client, model, tmp_db_path, text):
+    """Not a 200 with the "Help has no answer" line: nobody read the reply,
+    so nobody knows that. The app shows its article list alone on a 503."""
     model.return_value = _text_reply(text)
     body = _body(app_locale="pt-BR", support_email="help@example.com")
     r = _post(client, body)
-    assert r.status_code == 200
-    out = r.json()
-    assert out == {
-        "answer": "A Ajuda não tem uma resposta para essa pergunta. Para mais ajuda, "
-                  "escreva para help@example.com.",
-        "covered": False, "used_article_ids": [], "source": "articles",
-        "output_language": None}
+    assert r.status_code == 503, r.text
+    assert r.json()["detail"]["code"] == "help_ask_unavailable"
+    assert r.json()["detail"]["details"] == {"reason": "model_error"}
+    assert "resposta" not in r.text
     row = _rows(tmp_db_path, body["device_id"])[0]
     assert (row["outcome"], row["covered"], row["cost_usd"]) == ("fallback", 0, MODEL_COST)
 
@@ -1018,6 +1019,17 @@ def test_an_invented_address_replaces_the_answer_with_the_fallback(client, model
     assert out["answer"] == ("Help doesn't have an answer to that question. "
                              "For more help, contact support.")
     assert _rows(tmp_db_path, body["device_id"])[0]["outcome"] == "fallback"
+
+
+def test_a_covered_answer_with_an_invented_address_is_not_served(client, model, tmp_db_path):
+    model.return_value = _reply("Write to support@shouldersurf.app to delete it.",
+                                covered=True, ids=("a1",))
+    body = _body(app_locale="en")
+    r = _post(client, body)
+    assert r.status_code == 503
+    assert r.json()["detail"]["details"] == {"reason": "model_error"}
+    row = _rows(tmp_db_path, body["device_id"])[0]
+    assert (row["outcome"], row["cost_usd"]) == ("fallback", MODEL_COST)
 
 
 def test_the_sent_address_and_one_written_in_an_article_are_allowed(client, model):
@@ -1059,8 +1071,8 @@ def test_a_missing_version_or_build_still_gets_an_answer(client, model, tmp_db_p
 def test_the_served_doc_is_server_only_and_holds_the_approved_values(client):
     served = json.loads((ROOT / "config/remote/help-ask.json").read_text())
     assert served == {
-        "version": 1, "server_only": True, "enabled": False,
-        "provider": "anthropic", "model": "claude-haiku-5-5", "max_output_tokens": 400,
+        "version": 6, "server_only": True, "enabled": False,
+        "provider": "anthropic", "model": "claude-haiku-5-5", "max_output_tokens": 800,
         "per_device_per_hour": 10, "per_device_per_day": 30, "per_ip_per_hour": 30,
         "daily_spend_cap_usd": 5.0}
     assert client.app.state.remote_configs["help-ask"]["model"] == "claude-haiku-5-5"
@@ -1083,7 +1095,7 @@ def test_a_malformed_dial_falls_back_to_its_default():
         "per_device_per_hour": 0, "per_device_per_day": "30", "per_ip_per_hour": True,
         "daily_spend_cap_usd": 500}})
     assert (cfg.max_output_tokens, cfg.per_device_per_hour, cfg.per_device_per_day,
-            cfg.per_ip_per_hour, cfg.daily_spend_cap_usd) == (400, 10, 30, 30, 5.0)
+            cfg.per_ip_per_hour, cfg.daily_spend_cap_usd) == (800, 10, 30, 30, 5.0)
     assert cfg.enabled and cfg.usable
     ok = help_ask.load_config({"help-ask": {
         "provider": "anthropic", "model": "m", "max_output_tokens": 300,
@@ -1114,7 +1126,7 @@ def test_the_help_section_payload_carries_the_ask_numbers(client, model, tmp_db_
                              (b, "mail me at dana@example.com")):
         assert _post(client, _body(device_id=device, question=question)).status_code == 200
     model.return_value = _text_reply("no json here")
-    assert _post(client, _body(device_id=a, question="unreadable one")).status_code == 200
+    assert _post(client, _body(device_id=a, question="unreadable one")).status_code == 503
     model.side_effect = HTTPException(status_code=502, detail={"code": "provider_error"})
     assert _post(client, _body(device_id=a)).status_code == 503
 

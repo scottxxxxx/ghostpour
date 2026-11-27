@@ -106,9 +106,10 @@ def test_automation_traffic_is_excluded_from_the_signal_aggregates():
     money; this protects the signal (their ask, 2026-07-31)."""
     src = open("app/routers/webhooks.py").read()
     excl = "AND user_id NOT IN (SELECT id FROM users WHERE tier = 'automation')"
-    assert src.count(excl) == 2, "expected the two signal aggregates to exclude it"
-    # and it must sit on the call_type and scenario queries specifically
-    for marker in ("GROUP BY call_type", "GROUP BY scenario"):
+    assert src.count(excl) == 3, "expected the three signal aggregates to exclude it"
+    # and it must sit on the call_type, scenario and request-type queries
+    # specifically (the third is Requests by Type, 2026-11-26)
+    for marker in ("GROUP BY call_type", "GROUP BY scenario", "GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9"):
         i = src.index(marker)
         assert excl in src[i - 700:i], marker
 
