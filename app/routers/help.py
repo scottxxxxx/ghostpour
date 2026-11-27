@@ -14,11 +14,15 @@ Wire shape (docs/wire-contracts/help-ask.md is the contract):
     "app_version": str|null, "app_build": str|null,
     "support_email": str             optional
     "ui_terms": {"Settings": "Ajustes"}  optional, the app's own names
+    "catalog": [                     optional, 1 to 120: every Help article
+      {"id": slug, "title": str (max 200), "summary": str (max 300)}
+    ]
   }
   -> 200 {"answer": str, "covered": bool, "used_article_ids": [ids],
-          "source": "articles", "output_language": null}
+          "related_article_ids": [ids], "source": "articles",
+          "output_language": null}
   -> 400 invalid_request      a shape failure (never FastAPI's 422 list)
-  -> 413 body_too_large       over 32 KB
+  -> 413 body_too_large       over 64 KB
   -> 429 rate_limited         details.retry_after, in seconds
   -> 503 help_ask_unavailable switched off, the day's spend cap is reached,
                               or the model call failed
@@ -58,7 +62,9 @@ logger = logging.getLogger("ghostpour.help_ask")
 
 router = APIRouter()
 
-MAX_BODY_BYTES = 32 * 1024
+# 64 KB since the catalog (77 Japanese entries beside three bodies do not
+# fit in the 32 KB this started with).
+MAX_BODY_BYTES = 64 * 1024
 _HOUR, _DAY = 3600.0, 86400.0
 
 _UNKNOWN_KEYS_SEEN: set[tuple] = set()
@@ -72,6 +78,18 @@ class HelpArticle(BaseModel):
     id: str = Field(..., pattern=_SLUG_PATTERN)
     title: str = Field(..., min_length=1, max_length=200)
     body: str = Field(..., min_length=1, max_length=8000)
+
+
+class HelpCatalogEntry(BaseModel):
+    """One line of the whole Help index: enough to tell what an article is
+    about, not its text. The client's keyword ranking misses paraphrases
+    ("computer" for the Mac Companion article), and this is how the model
+    sees the articles the top three left out."""
+    model_config = ConfigDict(extra="ignore")
+
+    id: str = Field(..., pattern=_SLUG_PATTERN)
+    title: str = Field(..., min_length=1, max_length=200)
+    summary: str = Field(..., min_length=1, max_length=300)
 
 
 class HelpAskBody(BaseModel):
@@ -93,6 +111,11 @@ class HelpAskBody(BaseModel):
     # Any JSON value is accepted here. One that is not a usable glossary is
     # left out with a log line (help_ask.valid_ui_terms), never a 400.
     ui_terms: object | None = None
+    # Strict like `articles`: a malformed catalog is a 400 that names the
+    # field, so a bad build fails in the client's tests and not as quietly
+    # worse answers. Absent or null is the request as it was before.
+    catalog: list[HelpCatalogEntry] | None = Field(
+        None, min_length=1, max_length=help_ask.CATALOG_MAX_ENTRIES)
 
     @field_validator("question")
     @classmethod
@@ -113,6 +136,9 @@ class HelpAskBody(BaseModel):
         ids = [a.id for a in self.articles]
         if len(set(ids)) != len(ids):
             raise ValueError("article ids must be distinct")
+        cat = [e.id for e in self.catalog or []]
+        if len(set(cat)) != len(cat):
+            raise ValueError("catalog ids must be distinct")
         return self
 
 
@@ -222,11 +248,12 @@ async def help_ask_route(request: Request,
         raise _unavailable("no_price")
 
     articles = [a.model_dump() for a in body.articles]
+    catalog = [e.model_dump() for e in body.catalog] if body.catalog else None
     support_email = help_ask.valid_support_email(body.support_email)
     model_request = help_ask.build_request(
         cfg, question=body.question, articles=articles,
         app_locale=body.app_locale, support_email=support_email,
-        ui_terms=help_ask.valid_ui_terms(body.ui_terms))
+        ui_terms=help_ask.valid_ui_terms(body.ui_terms), catalog=catalog)
 
     now = datetime.now(timezone.utc)
     row_id = str(uuid.uuid4())
@@ -263,7 +290,8 @@ async def help_ask_route(request: Request,
     elapsed = int((time.monotonic() - start) * 1000)
 
     result = help_ask.finalize(help_ask.parse_reply(response), articles=articles,
-                               app_locale=body.app_locale, support_email=support_email)
+                               app_locale=body.app_locale, support_email=support_email,
+                               catalog=catalog)
     cost = help_ask.actual_cost(pricing, prices, model_request, response)
     await help_ask.settle(
         db, row_id, outcome=result["outcome"], covered=result["covered"],
@@ -271,8 +299,10 @@ async def help_ask_route(request: Request,
         output_tokens=response.output_tokens, cost_usd=cost, latency_ms=elapsed)
     # `stop` says why the model stopped. max_tokens next to outcome=fallback
     # means the reply was cut off at the cap, not that the model had no answer.
-    logger.info("help_ask outcome=%s stop=%s in=%s out=%s cost_usd=%s ms=%d", result["outcome"],
-                (response.usage or {}).get("finish_reason"),
+    logger.info("help_ask outcome=%s stop=%s catalog=%d used=%d related=%d in=%s out=%s "
+                "cost_usd=%s ms=%d", result["outcome"],
+                (response.usage or {}).get("finish_reason"), len(catalog or []),
+                len(result["used_article_ids"]), len(result["related_article_ids"]),
                 response.input_tokens, response.output_tokens, cost, elapsed)
     if not result["serve"]:
         # Paid for and recorded above, but there is no answer to show.
@@ -281,6 +311,7 @@ async def help_ask_route(request: Request,
         "answer": result["answer"],
         "covered": result["covered"],
         "used_article_ids": result["used_article_ids"],
+        "related_article_ids": result["related_article_ids"],
         "source": "articles",
         # The language is decided by the question the person typed, not by
         # a locale GP directed, so there is nothing to echo (the rule

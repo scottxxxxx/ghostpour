@@ -24,7 +24,10 @@ not attach the call to an account. Header `X-App-ID: shouldersurf`.
   "app_version": "1.21",
   "app_build": "912",
   "support_email": "help@example.com",
-  "ui_terms": {"Settings": "Ajustes"}
+  "ui_terms": {"Settings": "Ajustes"},
+  "catalog": [
+    {"id": "gs-mac-companion", "title": "Mac Companion", "summary": "A menu bar app that sends both sides of a computer call to the phone."}
+  ]
 }
 ```
 
@@ -40,13 +43,23 @@ not attach the call to an account. Header `X-App-ID: shouldersurf`.
 | `app_version` | optional string or null, 1 to 32 characters when sent |
 | `app_build` | optional string or null, 1 to 16 characters when sent |
 | `support_email` | optional string. Used only when it is an email address; anything else is ignored without an error |
-| `ui_terms` | optional object, a name as the (English) articles write it mapped to the name this phone shows: `{"Settings": "Ajustes"}`. At most 80 pairs, each side a non-blank string of 1 to 60 characters with no line break. Send it only when the app language is not the articles' language, ideally only the names that appear in the articles of this request. A glossary that breaks a rule is ignored whole with a log line, never a 400. Where the answer names a key, the model writes the value; other names stay as the article writes them. Counts toward the 32 KB cap |
+| `ui_terms` | optional object, a name as the (English) articles write it mapped to the name this phone shows: `{"Settings": "Ajustes"}`. At most 80 pairs, each side a non-blank string of 1 to 60 characters with no line break. Send it only when the app language is not the articles' language, ideally only the names that appear in the articles of this request. A glossary that breaks a rule is ignored whole with a log line, never a 400. Where the answer names a key, the model writes the value; other names stay as the article writes them. Counts toward the 64 KB cap |
+| `catalog` | optional (since 2026-11-26). Every Help article in the user's language as `{id, title, summary}`, 1 to 120 entries. `id`: the slug rule above, distinct within the catalog (an id may also be in `articles`). `title`: 1 to 200 characters. `summary`: 1 to 300 characters. A catalog that breaks a rule is a 400 that names the field (`catalog.14.summary`), not ignored. Absent or null: the request behaves as it did before |
 
 Lengths are counted in Unicode code points (Swift: `unicodeScalars.count`,
-not `count`). The whole body may be at most 32 KB (32768 bytes) as sent, and
-that is a second limit beside the character counts: three 8000 character
-articles fit in Latin scripts, and do NOT fit in Japanese or Chinese, where
-a character is three bytes. Trim to fit before sending.
+not `count`). The whole body may be at most 64 KB (65536 bytes) as sent (32 KB before
+the catalog), and that is a second limit beside the character counts: three
+8000 character articles in Japanese or Chinese, where a character is three
+bytes, are 72 KB on their own and do NOT fit. Trim to fit before sending.
+
+Why the catalog exists: the client ranks articles by keyword, and a
+paraphrased question can leave the right article out of its top three
+(measured by SS: "can I use my computer to record a meeting" did not rank
+the Mac Companion article in the top five). The catalog lets the model see
+every article's summary. An article body still wins when one answers the
+question. When none does and a summary states the answer, the answer says
+only what the summary states, in one or two sentences with no steps, and
+names that article in `used_article_ids` so the link carries the detail.
 
 Unknown keys are accepted and ignored.
 
@@ -57,6 +70,7 @@ Unknown keys are accepted and ignored.
   "answer": "1. Open Settings.\n2. Tap Account.\n3. Tap Delete Account.",
   "covered": true,
   "used_article_ids": ["acct-delete"],
+  "related_article_ids": ["acct-export", "acct-plans"],
   "source": "articles",
   "output_language": null
 }
@@ -66,7 +80,8 @@ Unknown keys are accepted and ignored.
 |---|---|
 | `answer` | plain text to show. At most about 120 words. It may hold a short numbered list (`1.` `2.`), newlines between items. No Markdown otherwise |
 | `covered` | `true`: the articles answer the question. `false`: they do not, and `answer` says so in one or two sentences and points to support |
-| `used_article_ids` | ids of the articles the answer was written from. Always a subset of the ids in the request. Always `[]` when `covered` is `false` |
+| `used_article_ids` | ids of the articles the answer was written from. Always ids this request carried: in `articles`, or, when a `catalog` was sent, in the catalog too (an answer written from a summary). Always `[]` when `covered` is `false` |
+| `related_article_ids` | always present. 0 to 3 catalog ids worth reading next, in the model's order, never one that is in `used_article_ids`, never an id the request did not carry. May be non-empty when `covered` is `false` (nothing answers the question, but these are close). Always `[]` when no `catalog` was sent. Render the used ids first, then these |
 | `source` | always `"articles"` |
 | `output_language` | always `null`. The answer is in the language the question was typed in, which GP does not detect or direct |
 
@@ -102,8 +117,8 @@ are a 400 in this envelope, never FastAPI's 422 list.
 
 | Status | `code` | When | `details` |
 |---|---|---|---|
-| 400 | `invalid_request` | body is not a JSON object, a field is missing or the wrong type, a length is out of range, 0 or more than 3 articles, an id that is not a slug or repeats, a `device_id` that is not a UUID | `{"field": "articles.0.id", "reason": "..."}`. The value sent is never echoed |
-| 413 | `body_too_large` | body over 32768 bytes | `{"check": "content_length" or "streamed_bytes", "limit_bytes": 32768, "bytes": N}` |
+| 400 | `invalid_request` | body is not a JSON object, a field is missing or the wrong type, a length is out of range, 0 or more than 3 articles, an id that is not a slug or repeats, a malformed `catalog`, a `device_id` that is not a UUID | `{"field": "articles.0.id", "reason": "..."}`. The value sent is never echoed |
+| 413 | `body_too_large` | body over 65536 bytes | `{"check": "content_length" or "streamed_bytes", "limit_bytes": 65536, "bytes": N}` |
 | 429 | `rate_limited` | a limit below is reached | `{"retry_after": seconds, "limit": "device_hour" or "device_day" or "ip_hour"}` |
 | 503 | `help_ask_unavailable` | switched off, the day's spend cap is reached, the model call failed, or the model's reply could not be read or used (`model_error` for both; the call is still billed and recorded) | `{"reason": "disabled" or "daily_cap" or "model_error" or "no_price"}` |
 
