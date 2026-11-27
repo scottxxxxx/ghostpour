@@ -1,0 +1,4 @@
+{
+  "_comment": "Builds that shipped before the app sent kb_hash, and the Help set inside each. SS Dev compared the built 2702 bundle with the repo at c992efd3 (2026-11-27). A build is added here only when its bundle has been checked that way.",
+  "2702": "64930492bcf3449e380ee9d97c77362ceaf55bafa4865a1fa8384d4d4bdad480"
+}

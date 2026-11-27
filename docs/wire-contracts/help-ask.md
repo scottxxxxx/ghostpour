@@ -4,9 +4,74 @@
 answer to a question typed into Shoulder Surf's Help, using ONLY the Help
 articles the app sends with it. GP defines the wire, Shoulder Surf emits it.
 
-Last updated: 2026-11-26. Status: GP side built, no client sends it yet.
+Last updated: 2026-11-27. Status: live for Shoulder Surf 1.20 (2702) in the articles shape. The `kb_hash` shape (GP holds the articles) is built on GP; no client sends it yet.
 
-## Request
+## Two request shapes
+
+1. **`kb_hash` (2026-11-27, the one to use).** GP holds its own copy of the
+   app's Help articles and finds the right ones itself. The app sends the
+   question and the hash of the Help set bundled in the build, nothing else.
+2. **`articles` (and `catalog`).** The app picks up to three articles by
+   keyword and sends their text. Kept for builds that predate `kb_hash`, and
+   as the re-send when GP does not have the build's Help set.
+
+### The `kb_hash` shape
+
+```json
+{
+  "question": "how do i see who owes something after a meeting",
+  "kb_hash": "64930492bcf3449e380ee9d97c77362ceaf55bafa4865a1fa8384d4d4bdad480",
+  "app_locale": "en",
+  "device_id": "5B0C1D8E-3F2A-4E6B-9C7D-1A2B3C4D5E6F",
+  "app_version": "1.21",
+  "app_build": "2710",
+  "support_email": "help@example.com"
+}
+```
+
+`kb_hash` is 64 lowercase hex characters (anything else is a 400 naming
+`kb_hash`). It is computed by the app at run time from its bundled
+`HelpKnowledgeBase` folder, so it names exactly what is installed:
+
+- the files are every `index.json` and every `*.md` under the folder, English
+  at the root and one folder per other language. `whats-new.json` is not
+  included;
+- for each file, the line `<path relative to the folder, forward slashes>`,
+  a tab, the lowercase hex SHA-256 of the file's bytes, a newline;
+- the lines sorted by path in byte order, concatenated, SHA-256, lowercase hex.
+
+One hash covers every language, since they ship together. `app_locale`
+chooses the language GP reads: an exact folder (`pt-BR`), then the bare
+language (`es` for `es-MX`, `pt-BR` for `pt`), then English.
+
+What GP does with it:
+
+| GP has that Help set | `articles` sent | Result |
+|---|---|---|
+| yes | either | answered from GP's copy. `articles`, `catalog` and `ui_terms` are ignored. The response has `"source": "kb"` and echoes `kb_hash` |
+| no | yes | answered from the sent `articles`, exactly as the other shape |
+| no | no | **409** `kb_unknown`, `details.kb_hash` echoes the value. Returned before any rate-limit slot or model call is spent. Re-send once in the `articles` shape |
+
+Every id in `used_article_ids` and `related_article_ids` comes from the Help
+set the build named, so every link opens. GP never answers a build from a
+different Help set, and never from "the newest".
+
+GP makes two model calls for this shape: one reads the titles and summaries
+of every article and chooses up to five to read, the second writes the
+answer from those articles in full. Expect about twice the latency of the
+`articles` shape, so give it a longer timeout (10 seconds is safe).
+`help_ask_events` keeps one row per question: `offered_article_ids` is what
+GP chose, and tokens and cost are the two calls added.
+
+**Importing a Help set.** GP keeps every imported set, in
+`config/help-kb/<app_id>/<kb_hash>/`. Before a build that changes Help
+reaches users, the app team sends GP the commit and the hash, and GP runs
+`scripts/import_help_kb.py --repo <app repo> --commit <c> --expect <hash>`,
+which refuses unless it computes the same hash, and merges the result. On first
+use after each start GP re-hashes a folder and refuses to serve one
+that no longer matches its name.
+
+## Request (the `articles` shape)
 
 No `Authorization` is needed, so it works signed out. If one is sent it is
 not read at all: an expired token cannot fail the call and a valid one does
@@ -34,7 +99,7 @@ not attach the call to an account. Header `X-App-ID: shouldersurf`.
 | Field | Rule |
 |---|---|
 | `question` | required string, 1 to 500 characters, not blank |
-| `articles` | required, 1 to 3 of `{id, title, body}`, in the client's rank order |
+| `articles` | required unless `kb_hash` is sent, 1 to 3 of `{id, title, body}`, in the client's rank order |
 | `articles[].id` | slug, `^[a-z0-9][a-z0-9._-]{0,63}$` (the Help telemetry's ids), distinct within the request |
 | `articles[].title` | required string, 1 to 200 characters |
 | `articles[].body` | required string, 1 to 8000 characters |
@@ -119,6 +184,7 @@ are a 400 in this envelope, never FastAPI's 422 list.
 |---|---|---|---|
 | 400 | `invalid_request` | body is not a JSON object, a field is missing or the wrong type, a length is out of range, 0 or more than 3 articles, an id that is not a slug or repeats, a malformed `catalog`, a `device_id` that is not a UUID | `{"field": "articles.0.id", "reason": "..."}`. The value sent is never echoed |
 | 413 | `body_too_large` | body over 65536 bytes | `{"check": "content_length" or "streamed_bytes", "limit_bytes": 65536, "bytes": N}` |
+| 409 | `kb_unknown` | `kb_hash` names a Help set GP does not hold and no `articles` were sent. Nothing was spent and no limit was counted | `{"kb_hash": "<the value sent>"}` |
 | 429 | `rate_limited` | a limit below is reached | `{"retry_after": seconds, "limit": "device_hour" or "device_day" or "ip_hour"}` |
 | 503 | `help_ask_unavailable` | switched off, the day's spend cap is reached, the model call failed, or the model's reply could not be read or used (`model_error` for both; the call is still billed and recorded) | `{"reason": "disabled" or "daily_cap" or "model_error" or "no_price"}` |
 

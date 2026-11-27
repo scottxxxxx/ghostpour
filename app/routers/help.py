@@ -9,6 +9,9 @@ Wire shape (docs/wire-contracts/help-ask.md is the contract):
     "articles": [                    1 to 3, in the client's rank order
       {"id": slug, "title": str (max 200), "body": str (max 8000)}
     ],
+    "kb_hash": 64 hex              optional: the Help set in the build. With
+                                     one GP holds, GP finds the articles in
+                                     its own copy and `articles` is optional
     "app_locale": "pt-BR",
     "device_id": UUID,
     "app_version": str|null, "app_build": str|null,
@@ -22,6 +25,8 @@ Wire shape (docs/wire-contracts/help-ask.md is the contract):
           "related_article_ids": [ids], "source": "articles",
           "output_language": null}
   -> 400 invalid_request      a shape failure (never FastAPI's 422 list)
+  -> 409 kb_unknown           `kb_hash` names a Help set GP does not hold
+                              and no `articles` came with it
   -> 413 body_too_large       over 64 KB
   -> 429 rate_limited         details.retry_after, in seconds
   -> 503 help_ask_unavailable switched off, the day's spend cap is reached,
@@ -56,7 +61,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from app.database import get_db
 from app.routers.telemetry import _SLUG_PATTERN, _UUID_RE, _client_ip, _ip_hash
-from app.services import help_ask
+from app.services import help_ask, help_kb
 
 logger = logging.getLogger("ghostpour.help_ask")
 
@@ -98,7 +103,13 @@ class HelpAskBody(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     question: str = Field(..., min_length=1, max_length=500)
-    articles: list[HelpArticle] = Field(..., min_length=1, max_length=3)
+    # Required unless `kb_hash` names a Help set GP holds (checked in the
+    # route, since the model cannot know what GP holds).
+    articles: list[HelpArticle] | None = Field(None, min_length=1, max_length=3)
+    # The hash of the Help articles bundled in the build that is asking
+    # (app/services/help_kb.py has the recipe). With it GP finds the
+    # articles in its own copy of that exact set.
+    kb_hash: str | None = Field(None, pattern=help_kb.KB_HASH_PATTERN)
     app_locale: str = Field(..., min_length=1, max_length=35)
     device_id: str = Field(..., min_length=1, max_length=64)
     # Optional: the client sends null when the bundle has no value. A
@@ -133,7 +144,9 @@ class HelpAskBody(BaseModel):
 
     @model_validator(mode="after")
     def _distinct_ids(self):
-        ids = [a.id for a in self.articles]
+        if self.articles is None and self.kb_hash is None:
+            raise ValueError("articles is required when kb_hash is not sent")
+        ids = [a.id for a in self.articles or []]
         if len(set(ids)) != len(ids):
             raise ValueError("article ids must be distinct")
         cat = [e.id for e in self.catalog or []]
@@ -236,6 +249,21 @@ async def help_ask_route(request: Request,
     if not cfg.usable:
         raise _unavailable("disabled")
 
+    # GP's own copy of the build's Help set, when the build named one and
+    # GP has it. A set GP does not have is not an error when the request
+    # also carries articles (it is then answered the old way). With no
+    # articles there is nothing to answer from, and the client is told so
+    # before a rate-limit slot or a model call is spent.
+    # A build from before `kb_hash` existed is answered the same way when
+    # GP knows which Help set is inside it (help_kb.kb_for_build).
+    kb_hash = body.kb_hash or help_kb.kb_for_build(app_id, body.app_build)
+    kb = help_kb.articles(app_id, kb_hash, body.app_locale) if kb_hash else None
+    if kb is None and body.articles is None:
+        logger.warning("help_ask_kb_unknown app=%s kb=%s", app_id, (body.kb_hash or "")[:12])
+        raise _error(409, "kb_unknown",
+                     "GP does not have this Help set; send the articles with the question.",
+                     {"kb_hash": body.kb_hash})
+
     _check_rate_limits(app_state.rate_limiter, cfg, body.device_id,
                        _ip_hash(_client_ip(request)))
 
@@ -247,13 +275,35 @@ async def help_ask_route(request: Request,
                      cfg.provider, cfg.model)
         raise _unavailable("no_price")
 
-    articles = [a.model_dump() for a in body.articles]
-    catalog = [e.model_dump() for e in body.catalog] if body.catalog else None
     support_email = help_ask.valid_support_email(body.support_email)
-    model_request = help_ask.build_request(
-        cfg, question=body.question, articles=articles,
-        app_locale=body.app_locale, support_email=support_email,
-        ui_terms=help_ask.valid_ui_terms(body.ui_terms), catalog=catalog)
+    pick_request = None
+    if kb is not None:
+        kb_articles, kb_language = kb
+        by_id = {a["id"]: a for a in kb_articles}
+        catalog = [{"id": a["id"], "title": a["title"], "summary": a["summary"]}
+                   for a in kb_articles]
+        pick_request = help_ask.build_pick_request(cfg, question=body.question,
+                                                   catalog=catalog)
+        # Which articles the answer call reads is not known until the pick
+        # returns, so the reservation assumes the longest ones.
+        longest = sorted(kb_articles, key=lambda a: len(a["body"].encode("utf-8")),
+                         reverse=True)[:help_ask.PICK_MAX]
+        ui_terms = None
+        articles = [{"id": a["id"], "title": a["title"], "body": a["body"]} for a in longest]
+    else:
+        articles = [a.model_dump() for a in body.articles]
+        catalog = [e.model_dump() for e in body.catalog] if body.catalog else None
+        ui_terms = help_ask.valid_ui_terms(body.ui_terms)
+
+    def _answer_request(arts: list[dict]):
+        return help_ask.build_request(
+            cfg, question=body.question, articles=arts, app_locale=body.app_locale,
+            support_email=support_email, ui_terms=ui_terms, catalog=catalog)
+
+    model_request = _answer_request(articles)
+    worst = help_ask.worst_case_cost(model_request, prices)
+    if pick_request is not None:
+        worst += help_ask.worst_case_cost(pick_request, prices)
 
     now = datetime.now(timezone.utc)
     row_id = str(uuid.uuid4())
@@ -262,8 +312,8 @@ async def help_ask_route(request: Request,
         app_id=app_id, device_id=body.device_id.lower(), app_locale=body.app_locale,
         app_version=body.app_version, app_build=body.app_build,
         question=help_ask.stored_question(body.question),
-        offered_ids=[a["id"] for a in articles], model=cfg.model,
-        reserved_usd=help_ask.worst_case_cost(model_request, prices),
+        offered_ids=[] if pick_request is not None else [a["id"] for a in articles],
+        model=cfg.model, reserved_usd=worst,
         cap_usd=cfg.daily_spend_cap_usd)
     if not reserved:
         logger.warning("help_ask_refused reason=daily_cap cap_usd=%s", cfg.daily_spend_cap_usd)
@@ -271,7 +321,21 @@ async def help_ask_route(request: Request,
 
     from app.services.anthropic_or_fallback import route_with_fallback
     start = time.monotonic()
+    pick_response = None
     try:
+        if pick_request is not None:
+            pick_response = await asyncio.wait_for(
+                route_with_fallback(app_state.provider_router, pick_request, db),
+                timeout=help_ask.MODEL_TIMEOUT_SECONDS)
+            # An unreadable pick is answered from the catalog alone (the
+            # answer call can still point at an article), never guessed.
+            picked = help_ask.parse_pick(pick_response, catalog)
+            if picked is None:
+                logger.warning("help_ask_pick_unreadable stop=%s",
+                               (pick_response.usage or {}).get("finish_reason"))
+            articles = [{"id": i, "title": by_id[i]["title"], "body": by_id[i]["body"]}
+                        for i in picked or []]
+            model_request = _answer_request(articles)
         response = await asyncio.wait_for(
             route_with_fallback(app_state.provider_router, model_request, db),
             timeout=help_ask.MODEL_TIMEOUT_SECONDS)
@@ -284,7 +348,10 @@ async def help_ask_route(request: Request,
         await help_ask.settle(
             db, row_id, outcome="model_error", covered=None, used_ids=None,
             input_tokens=None, output_tokens=None,
-            cost_usd=0.0 if answered_with_error else None, latency_ms=elapsed)
+            # After a pick that was billed, the true cost is not zero and
+            # is not known here, so the reservation stands.
+            cost_usd=0.0 if answered_with_error and pick_response is None else None,
+            latency_ms=elapsed)
         logger.warning("help_ask_model_failed type=%s ms=%d", type(exc).__name__, elapsed)
         raise _unavailable("model_error")
     elapsed = int((time.monotonic() - start) * 1000)
@@ -293,21 +360,32 @@ async def help_ask_route(request: Request,
                                app_locale=body.app_locale, support_email=support_email,
                                catalog=catalog)
     cost = help_ask.actual_cost(pricing, prices, model_request, response)
+    tokens_in, tokens_out = response.input_tokens, response.output_tokens
+    if pick_response is not None:
+        # One row per question: both calls' tokens and cost are added. If
+        # either call reported no usage, the reservation stands.
+        pick_cost = help_ask.actual_cost(pricing, prices, pick_request, pick_response)
+        cost = None if cost is None or pick_cost is None else cost + pick_cost
+        tokens_in = (tokens_in or 0) + (pick_response.input_tokens or 0)
+        tokens_out = (tokens_out or 0) + (pick_response.output_tokens or 0)
     await help_ask.settle(
         db, row_id, outcome=result["outcome"], covered=result["covered"],
-        used_ids=result["used_article_ids"], input_tokens=response.input_tokens,
-        output_tokens=response.output_tokens, cost_usd=cost, latency_ms=elapsed)
+        used_ids=result["used_article_ids"], input_tokens=tokens_in,
+        output_tokens=tokens_out, cost_usd=cost, latency_ms=elapsed,
+        offered_ids=[a["id"] for a in articles] if pick_response is not None else None)
     # `stop` says why the model stopped. max_tokens next to outcome=fallback
     # means the reply was cut off at the cap, not that the model had no answer.
-    logger.info("help_ask outcome=%s stop=%s catalog=%d used=%d related=%d in=%s out=%s "
-                "cost_usd=%s ms=%d", result["outcome"],
-                (response.usage or {}).get("finish_reason"), len(catalog or []),
+    logger.info("help_ask outcome=%s stop=%s kb=%s picked=%s catalog=%d used=%d related=%d "
+                "in=%s out=%s cost_usd=%s ms=%d", result["outcome"],
+                (response.usage or {}).get("finish_reason"),
+                f"{kb_hash[:12]}/{kb_language}" if pick_response is not None else "none",
+                len(articles) if pick_response is not None else "-", len(catalog or []),
                 len(result["used_article_ids"]), len(result["related_article_ids"]),
-                response.input_tokens, response.output_tokens, cost, elapsed)
+                tokens_in, tokens_out, cost, elapsed)
     if not result["serve"]:
         # Paid for and recorded above, but there is no answer to show.
         raise _unavailable("model_error")
-    return {
+    out = {
         "answer": result["answer"],
         "covered": result["covered"],
         "used_article_ids": result["used_article_ids"],
@@ -318,3 +396,10 @@ async def help_ask_route(request: Request,
         # queries got in #1240).
         "output_language": None,
     }
+    if pick_response is not None and body.kb_hash:
+        # The echo: the Help set the answer and every id came from, so the
+        # client can see it is its own. A build that did not send
+        # `kb_hash` gets the response it has always had, field for field.
+        out["kb_hash"] = body.kb_hash
+        out["source"] = "kb"
+    return out
