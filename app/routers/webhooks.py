@@ -2357,6 +2357,20 @@ async def request_types(
     return {"days": days, "by_request_type": by_request_type}
 
 
+# Latest request IP place per account, read from idx_usage_user_geo alone
+# (tests/test_admin_users_query.py pins the plan). Same packing argmax as
+# the telemetry columns in _list_users_sql.
+USER_IP_PLACE_SQL = """
+    SELECT l.user_id,
+           MAX(l.request_timestamp || char(1) || l.geo_country || char(1)
+               || COALESCE(l.geo_region, '') || char(1)
+               || COALESCE(l.geo_city, '')) AS packed
+      FROM usage_log l
+     WHERE l.geo_country IS NOT NULL
+     GROUP BY l.user_id
+"""
+
+
 @router.get("/admin/usage-by-place")
 async def usage_by_place(
     request: Request,
@@ -3602,6 +3616,25 @@ async def list_users(
         acc["meetings"] += st["meetings"]
         acc["unfinished"] += st["unfinished"]
 
+    # Where an account has no telemetry location, fall back to the place of
+    # its most recent call's request IP (Scott, 2026-11-26). N-400 and I-765
+    # send no telemetry ping, so under those filters the map showed one
+    # account out of fourteen. Unscoped like the telemetry location: the
+    # place is the account's, not per app.
+    ip_places = {
+        r["user_id"]: r for r in await (await db.execute(USER_IP_PLACE_SQL)).fetchall()
+    }
+
+    def _location(r):
+        if r["country"]:
+            return {"country": r["country"], "region": r["region"], "city": r["city"]}
+        ip = ip_places.get(r["id"])
+        if not ip:
+            return None
+        _, country, region, city = ip["packed"].split(chr(1))
+        return {"country": country, "region": region or None,
+                "city": city or None, "source": "ip"}
+
     users = []
     for r in rows_fetched:
         monthly_used = float(r["monthly_used_usd"] or 0)
@@ -3726,10 +3759,7 @@ async def list_users(
                     "Xcode": "dev"}.get(r["sub_environment"])
             ),
             "device": to_marketing_name(r["device_model"]),
-            "location": (
-                {"country": r["country"], "region": r["region"], "city": r["city"]}
-                if r["country"] else None
-            ),
+            "location": _location(r),
         })
 
     # Anonymous devices: telemetry senders that have never pinged with a

@@ -1456,6 +1456,13 @@ MIGRATIONS = [
     "user_id, request_timestamp, status, app_id, call_type, input_tokens, "
     "output_tokens, estimated_cost_usd, image_count, generated_count, "
     "documents_count)",
+    # The Users tab's location fallback (Scott, 2026-11-26): the latest
+    # request IP place per account, for accounts whose app sends no
+    # telemetry ping (N-400 and I-765 send none). Partial and covering, so
+    # the read is this index alone and never a usage_log row.
+    "CREATE INDEX IF NOT EXISTS idx_usage_user_geo ON usage_log("
+    "user_id, request_timestamp, geo_country, geo_region, geo_city) "
+    "WHERE geo_country IS NOT NULL",
     # Free-tier meeting report counts (Scott, 2026-11-15). One row per
     # (account, meeting) a REAL report was stored for; the bucket is the
     # model the client had selected. Not meeting_reports, which purges at
