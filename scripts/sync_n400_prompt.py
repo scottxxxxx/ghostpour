@@ -1028,6 +1028,18 @@ VERSIONS[69] = {
     ],
     "absent": list(VERSIONS[68]["absent"]),
 }
+# v70 (N-400 iOS 1.0.3, 2026-11-27): the app asks the interpreter and preparer
+# questions on screen after the interview, so a review she asks for leaves
+# Parts 12 and 13 out when this interview never asked them. One sentence
+# reworded around its pinned phrase, so every v69 phrase is carried.
+VERSIONS[70] = {
+    "block_anchor": VERSIONS[69].get("block_anchor"),
+    "once": "the review leaves both out without a word",
+    "phrases": VERSIONS[69]["phrases"] + [VERSIONS[69]["once"]] + [
+        "or the last part she was asked when the review leaves Parts 12 and 13 out",
+    ],
+    "absent": list(VERSIONS[69]["absent"]),
+}
 # Kept as names for the v30 tests and any caller that imported them.
 BLOCK_LINE = 83
 MUST_APPEAR_ONCE = VERSIONS[30]["once"]
