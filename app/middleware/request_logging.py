@@ -92,6 +92,10 @@ def _reduce_help_ask(raw: bytes | None) -> bytes | None:
         for item in articles:
             if isinstance(item, dict) and isinstance(item.get("body"), str):
                 item["body"] = f"<{len(item['body'])} chars>"
+    # The catalog is every Help article's title and summary, the same
+    # public text on every call: keep how many, not the text.
+    if isinstance(doc.get("catalog"), list):
+        doc["catalog"] = f"<{len(doc['catalog'])} entries>"
     return json.dumps(doc, ensure_ascii=False).encode("utf-8")
 
 
