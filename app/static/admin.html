@@ -633,11 +633,13 @@
     <div id="usage-by-place">
     <div id="usage-by-place-state" class="panel-state"><span id="usage-by-place-state-text"></span><button id="usage-by-place-state-retry" class="refresh-btn" onclick="panelRetry('usage-by-place')" style="display:none">Retry</button></div>
     <h3>Usage by Place</h3>
-    <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">Spend, cases (distinct case ids) and users by where the call came from. Three sources: the state picked in the app, the applicant's city the app sends, and the request IP. The world map is the IP country, the United States map is the state picked. States and cities are N-400 and I-765 only. Shoulder Surf calls carry the IP country alone, from 2026-11-26 on, and Tech Rehearsal calls carry no place; the app filter applies. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
+    <p style="font-size:12px;color:var(--text-dim);margin:0 0 8px">Spend, cases (distinct case ids) and users by where the call came from, for the apps and days picked at the top. This counts accounts that made a call in the window, so it can be lower than the Users tab, which lists every account. Three sources: the request IP, the state picked in the app, and the applicant's city the app sends. N-400 and I-765 send all three; Shoulder Surf records the IP country only, from 2026-11-26 on; Tech Rehearsal records no place. IP geolocation by DB-IP (db-ip.com), CC BY 4.0.</p>
     <div class="dash-grid wide">
     <div class="card dash-card span-2">
+      <h4 style="margin:0 0 6px">Users by place <span class="dash-note" id="place-map-apps"></span></h4>
       <div id="place-map-toggle" style="margin-bottom:6px"></div>
       <div id="place-map" class="heat-map"></div>
+      <div class="dash-note" style="margin-top:6px">World view: country of the request IP. United States view: the state picked in the app. The table beside it is the state picked.</div>
     </div>
     <div class="table-wrap scroll-y"><table id="place-jurisdiction"><thead><tr>
       <th>App</th><th>State picked</th><th>Spend</th><th>Cases</th><th>Users</th><th>Anonymous</th><th>Calls</th>
@@ -687,7 +689,7 @@
          next to the map so neither sits in a row with dead space. -->
     <div class="dash-grid roomy">
       <div class="card dash-card span-2">
-        <h4>Users by country <span class="dash-note">country-level GeoIP; coordinates are never stored. Arrow = gained users in the last 7 days</span></h4>
+        <h4>Users by country <span class="dash-note">every account in the list below, placed by its latest app ping, or by the IP of its latest call when its app sends no ping (N-400, I-765). Coordinates are never stored. Arrow = gained users in the last 7 days</span><span class="dash-note" id="users-map-unplaced"></span></h4>
         <div class="heat-wrap">
           <div class="heat-main">
             <div id="users-world-map-toggle" style="margin-bottom:6px"></div>
@@ -3841,6 +3843,9 @@ function renderUserAnalytics(rows) {
   const activeByCountry = {};
   const newByCountry = {};
   const weekAgo = Date.now() - 7 * 86400000;
+  const unplaced = rows.filter(u => !(u.location && u.location.country)).length;
+  const unplacedEl = document.getElementById('users-map-unplaced');
+  if (unplacedEl) unplacedEl.textContent = unplaced ? ` · ${unplaced} of ${rows.length} have no place yet` : '';
   rows.forEach(u => {
     const loc = u.location;
     if (!loc || !loc.country) return;
@@ -5063,6 +5068,14 @@ async function _loadUsageByPlace(days, app) {
   // but the US (Scott, 2026-11-26). A country with no IP rows but picked
   // states (old rows) still falls back to that sum for the US.
   const byCountry = placeCountryCounts(d.by_ip_country, Object.values(byState).reduce((a, b) => a + b, 0));
+  // Say which apps the map is counting (Scott, 2026-11-26: it read as an
+  // unlabeled N-400 map). Named from the rows, so a filter shows in it.
+  const placeApps = {n400: 'N-400 Helper', i765: 'I-765', shouldersurf: 'Shoulder Surf', techrehearsal: 'Tech Rehearsal'};
+  const inMap = [...new Set([...(d.by_ip_country || []), ...(d.by_jurisdiction || [])].map(x => x.app_id).filter(Boolean))];
+  const appsEl = document.getElementById('place-map-apps');
+  if (appsEl) appsEl.textContent = inMap.length
+    ? `${inMap.map(a => placeApps[a] || a).join(', ')} · accounts with a call in the last ${d.days} days`
+    : 'no calls with a place in this window';
   // State-level data opens on the state-level view (first paint only; the
   // toggle is the operator's after that).
   if (!_heatMaps['place-map']) _heatMaps['place-map'] = {view: 'us', map: null, selected: null, active: false};
