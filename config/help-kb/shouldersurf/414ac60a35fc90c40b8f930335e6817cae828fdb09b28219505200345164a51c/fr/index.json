@@ -1,0 +1,1194 @@
+{
+  "language": "fr",
+  "articles": {
+    "gs-what-is-shoulder-surf": {
+      "title": "Ce qu'est Shoulder Surf",
+      "summary": "Un copilote de réunion sur votre téléphone : transcription en direct, réponses dans vos AirPods, un compte rendu enregistré, et aucun logiciel sur votre ordinateur de travail.",
+      "keywords": [
+        "à propos",
+        "présentation",
+        "copilote",
+        "assistant de réunion",
+        "comment ça marche",
+        "à quoi ça sert",
+        "séparation totale"
+      ]
+    },
+    "gs-first-session": {
+      "title": "Votre première session, du début à la fin",
+      "summary": "Touchez la sphère pour lancer l'enregistrement, classé selon les badges en dessous ; posez une instruction rapide, terminez, puis retrouvez la réunion dans Révision.",
+      "keywords": [
+        "première session",
+        "premiers pas",
+        "démarrer un enregistrement",
+        "sphère",
+        "projet",
+        "aucun projet",
+        "terminer",
+        "révision",
+        "tutoriel",
+        "badges"
+      ]
+    },
+    "gs-permissions": {
+      "title": "Les autorisations, et pourquoi chacune est demandée",
+      "summary": "Le micro est la seule autorisation obligatoire ; à quoi sert chacune des autres, et ce qui se passe si vous refusez.",
+      "keywords": [
+        "autorisations",
+        "micro",
+        "caméra",
+        "reconnaissance vocale",
+        "calendrier",
+        "rappels",
+        "photos",
+        "notifications",
+        "contacts",
+        "refusé"
+      ]
+    },
+    "gs-headphones-and-mic": {
+      "title": "Écouteurs, AirPods et micro",
+      "summary": "Le micro du téléphone enregistre, vos écouteurs lisent les réponses, et pourquoi le haut-parleur est désactivé par défaut.",
+      "keywords": [
+        "airpods",
+        "écouteurs",
+        "casque",
+        "bluetooth",
+        "micro",
+        "filaire",
+        "isolation vocale",
+        "spectre large",
+        "haut-parleur",
+        "quel micro"
+      ]
+    },
+    "gs-how-should-i-listen": {
+      "title": "Comment écouter ? Les quatre modes",
+      "summary": "Micro de l'iPhone, Shoulder Surf Companion, USB-C et Lire l'écran : ce que chaque mode demande et ce qu'il capte.",
+      "keywords": [
+        "mode d'écoute",
+        "micro de l'iphone",
+        "micro de l'ipad",
+        "shoulder surf companion",
+        "usb-c",
+        "celltap",
+        "lire l'écran",
+        "sous-titres",
+        "modes",
+        "badge"
+      ]
+    },
+    "gs-mac-companion": {
+      "title": "Shoulder Surf Companion pour Mac",
+      "summary": "Une app de la barre des menus qui envoie les deux côtés d'un appel sur ordinateur vers le téléphone ; jumelage, autorisations, fenêtre de réponses et raccourcis clavier.",
+      "keywords": [
+        "mac",
+        "companion",
+        "barre des menus",
+        "jumelage",
+        "code à 6 chiffres",
+        "trousseau icloud",
+        "mac app store",
+        "téléprompteur",
+        "raccourcis clavier",
+        "partage d'écran"
+      ]
+    },
+    "gs-windows-companion": {
+      "title": "Shoulder Surf Companion pour Windows",
+      "summary": "L'app de la zone de notification Windows : même rôle que l'app pour Mac, jumelée par code, avec une fenêtre de réponses invisible dans les partages d'écran.",
+      "keywords": [
+        "windows",
+        "companion",
+        "pc",
+        "microsoft store",
+        "zone de notification",
+        "jumelage",
+        "code",
+        "bonjour",
+        "pare-feu",
+        "partage d'écran"
+      ]
+    },
+    "gs-companion-answer-window": {
+      "title": "Les réponses sur l'écran de votre ordinateur",
+      "summary": "Les apps Companion pour Mac et Windows peuvent afficher chaque réponse dans une fenêtre téléprompteur transparente qui reste hors des partages d'écran.",
+      "keywords": [
+        "téléprompteur",
+        "fenêtre de réponses",
+        "transparent",
+        "partage d'écran",
+        "capture d'écran",
+        "invisible",
+        "mac",
+        "windows",
+        "afficher les réponses",
+        "fiches"
+      ]
+    },
+    "gs-apple-watch": {
+      "title": "L'app Apple Watch",
+      "summary": "Une télécommande au poignet pendant une réunion : prendre une photo, lancer une instruction rapide, écouter la dernière réponse.",
+      "keywords": [
+        "apple watch",
+        "montre",
+        "télécommande",
+        "capture",
+        "photo",
+        "lecture",
+        "instructions rapides",
+        "digital crown",
+        "poignet"
+      ]
+    },
+    "gs-sign-in-or-skip": {
+      "title": "Se connecter, ou pas",
+      "summary": "Ce que vous obtenez sur l'appareil sans compte, et ce qu'apporte la connexion avec Apple.",
+      "keywords": [
+        "se connecter",
+        "connexion avec apple",
+        "ignorer",
+        "sans compte",
+        "sur l'appareil",
+        "compte",
+        "quota gratuit",
+        "facultatif"
+      ]
+    },
+    "gs-voice-id": {
+      "title": "ID vocale : apprendre votre voix à l'app",
+      "summary": "Trente secondes de lecture à voix haute pour que l'app vous identifie comme Vous ; enregistrer d'autres voix, tester, améliorer.",
+      "keywords": [
+        "id vocale",
+        "enregistrer ma voix",
+        "c'est ma voix",
+        "profil vocal",
+        "reconnaissance de la voix",
+        "vous",
+        "30 secondes",
+        "tester l'id vocale"
+      ]
+    },
+    "dm-studio-layout": {
+      "title": "Ce qui s'affiche pendant une réunion",
+      "summary": "Chaque bouton de l'écran d'enregistrement et ce qu'il fait.",
+      "keywords": [
+        "studio",
+        "écran d'enregistrement",
+        "boutons",
+        "sphère",
+        "minuteur",
+        "bouton caméra",
+        "bouton micro",
+        "requête",
+        "historique",
+        "photos"
+      ]
+    },
+    "dm-quick-prompts": {
+      "title": "Instructions rapides : un toucher, une réponse",
+      "summary": "Les six instructions rapides en un toucher, comment les lancer et comment créer les vôtres.",
+      "keywords": [
+        "instructions rapides",
+        "résume-moi l'essentiel",
+        "aidez-moi à répondre",
+        "que dois-je faire",
+        "est-ce exact",
+        "qu'est-ce qui nous échappe",
+        "tuiles",
+        "raccourci clavier",
+        "créer une instruction"
+      ]
+    },
+    "dm-ask-a-question": {
+      "title": "Poser votre propre question en réunion",
+      "summary": "Pendant une réunion, touchez Requête pour taper une question et y joindre des photos, des Références ou un nouveau fichier (PDF, Word et plus). Aussi : quelle part de la transcription part avec, recherche web, relances.",
+      "keywords": [
+        "poser",
+        "question personnalisée",
+        "question tapée",
+        "relance",
+        "portion de contexte",
+        "2 dernières min",
+        "5 dernières min",
+        "complet",
+        "depuis la requête",
+        "photos",
+        "références",
+        "recherche web",
+        "arrêter",
+        "réflexion",
+        "poser une question",
+        "contexte",
+        "requête",
+        "joindre",
+        "pièces jointes",
+        "joindre des fichiers",
+        "fichiers",
+        "documents",
+        "ajouter un fichier",
+        "pendant la réunion",
+        "artefacts"
+      ]
+    },
+    "dm-glance-cue-cards": {
+      "title": "Les fiches en un coup d'œil ou la réponse complète",
+      "summary": "Les réponses sous forme de petites fiches plutôt qu'un paragraphe ; par instruction ou par réponse.",
+      "keywords": [
+        "en un coup d'œil",
+        "fiches",
+        "répondre en fiches",
+        "réponse complète",
+        "afficher la réponse complète",
+        "balayer",
+        "cartes",
+        "résumé court"
+      ]
+    },
+    "dm-hearing-answers": {
+      "title": "Écouter les réponses dans vos AirPods",
+      "summary": "Lecture lit une réponse dans vos AirPods ; vitesse, voix, sortie audio, et pourquoi rien ne se lit tout seul.",
+      "keywords": [
+        "lecture à voix haute",
+        "lecture",
+        "synthèse vocale",
+        "airpods",
+        "bluetooth",
+        "vitesse",
+        "1,5x",
+        "sortie audio",
+        "airplay",
+        "voix"
+      ]
+    },
+    "dm-transcript-and-summary": {
+      "title": "La transcription en direct et le résumé continu",
+      "summary": "La feuille de transcription en direct, le résumé continu, et la fréquence des résumés selon le modèle.",
+      "keywords": [
+        "transcription",
+        "transcription en direct",
+        "sous-titres",
+        "résumé",
+        "résumé continu",
+        "résumé automatique",
+        "intervenants",
+        "superposition",
+        "fréquence"
+      ]
+    },
+    "dm-camera-capture": {
+      "title": "Capturer des diapos et des écrans avec la caméra",
+      "summary": "Touchez pour photographier une diapo, joignez-la à une question, coupez la caméra, suivez un écran de Mac ou lisez des sous-titres.",
+      "keywords": [
+        "caméra",
+        "capture",
+        "photo",
+        "diapo",
+        "tableau blanc",
+        "zoom",
+        "caméra désactivée",
+        "qu'est-ce que je regarde",
+        "écran du mac",
+        "lire l'écran"
+      ]
+    },
+    "dm-pause-and-end": {
+      "title": "Mettre en pause et terminer une réunion",
+      "summary": "Pause et Terminer se trouvent derrière la sphère ; ce que devient la réunion quand vous la terminez.",
+      "keywords": [
+        "pause",
+        "reprendre",
+        "terminer",
+        "arrêter",
+        "terminer la session",
+        "terminer sans enregistrer",
+        "enregistrer",
+        "supprimer la réunion"
+      ]
+    },
+    "dm-silence-watchdog": {
+      "title": "Le détecteur de silence",
+      "summary": "L'app vous demande s'il faut arrêter après un long silence ; le réglage, la notification, ce qu'il peut faire ou non.",
+      "keywords": [
+        "silence",
+        "détecteur de silence",
+        "aucune parole détectée",
+        "alerter après",
+        "continuer l'enregistrement",
+        "arrêter la session",
+        "notification",
+        "batterie",
+        "oublié d'arrêter"
+      ]
+    },
+    "dm-live-activity": {
+      "title": "La Dynamic Island et l'écran verrouillé pendant l'enregistrement",
+      "summary": "Ce qu'affichent la Dynamic Island et l'écran verrouillé pendant l'enregistrement, et pourquoi il n'y a aucun bouton.",
+      "keywords": [
+        "dynamic island",
+        "activité en direct",
+        "écran verrouillé",
+        "minuteur",
+        "badge",
+        "indicateur d'enregistrement",
+        "résumé",
+        "aucun bouton"
+      ]
+    },
+    "dm-background-and-lock": {
+      "title": "Verrouiller le téléphone ou changer d'app en pleine réunion",
+      "summary": "Verrouillez le téléphone ou changez d'app : l'enregistrement continue, la caméra et l'identification des intervenants vous attendent.",
+      "keywords": [
+        "arrière-plan",
+        "écran verrouillé",
+        "changer d'app",
+        "enregistrement en arrière-plan",
+        "continuer l'enregistrement",
+        "identification des intervenants",
+        "caméra",
+        "notification",
+        "session en danger"
+      ]
+    },
+    "dm-heat-pause": {
+      "title": "Quand le téléphone chauffe",
+      "summary": "Quand le téléphone chauffe, la caméra s'éteint pour refroidir ; l'enregistrement ne s'arrête jamais.",
+      "keywords": [
+        "chaud",
+        "chauffe",
+        "surchauffe",
+        "température",
+        "caméra en pause pour refroidir",
+        "batterie",
+        "longue réunion"
+      ]
+    },
+    "dm-out-of-credits": {
+      "title": "Quand votre quota mensuel d'IA est épuisé",
+      "summary": "Ce qui change quand le quota Gratuit est épuisé, et le repli sur l'appareil quand le serveur est injoignable.",
+      "keywords": [
+        "crédits",
+        "plus de crédits",
+        "quota",
+        "heures",
+        "utilisation de l'ia",
+        "s'abonner",
+        "sur l'appareil",
+        "votre propre clé",
+        "temps d'ia faible",
+        "indisponible"
+      ]
+    },
+    "am-review-tab": {
+      "title": "L'onglet Révision",
+      "summary": "Réunions, Projets, Mémoire et Personnes ; recherche, cartes, balayer pour supprimer, importer.",
+      "keywords": [
+        "révision",
+        "liste des réunions",
+        "projets",
+        "mémoire",
+        "personnes",
+        "rechercher",
+        "filtrer",
+        "supprimer",
+        "renommer",
+        "importer"
+      ]
+    },
+    "am-meeting-page": {
+      "title": "La page de la réunion",
+      "summary": "Chaque section d'une réunion enregistrée et chaque élément de son menu.",
+      "keywords": [
+        "page de la réunion",
+        "chat",
+        "rapport",
+        "résumé",
+        "transcription",
+        "requêtes",
+        "menu",
+        "renommer",
+        "réanalyser",
+        "déplacer vers un projet"
+      ]
+    },
+    "am-summaries": {
+      "title": "Les résumés et le titre suggéré",
+      "summary": "Le résumé final, la chronologie, pourquoi une réunion peut ne pas en avoir, et le titre suggéré.",
+      "keywords": [
+        "résumé",
+        "résumé final",
+        "chronologie des résumés",
+        "delta",
+        "générer le résumé",
+        "réanalyser",
+        "titre",
+        "titre suggéré",
+        "résumé automatique",
+        "hors ligne"
+      ]
+    },
+    "am-reports": {
+      "title": "Les rapports de réunion",
+      "summary": "Le contenu d'un rapport, quand il est automatique, comment le demander, le partager, et les règles de connexion et de formule.",
+      "keywords": [
+        "rapport",
+        "rapport de réunion",
+        "générer le rapport",
+        "régénérer",
+        "feu tricolore",
+        "action requise",
+        "décisions",
+        "questions ouvertes",
+        "participants",
+        "pdf"
+      ]
+    },
+    "am-three-ways-to-share": {
+      "title": "Deux façons de partager une réunion",
+      "summary": "Partager la réunion (un lien) ou Exporter les fichiers (des fichiers simples) : lequel choisir.",
+      "keywords": [
+        "partager",
+        "partager la réunion",
+        "exporter les fichiers",
+        "envoyer comme fichier de réunion",
+        "fichier shouldersurf",
+        "lien",
+        "révoquer",
+        "expiration",
+        "quelle différence"
+      ]
+    },
+    "am-share-link": {
+      "title": "Partager un lien",
+      "summary": "Créer un lien : ce qu'il contient, son expiration, sa langue, ce que voit le destinataire, et comment le révoquer.",
+      "keywords": [
+        "lien de partage",
+        "partager la réunion",
+        "expiration du lien",
+        "révoquer",
+        "arrêter de partager le lien",
+        "inclure l'audio",
+        "photos",
+        "rapport",
+        "page web",
+        "destinataire"
+      ]
+    },
+    "am-transcript-and-timing": {
+      "title": "La transcription : intervenants, horodatage et lecture",
+      "summary": "Les horodatages qui renvoient au bon moment de l'audio, le lecteur, sauter les silences, renommer les intervenants, copier.",
+      "keywords": [
+        "transcription",
+        "horodatage",
+        "lecteur audio",
+        "sauter les silences",
+        "vitesse",
+        "rechercher dans la transcription",
+        "suivre la tête de lecture",
+        "renommer l'intervenant",
+        "copier la transcription",
+        "srt"
+      ]
+    },
+    "am-fix-a-word": {
+      "title": "Corriger un mot",
+      "summary": "Corrigez une seule fois un mot mal entendu dans toute la réunion, Mémoire et copie serveur comprises, avec annulation possible.",
+      "keywords": [
+        "corriger un mot",
+        "mot mal entendu",
+        "correction",
+        "remplacer",
+        "annuler",
+        "faute de transcription",
+        "nom de produit",
+        "mot entier",
+        "noms et mots",
+        "mémoire"
+      ]
+    },
+    "am-speakers-and-names": {
+      "title": "Nommer les intervenants, et quel Scott",
+      "summary": "Nommer Intervenant 1, corriger un passage, la question Quel <nom> ?, enregistrer une voix.",
+      "keywords": [
+        "intervenant",
+        "intervenant 1",
+        "nommer l'intervenant",
+        "renommer",
+        "quel nom",
+        "quelqu'un de nouveau",
+        "enregistrer la voix",
+        "superposition",
+        "plusieurs",
+        "mauvais intervenant"
+      ]
+    },
+    "am-tags-and-sentiment": {
+      "title": "Étiquettes, ton et urgence",
+      "summary": "Étiquettes intégrées et personnalisées, étiquettes suggérées par l'IA avec leur raison, emoji de ton, sphère d'urgence, et quels modèles analysent.",
+      "keywords": [
+        "étiquettes",
+        "étiquettes personnalisées",
+        "suggéré par l'ia",
+        "raison",
+        "retirer l'étiquette",
+        "ton",
+        "emoji",
+        "urgence",
+        "sphère",
+        "analyse automatique"
+      ]
+    },
+    "am-translation": {
+      "title": "Lire une réunion dans une autre langue",
+      "summary": "Lisez une réunion dans votre langue en gardant l'original en dessous ; ce qui est traduit et ce qui est régénéré.",
+      "keywords": [
+        "traduction",
+        "traduire",
+        "langue",
+        "original",
+        "envoyer en",
+        "espagnol",
+        "anglais",
+        "japonais",
+        "langue du résumé",
+        "version traduite"
+      ]
+    },
+    "am-meeting-chat": {
+      "title": "Chat de réunion : poser des questions sur une réunion après coup",
+      "summary": "Posez des questions sur une réunion après coup : contexte à inclure, pièces jointes, recherche web, quelle IA.",
+      "keywords": [
+        "chat de réunion",
+        "chat",
+        "poser une question sur cette réunion",
+        "contexte à inclure",
+        "rédiger un e-mail",
+        "rappels",
+        "recherche web",
+        "références",
+        "citation",
+        "horodatage"
+      ]
+    },
+    "am-action-items-and-reminders": {
+      "title": "Actions à suivre (tâches) : modifier, confirmer, envoyer vers Rappels",
+      "summary": "Qui doit quoi après une réunion, et comment le changer : touchez le crayon sur une action du projet pour modifier son texte, son responsable ou son échéance, modifiez Action requise dans le rapport, répondez aux cartes de confirmation et envoyez les tâches vers Rappels.",
+      "keywords": [
+        "actions à suivre",
+        "rappels",
+        "enregistrer dans rappels",
+        "confirmer",
+        "est-ce que c'est fait",
+        "engagements",
+        "alignement",
+        "responsable",
+        "échéance",
+        "raccourcis",
+        "qui doit quoi",
+        "tâches",
+        "suivi",
+        "à faire",
+        "est-ce arrivé",
+        "modifier",
+        "modifier la tâche",
+        "modifier l'action",
+        "changer le texte",
+        "crayon"
+      ]
+    },
+    "am-import": {
+      "title": "Importer des enregistrements et des réunions partagées",
+      "summary": "Importez des mémos vocaux, des enregistrements Zoom, des fichiers .shouldersurf et des liens partagés.",
+      "keywords": [
+        "importer",
+        "importer un enregistrement",
+        "mémo vocal",
+        "m4a",
+        "mp3",
+        "vidéo",
+        "fichier shouldersurf",
+        "importer une réunion partagée",
+        "feuille de partage",
+        "lien reçu"
+      ]
+    },
+    "am-photos-and-links": {
+      "title": "Photos et liens enregistrés avec une réunion",
+      "summary": "La galerie de photos et la carte Liens, qui cherche les URL et les QR codes dans vos captures.",
+      "keywords": [
+        "images",
+        "photos",
+        "galerie",
+        "supprimer une photo",
+        "enregistrer dans photos",
+        "liens",
+        "analyser les photos",
+        "qr code",
+        "ajouter un lien",
+        "url"
+      ]
+    },
+    "mem-what-is-memory": {
+      "title": "La Mémoire (Context Quilt) : ce que c'est",
+      "summary": "Context Quilt : des faits mémorisés d'une réunion à l'autre et utilisés dans les réponses ; ce qu'affiche la vue Mémoire et qui y a accès.",
+      "keywords": [
+        "mémoire",
+        "context quilt",
+        "quilt",
+        "pièces",
+        "cette semaine",
+        "se souvient",
+        "mémoire à long terme",
+        "oublier"
+      ]
+    },
+    "mem-what-it-stores": {
+      "title": "Ce que la Mémoire conserve, et où",
+      "summary": "Les types de pièces, le stockage sur le serveur, comment les transcriptions sont capturées, et quels modèles capturent ou rappellent.",
+      "keywords": [
+        "mémoire",
+        "pièces",
+        "types de pièces",
+        "décision",
+        "engagement",
+        "point bloquant",
+        "préférence",
+        "serveur",
+        "stockage",
+        "quels modèles"
+      ]
+    },
+    "mem-people-pages": {
+      "title": "Les pages Personnes",
+      "summary": "Une page par personne : analyses, registre, heures ensemble, préparation, entreprise, contact, fusion et renommage.",
+      "keywords": [
+        "personnes",
+        "page personne",
+        "heures ensemble",
+        "analyses",
+        "avant de les voir",
+        "vous devez",
+        "vous doit",
+        "fusionner",
+        "garder séparés",
+        "entreprise"
+      ]
+    },
+    "mem-contacts-and-linkedin": {
+      "title": "Photos, Contacts et LinkedIn pour les personnes",
+      "summary": "Les visages de vos Contacts après une seule autorisation, Choisir une photo, Récupérer la photo depuis LinkedIn, Rechercher sur LinkedIn, la ligne entreprise, et le tri de A à Z par nom de famille.",
+      "keywords": [
+        "contacts",
+        "photo",
+        "avatar",
+        "visage",
+        "linkedin",
+        "entreprise",
+        "actualiser depuis contacts",
+        "choisir une photo",
+        "nom de famille",
+        "de a à z"
+      ]
+    },
+    "mem-correcting-memory": {
+      "title": "Corriger la Mémoire",
+      "summary": "Modifier ou supprimer une pièce, corriger une description, masquer une analyse, fusionner ou séparer des personnes, et ce que la suppression d'une réunion ne fait pas.",
+      "keywords": [
+        "corriger",
+        "modifier une pièce",
+        "supprimer un souvenir",
+        "erreur",
+        "ce n'est pas exact",
+        "description",
+        "masquer une analyse",
+        "fusionner des personnes",
+        "annuler",
+        "réunion supprimée"
+      ]
+    },
+    "pr-projects": {
+      "title": "Les projets",
+      "summary": "Créer, décrire, annoter un projet, suivre ses actions, déplacer des réunions, renommer et supprimer des projets.",
+      "keywords": [
+        "projet",
+        "créer un projet",
+        "icône",
+        "couleur",
+        "description",
+        "notes",
+        "actions à suivre",
+        "personnes uniquement dans ce projet",
+        "renommer",
+        "supprimer le projet",
+        "retirer du projet",
+        "déplacer une réunion",
+        "renommer le projet",
+        "modifier la tâche"
+      ]
+    },
+    "pr-project-chat": {
+      "title": "Chat de projet",
+      "summary": "Posez une question sur toutes les réunions d'un projet : commandes, fichiers, et les règles exactes selon la formule et le modèle.",
+      "keywords": [
+        "chat de projet",
+        "poser une question sur ce projet",
+        "plusieurs réunions",
+        "réunions à inclure",
+        "capacité du contexte",
+        "jauge",
+        "gratuit",
+        "plus",
+        "pro",
+        "extras"
+      ]
+    },
+    "pr-calendar-prep": {
+      "title": "Préparer vos réunions depuis le calendrier",
+      "summary": "La fiche de préparation, qui devine le projet de votre prochaine réunion d'après l'historique ou votre calendrier, sur l'appareil.",
+      "keywords": [
+        "préparation",
+        "fiche de préparation",
+        "calendrier",
+        "agenda",
+        "utiliser mon agenda",
+        "anticiper",
+        "autre réunion",
+        "lire la dernière réunion",
+        "créer un projet"
+      ]
+    },
+    "ref-references": {
+      "title": "Références : les documents que l'IA lit avec votre question",
+      "summary": "Les documents que l'IA lit avec votre question : ajout, pièce jointe, quels modèles lisent les originaux, synchronisation.",
+      "keywords": [
+        "références",
+        "documents",
+        "joindre",
+        "pdf",
+        "word",
+        "excel",
+        "coller du texte",
+        "conserver la mise en forme",
+        "ajouter en texte",
+        "synchronisation"
+      ]
+    },
+    "ref-global-instructions": {
+      "title": "Instructions globales et modification des prompts",
+      "summary": "Des règles permanentes pour l'IA, les prompts que vous pouvez modifier, et pourquoi certains sont gérés sur Shoulder Surf AI.",
+      "keywords": [
+        "instructions système globales",
+        "instructions",
+        "règles",
+        "toujours répondre en puces",
+        "prompts",
+        "modifier les prompts",
+        "votre propre clé",
+        "avancé",
+        "prompt d'analyse"
+      ]
+    },
+    "set-ai-model-choices": {
+      "title": "Choisir votre modèle d'IA",
+      "summary": "Shoulder Surf AI, Sur l'appareil (Apple), Apple Cloud ou votre propre clé : ce que chacun sait faire.",
+      "keywords": [
+        "modèle d'ia",
+        "shoulder surf ai",
+        "sur l'appareil",
+        "apple intelligence",
+        "apple cloud",
+        "private cloud compute",
+        "votre propre clé",
+        "quel modèle",
+        "changer de modèle",
+        "utiliser ce modèle"
+      ]
+    },
+    "set-own-keys": {
+      "title": "Utiliser votre propre clé d'API",
+      "summary": "Collez la clé d'un fournisseur, testez-la, choisissez un modèle ; où sont stockées les clés et ce qu'apporte le pack Extras.",
+      "keywords": [
+        "propre clé",
+        "clé api",
+        "byok",
+        "openai",
+        "anthropic",
+        "gemini",
+        "openrouter",
+        "tester la clé",
+        "trousseau",
+        "effort de raisonnement"
+      ]
+    },
+    "set-apple-cloud": {
+      "title": "Apple Cloud",
+      "summary": "Le modèle Private Cloud Compute gratuit d'Apple : conditions, limite quotidienne, ce qu'il sait faire et ce qu'il ne fait pas.",
+      "keywords": [
+        "apple cloud",
+        "private cloud compute",
+        "pcc",
+        "ios 27",
+        "limite quotidienne",
+        "quota",
+        "gratuit",
+        "apple intelligence",
+        "extras",
+        "pas prêt"
+      ]
+    },
+    "set-web-search": {
+      "title": "Recherche web",
+      "summary": "Le globe par question, le quota mensuel de recherches, et les modèles capables de chercher sur le web.",
+      "keywords": [
+        "recherche web",
+        "globe",
+        "recherche web effectuée",
+        "recherches par mois",
+        "limite atteinte",
+        "plus",
+        "pro",
+        "votre propre clé",
+        "infos récentes"
+      ]
+    },
+    "set-voices-and-speed": {
+      "title": "Voix et vitesse de lecture",
+      "summary": "Choisir une voix système, en télécharger de meilleures, et le réglage de vitesse sur chaque réponse.",
+      "keywords": [
+        "voix",
+        "voix premium",
+        "voix améliorée",
+        "synthèse vocale",
+        "vitesse",
+        "télécharger des voix",
+        "accessibilité",
+        "contenu énoncé",
+        "lecture"
+      ]
+    },
+    "set-transcription-language": {
+      "title": "Langue de transcription",
+      "summary": "Choisissez la langue parlée pour une réunion ou gardez-la ; téléchargements la première fois, la limite de cinq langues d'iOS, filtre des grossièretés et paroles simultanées.",
+      "keywords": [
+        "langue de transcription",
+        "langue de la réunion",
+        "langue parlée",
+        "mémoriser mon choix",
+        "télécharger",
+        "grossièretés",
+        "paroles simultanées",
+        "portugais",
+        "faire de la place pour une langue",
+        "cinq langues"
+      ]
+    },
+    "set-names-and-words": {
+      "title": "Noms et mots",
+      "summary": "Apprenez à l'app comment vous écrivez les noms et les mots, pour que transcriptions, sous-titres, réponses et Mémoire les orthographient correctement.",
+      "keywords": [
+        "noms et mots",
+        "vocabulaire",
+        "orthographe",
+        "noms",
+        "mal orthographié",
+        "mal entendu",
+        "mots personnalisés",
+        "noms de produits",
+        "jargon",
+        "dictionnaire"
+      ]
+    },
+    "set-sync-and-backup": {
+      "title": "Synchronisation iCloud et Sauvegarde iCloud Drive",
+      "summary": "La synchronisation iCloud pour vos appareils et la sauvegarde iCloud Drive pour des fichiers simples ; ce que couvre chacune.",
+      "keywords": [
+        "icloud",
+        "synchronisation",
+        "sauvegarde",
+        "icloud drive",
+        "app fichiers",
+        "deuxième appareil",
+        "ipad",
+        "ce qui se synchronise",
+        "vérifier et sauvegarder"
+      ]
+    },
+    "set-lost-phone": {
+      "title": "Ce que l'on récupère après la perte d'un téléphone",
+      "summary": "Ce qui revient sur un nouveau téléphone depuis iCloud, depuis le serveur, et ce que vous devez ressaisir.",
+      "keywords": [
+        "téléphone perdu",
+        "nouveau téléphone",
+        "restaurer",
+        "sauvegarde icloud",
+        "réinstallation",
+        "se reconnecter",
+        "clés api",
+        "traductions",
+        "identifiant apple"
+      ]
+    },
+    "set-camera-and-images": {
+      "title": "Réglages de la caméra et des images",
+      "summary": "Le mode de capture, la zone des sous-titres, et la taille des images envoyées avec les questions.",
+      "keywords": [
+        "réglages caméra",
+        "qualité d'image",
+        "résolution",
+        "original",
+        "zone des sous-titres",
+        "mode de capture",
+        "demandes de confirmation",
+        "au début d'une réunion",
+        "caméra désactivée"
+      ]
+    },
+    "acct-plans": {
+      "title": "Gratuit, Plus et Pro : ce que chaque formule débloque",
+      "summary": "Gratuit, Plus et Pro côte à côte, et ce qui ne dépend d'aucune formule.",
+      "keywords": [
+        "formules",
+        "gratuit",
+        "plus",
+        "pro",
+        "abonnement",
+        "prix",
+        "quota",
+        "cinq heures",
+        "illimité",
+        "comparer"
+      ]
+    },
+    "acct-purchase": {
+      "title": "S'abonner, restaurer et gérer une formule",
+      "summary": "S'abonner sans se connecter, utiliser sa formule sur d'autres appareils, restaurer, gérer, résilier, utiliser un code.",
+      "keywords": [
+        "s'abonner",
+        "acheter",
+        "changer de formule",
+        "voir les formules",
+        "restaurer les achats",
+        "gérer l'abonnement",
+        "résilier",
+        "utiliser un code",
+        "essai gratuit",
+        "autres appareils"
+      ]
+    },
+    "acct-extras-packs": {
+      "title": "Les packs Extras pour Apple Cloud et votre propre clé",
+      "summary": "Des achats uniques pour les utilisateurs d'Apple Cloud et de leur propre clé : ce qu'ajoute chaque pack et où l'acheter.",
+      "keywords": [
+        "extras",
+        "pack",
+        "débloquer",
+        "achat unique",
+        "pack apple cloud",
+        "propre clé",
+        "les deux",
+        "chat de projet",
+        "fichiers",
+        "restaurer"
+      ]
+    },
+    "acct-sign-out-and-delete": {
+      "title": "Se déconnecter et supprimer votre compte",
+      "summary": "Se déconnecter conserve vos réunions ; supprimer le compte efface tout sur le serveur, avec une option pour le téléphone aussi.",
+      "keywords": [
+        "se déconnecter",
+        "supprimer le compte",
+        "supprimer mes réunions",
+        "effacer mes données",
+        "rgpd",
+        "confidentialité",
+        "identifiant du compte",
+        "assistance",
+        "abonnement"
+      ]
+    },
+    "priv-what-stays-on-device": {
+      "title": "Ce qui reste sur votre téléphone",
+      "summary": "Transcription, ID vocale, audio, photos, calendrier et clés restent sur le téléphone ; les deux façons dont l'audio peut en sortir.",
+      "keywords": [
+        "confidentialité",
+        "sur l'appareil",
+        "local",
+        "audio",
+        "enregistrements",
+        "transcription",
+        "id vocale",
+        "calendrier",
+        "clés api",
+        "hors ligne"
+      ]
+    },
+    "priv-what-goes-to-server": {
+      "title": "Ce qui part sur le serveur, et quand",
+      "summary": "Ce qui est envoyé exactement quand vous posez une question, quand une réunion se termine, quand vous partagez, et les statistiques d'utilisation et rapports de plantage.",
+      "keywords": [
+        "confidentialité",
+        "serveur",
+        "envoi",
+        "transcription",
+        "shoulder surf ai",
+        "tiers",
+        "statistiques d'utilisation",
+        "données",
+        "où vont vos données",
+        "politique de confidentialité"
+      ]
+    },
+    "priv-air-gap": {
+      "title": "La séparation totale avec votre ordinateur de travail",
+      "summary": "Pourquoi rien n'est touché sur votre ordinateur de travail, la place des apps Companion, et la question du consentement que la séparation ne règle pas.",
+      "keywords": [
+        "séparation totale",
+        "ordinateur de travail",
+        "partage d'écran",
+        "invisible",
+        "zoom",
+        "teams",
+        "bot",
+        "consentement",
+        "loi enregistrement",
+        "prévenir"
+      ]
+    },
+    "ts-no-audio": {
+      "title": "Rien n'est transcrit",
+      "summary": "Sourdine, autorisations, distance, isolation vocale, langue, câbles et apps Companion, dans l'ordre où les vérifier.",
+      "keywords": [
+        "pas de son",
+        "pas de transcription",
+        "rien n'est transcrit",
+        "micro coupé",
+        "micro",
+        "autorisation",
+        "isolation vocale",
+        "rapprochez-vous",
+        "mauvaise langue",
+        "câble débranché"
+      ]
+    },
+    "ts-offline": {
+      "title": "Pas de réseau ou pas de Wi-Fi",
+      "summary": "L'enregistrement fonctionne sans connexion ; ce qui attend, ce qui bascule sur le téléphone, et ce qui se rattrape une fois en ligne.",
+      "keywords": [
+        "hors ligne",
+        "pas de réseau",
+        "pas d'internet",
+        "mode avion",
+        "pas de wi-fi",
+        "connexion perdue",
+        "réseau",
+        "impossible de se connecter",
+        "wi-fi instable",
+        "-1009"
+      ]
+    },
+    "ts-wrong-speaker": {
+      "title": "Des intervenants mal identifiés",
+      "summary": "Pourquoi les étiquettes d'intervenants se trompent, et comment corriger un passage, une personne ou tout.",
+      "keywords": [
+        "mauvais intervenant",
+        "intervenants mélangés",
+        "intervenant 1",
+        "pas moi",
+        "id vocale",
+        "enregistrer la voix",
+        "superposition",
+        "plusieurs",
+        "avertissements de reconnaissance"
+      ]
+    },
+    "ts-reconnect-banner": {
+      "title": "La bannière de reconnexion (connexion perdue avec votre ordinateur)",
+      "summary": "Ce que signifie la bannière, comment se fait la reconnexion, et quoi vérifier sur l'ordinateur.",
+      "keywords": [
+        "reconnexion",
+        "connexion perdue",
+        "companion",
+        "mac",
+        "windows",
+        "pas connecté à votre ordinateur",
+        "micro de l'iphone",
+        "se déconnecte souvent",
+        "fermer la bannière"
+      ]
+    },
+    "ts-report-missing": {
+      "title": "Le rapport n'a pas été généré",
+      "summary": "Chaque raison pour laquelle un rapport manque, selon ce qu'affiche l'écran.",
+      "keywords": [
+        "rapport manquant",
+        "pas de rapport",
+        "générer votre rapport de réunion",
+        "rapport indisponible",
+        "échec de la génération du rapport",
+        "quota",
+        "trop court",
+        "déconnecté",
+        "réessayer"
+      ]
+    },
+    "ts-translation-missing": {
+      "title": "La traduction n'a pas eu lieu",
+      "summary": "Connexion, quota, langue inconnue, propositions refusées, et reconstruction sur un deuxième appareil.",
+      "keywords": [
+        "traduction manquante",
+        "pas traduit",
+        "se connecter pour traduire",
+        "traduction en pause",
+        "menu langue",
+        "original",
+        "mauvaise langue",
+        "réunion partagée",
+        "langue de la réunion"
+      ]
+    },
+    "ts-cant-hear-answers": {
+      "title": "Lecture est grisé, ou je n'entends pas les réponses",
+      "summary": "Pourquoi Lecture est grisé, et comment envoyer les réponses vers les écouteurs ou le haut-parleur.",
+      "keywords": [
+        "pas de son",
+        "lecture grisée",
+        "lecture désactivée",
+        "airpods non connectés",
+        "haut-parleur",
+        "sortie audio",
+        "voiceover",
+        "sourdine",
+        "écouteurs filaires",
+        "n'entends rien"
+      ]
+    },
+    "ts-app-quit-mid-meeting": {
+      "title": "L'app s'est fermée pendant une réunion",
+      "summary": "La carte Réunion interrompue, la sauvegarde automatique, ce qui peut manquer, et les rapports de plantage.",
+      "keywords": [
+        "plantage",
+        "app fermée",
+        "réunion interrompue",
+        "reprendre",
+        "sauvegarde automatique",
+        "enregistrement perdu",
+        "récupéré",
+        "session en danger",
+        "forcer à quitter"
+      ]
+    },
+    "faq": {
+      "title": "Questions fréquentes",
+      "summary": "Trente réponses courtes aux questions que posent le plus souvent les nouveaux utilisateurs.",
+      "keywords": [
+        "faq",
+        "questions",
+        "questions fréquentes",
+        "réponses rapides",
+        "comment faire",
+        "est-ce que je peux",
+        "pourquoi"
+      ]
+    }
+  }
+}

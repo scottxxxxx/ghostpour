@@ -23,6 +23,7 @@ from tests.test_help_ask import (MODEL_COST, _articles, _body, _dial, _post, _re
 # bundle; GP computed the same values from the repo.
 KB_2702 = "64930492bcf3449e380ee9d97c77362ceaf55bafa4865a1fa8384d4d4bdad480"
 KB_NEXT = "05a599f84bd411e9e87f6d33cd4fe4208cd85aeaf7af6b3848976772893edcba"
+KB_TASKS = "414ac60a35fc90c40b8f930335e6817cae828fdb09b28219505200345164a51c"  # SS 0a41d849
 APP = "shouldersurf"
 
 
@@ -57,7 +58,7 @@ def _sent(mock_provider, n: int):
 # --- the store ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("kb_hash", [KB_2702, KB_NEXT])
+@pytest.mark.parametrize("kb_hash", [KB_2702, KB_NEXT, KB_TASKS])
 def test_every_imported_help_set_still_hashes_to_its_folder_name(kb_hash):
     """The folder name is the promise that these are the build's files. A
     hand edit under config/help-kb breaks it, and this is where that shows."""
@@ -78,6 +79,19 @@ def test_the_hash_recipe_on_a_fixture_small_enough_to_check_by_hand():
     # Order of insertion does not matter, content does.
     assert help_kb.kb_hash_of(dict(reversed(list(files.items())))) == help_kb.kb_hash_of(files)
     assert help_kb.kb_hash_of({**files, "a.md": b"B\n"}) != help_kb.kb_hash_of(files)
+
+
+def test_the_fixture_ss_and_gp_both_pin():
+    """SS Dev's Swift tests pin the same four files and the same value
+    (2026-11-27). If this changes, the two sides no longer agree on what a
+    Help set is called."""
+    files = {"index.json": b'{"articles":[]}\n', "a.md": b"Hello\n", "es/a.md": b"Hola\n",
+             "whats-new.json": b"{}\n"}
+    assert len(files["index.json"]) == 16
+    counted = {p: d for p, d in files.items() if help_kb.is_kb_file(p)}
+    assert sorted(counted) == ["a.md", "es/a.md", "index.json"]
+    assert help_kb.kb_hash_of(counted) == (
+        "0c080eb9e6f9ff33157e51f223c3f85cc7895a12b43e9830fbb2b0cb86ca0ad3")
 
 
 def test_whats_new_is_not_part_of_the_set():
