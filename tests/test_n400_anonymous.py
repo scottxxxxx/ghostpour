@@ -370,6 +370,35 @@ def test_other_apps_store_no_place(client, tmp_db_path):
     assert row["jurisdiction"] is None and row["case_id"] is None and row["geo_country"] is None
 
 
+def test_shoulder_surf_stores_the_ip_country_and_nothing_finer(client, tmp_db_path):
+    """Scott, 2026-11-26. The country comes from the connection, never the
+    client, and region, city, state, case and network key all stay empty."""
+    _insert_user(tmp_db_path, user_id="sc", tier="pro", monthly_limit=5.1)
+    h = {"Authorization": f"Bearer {_token('sc', 'shouldersurf')}"}
+    with patch("app.services.geoip.lookup",
+               return_value={"country": "IN", "region": "Kerala", "city": "Kochi"}):
+        _chat(client, h, app={"X-App-ID": "shouldersurf"}, jurisdiction="US-CA",
+              case_id=str(uuid.uuid4()), city="Austin", geo_country="FR",
+              geo_region="Texas", geo_city="Austin")
+    row = _last_row(tmp_db_path, "sc")
+    assert row["geo_country"] == "IN"
+    for col in ("geo_region", "geo_city", "jurisdiction", "case_id", "form_city", "ip_hash"):
+        assert row[col] is None, col
+    key = {"X-Admin-Key": client.app.state.settings.admin_key}
+    d = client.get("/webhooks/admin/usage-by-place?days=7&app=shouldersurf", headers=key).json()
+    assert [(x["geo_country"], x["users"]) for x in d["by_ip_country"]] == [("IN", 1)]
+    assert d["by_jurisdiction"] == [] and d["by_city"] == []
+
+
+def test_tech_rehearsal_still_stores_no_place(client, tmp_db_path):
+    _insert_user(tmp_db_path, user_id="tr", tier="pro", monthly_limit=5.1)
+    h = {"Authorization": f"Bearer {_token('tr', 'techrehearsal')}"}
+    with patch("app.services.geoip.lookup",
+               return_value={"country": "IN", "region": "Kerala", "city": "Kochi"}):
+        _chat(client, h, app={"X-App-ID": "techrehearsal"})
+    assert _last_row(tmp_db_path, "tr")["geo_country"] is None
+
+
 # --- 7. dashboard ----------------------------------------------------------------
 
 def test_the_place_panel_groups_by_each_source_and_obeys_the_app_filter(client, tmp_db_path, app_env):

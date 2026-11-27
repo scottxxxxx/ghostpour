@@ -1821,8 +1821,18 @@ async def _chat_impl(
     # the connection AND from the form). Stamped here, overwriting anything
     # the client sent under these keys, and persisted by log_usage. Country,
     # region and city only; the raw IP is never stored.
-    from app.services.usage_tracker import PLACE_APPS
-    if app_id in PLACE_APPS:
+    from app.services.usage_tracker import COUNTRY_ONLY_APPS, PLACE_APPS
+    if app_id in COUNTRY_ONLY_APPS:
+        # Country only, from the connection. Region and city are cleared too,
+        # so nothing a client sends under those keys can ride along.
+        from app.routers.telemetry import _client_ip
+        from app.services import geoip
+        if body.metadata is None:
+            body.metadata = {}
+        body.metadata["geo_country"] = (geoip.lookup(_client_ip(request)) or {}).get("country")
+        body.metadata.pop("geo_region", None)
+        body.metadata.pop("geo_city", None)
+    elif app_id in PLACE_APPS:
         from app.routers.telemetry import _client_ip
         from app.services import geoip
         if body.metadata is None:
